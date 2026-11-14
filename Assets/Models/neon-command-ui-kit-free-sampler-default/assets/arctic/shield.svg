@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <title>shield - Arctic</title>
+  <desc>Original vector HUD and interface asset generated for Neon Command.</desc>
+  <path d="M64 14 103 29v32c0 27-16 45-39 55-23-10-39-28-39-55V29z" fill="none" stroke="#48e0d0" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M64 37v44" stroke="#7bdfff" stroke-width="7" stroke-linecap="round"/>
+</svg>

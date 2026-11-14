@@ -1,0 +1,15 @@
+{
+ "name": "Locker_Single",
+ "set": "props_crew",
+ "tris": 1792,
+ "dims_m": [
+  0.6,
+  0.57,
+  1.98
+ ],
+ "budget": 2500,
+ "tris_lod1": 896,
+ "tris_lod2": 358,
+ "col_tris": 64,
+ "texel_px_per_m": 155.7
+}

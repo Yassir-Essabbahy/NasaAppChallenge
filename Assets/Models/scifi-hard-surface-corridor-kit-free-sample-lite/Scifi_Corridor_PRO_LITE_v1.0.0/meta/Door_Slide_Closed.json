@@ -1,0 +1,12 @@
+{
+ "name": "Door_Slide_Closed",
+ "set": "shell_doors",
+ "tris": 4910,
+ "dims_m": [
+  4.0,
+  4.0,
+  4.0
+ ],
+ "budget": 6000,
+ "texel_px_per_m": 5120
+}

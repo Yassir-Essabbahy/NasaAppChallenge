@@ -13,6 +13,7 @@ namespace Outpost.Runtime.Terminal.Apps
         private StatusBarWidget _scrubberBar;
         private StatusBarWidget _recyclerBar;
         private TextMeshProUGUI _statusLineText;
+        private Image _statusGaugeIcon;
         private FoldoutWidget _detailsFoldout;
         private TextMeshProUGUI _detailsText;
         private Button _repairBtn;
@@ -36,8 +37,11 @@ namespace Outpost.Runtime.Terminal.Apps
             _recyclerBar = TerminalUiBuilder.CreateStatusBar("RecyclerBar", content, Localization.Get("ui.recycler"), Theme, Scaler, 0f, 0.18f, 1f, 0.35f, TerminalIconId.Water, Theme.AccentLifeSupport);
             TerminalUiBuilder.AttachTooltip(_recyclerBar.FillImage.transform.parent.parent, "gloss.water.term", "gloss.water.def");
 
+            _statusGaugeIcon = TerminalUiBuilder.CreateIcon("StatusGaugeIcon", content, TerminalIconId.Gauge, Theme.AccentLifeSupport);
+            TerminalUiBuilder.SetAnchors(_statusGaugeIcon.rectTransform, 0f, 0.088f, 0.055f, 0.172f);
+
             _statusLineText = TerminalUiBuilder.CreateText("StatusLine", content, Theme, Theme.BodyFontSize, Theme.TextPrimary, TextAlignmentOptions.MidlineLeft, Scaler);
-            TerminalUiBuilder.SetAnchors(_statusLineText.rectTransform, 0f, 0.09f, 0.56f, 0.17f);
+            TerminalUiBuilder.SetAnchors(_statusLineText.rectTransform, 0.065f, 0.09f, 0.56f, 0.17f);
 
             _repairBtn = TerminalUiBuilder.CreateButton("RepairBtn", content, Localization.Get("act.repair"), Theme, Theme.ButtonAccentBg, Theme.AccentLifeSupport, Theme.TextPrimary, Theme.BodyFontSize,
                 () =>
@@ -83,6 +87,8 @@ namespace Outpost.Runtime.Terminal.Apps
                 _statusLineText.color = Theme.StatusOk;
                 _statusLineText.text = Localization.Get("status.word.good");
             }
+            if (_statusGaugeIcon != null)
+                _statusGaugeIcon.color = _statusLineText.color;
 
             _detailsText.text = $"O2 {s.NetOxygenDelta:+0.0;-0.0;0}{Localization.Get("mc.per_sol")} | H2O {s.NetWaterDelta:+0.0;-0.0;0}{Localization.Get("mc.per_sol")} | Crew {s.LivingCrewCount}/4";
 

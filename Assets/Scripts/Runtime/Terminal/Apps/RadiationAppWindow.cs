@@ -11,6 +11,7 @@ namespace Outpost.Runtime.Terminal.Apps
         private TextMeshProUGUI _introText;
         private StatusBarWidget _shieldBar;
         private TextMeshProUGUI _flareBannerText;
+        private Image _flareStatusIcon;
         private TextMeshProUGUI _crewDosesText;
         private Button _reinforceBtn;
         private TextMeshProUGUI _reinforceLabel;
@@ -27,9 +28,12 @@ namespace Outpost.Runtime.Terminal.Apps
             _shieldBar = TerminalUiBuilder.CreateStatusBar("ShieldBar", content, Localization.Get("mc.status.shield"), Theme, Scaler, 0f, 0.72f, 1f, 0.89f, TerminalIconId.Shield, Theme.AccentRadiation);
             TerminalUiBuilder.AttachTooltip(_shieldBar.FillImage.transform.parent.parent, "gloss.shield.term", "gloss.shield.def");
 
+            _flareStatusIcon = TerminalUiBuilder.CreateIcon("FlareStatusIcon", content, TerminalIconId.Shield, Theme.StatusOk);
+            TerminalUiBuilder.SetAnchors(_flareStatusIcon.rectTransform, 0f, 0.615f, 0.055f, 0.705f);
+
             _flareBannerText = TerminalUiBuilder.CreateText("FlareBanner", content, Theme, Theme.BodyFontSize, Theme.StatusOk, TextAlignmentOptions.MidlineLeft, Scaler);
             _flareBannerText.fontStyle = FontStyles.Bold;
-            TerminalUiBuilder.SetAnchors(_flareBannerText.rectTransform, 0f, 0.61f, 1f, 0.71f);
+            TerminalUiBuilder.SetAnchors(_flareBannerText.rectTransform, 0.065f, 0.61f, 1f, 0.71f);
             TerminalUiBuilder.AttachTooltip(_flareBannerText, "gloss.rad.term", "gloss.rad.def");
 
             _crewDosesText = TerminalUiBuilder.CreateText("CrewDoses", content, Theme, Theme.BodyFontSize, Theme.TextPrimary, TextAlignmentOptions.TopLeft, Scaler);
@@ -60,11 +64,21 @@ namespace Outpost.Runtime.Terminal.Apps
             {
                 _flareBannerText.color = Theme.StatusCrit;
                 _flareBannerText.text = $"{Localization.Get("status.word.danger")} — {Localization.Get("alert.flare")}";
+                if (_flareStatusIcon != null)
+                {
+                    _flareStatusIcon.sprite = TerminalUiArt.GetIcon(TerminalIconId.Hazard);
+                    _flareStatusIcon.color = Theme.StatusCrit;
+                }
             }
             else
             {
                 _flareBannerText.color = Theme.StatusOk;
                 _flareBannerText.text = $"{Localization.Get("status.word.good")} — +{s.ProjectedDoseMsv:0.00} mSv{Localization.Get("mc.per_sol")}";
+                if (_flareStatusIcon != null)
+                {
+                    _flareStatusIcon.sprite = TerminalUiArt.GetIcon(TerminalIconId.Shield);
+                    _flareStatusIcon.color = Theme.StatusOk;
+                }
             }
 
             _sb.Clear();

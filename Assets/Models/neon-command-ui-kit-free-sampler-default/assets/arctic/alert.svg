@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <title>alert - Arctic</title>
+  <desc>Original vector HUD and interface asset generated for Neon Command.</desc>
+  <path d="M64 16 112 106H16z" fill="none" stroke="#48e0d0" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M64 43v30" stroke="#f7c948" stroke-width="8" stroke-linecap="round"/><circle cx="64" cy="88" r="7" fill="#f7c948"/>
+</svg>

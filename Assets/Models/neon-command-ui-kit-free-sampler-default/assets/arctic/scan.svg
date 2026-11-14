@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <title>scan - Arctic</title>
+  <desc>Original vector HUD and interface asset generated for Neon Command.</desc>
+  <path d="M18 47V24h23M87 24h23v23M110 81v23H87M41 104H18V81" fill="none" stroke="#48e0d0" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M28 67h72" stroke="#7bdfff" stroke-width="8" stroke-linecap="round"/><circle cx="64" cy="67" r="9" fill="#48e0d0"/>
+</svg>

@@ -1,0 +1,4 @@
+SciFi Modular Corridor PRO: 4 m grid kit + props - License
+You may use these assets in commercial and non-commercial projects (games, films, renders, apps), including projects you sell, without attribution.
+You may NOT resell, redistribute, sublicense or share the asset files themselves (original or modified, alone or bundled in an asset pack, template or kit), and you may not upload them to asset marketplaces or use them to train generative models.
+Source textures are CC0 (see CREDITS.txt); the baked maps and models in this pack are derivative works covered by the terms above. Provided as-is, no warranty.

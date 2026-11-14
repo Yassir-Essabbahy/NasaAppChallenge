@@ -356,8 +356,16 @@ namespace Outpost.Runtime.Room
 
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
-            RenderSettings.fogColor = inStorm ? new Color(0.48f, 0.24f, 0.15f, 1f) : new Color(0.56f, 0.32f, 0.23f, 1f);
-            RenderSettings.fogDensity = inStorm ? 0.042f : 0.011f;
+            RenderSettings.fogColor = inStorm ? new Color(0.49f, 0.25f, 0.16f, 1f) : new Color(0.68f, 0.39f, 0.27f, 1f);
+            RenderSettings.fogDensity = inStorm ? 0.036f : 0.0085f;
+            if (RenderSettings.skybox != null && RenderSettings.skybox.HasProperty("_HorizonColor"))
+            {
+                RenderSettings.skybox.SetColor("_HorizonColor", RenderSettings.fogColor);
+                if (RenderSettings.skybox.HasProperty("_MidColor"))
+                    RenderSettings.skybox.SetColor("_MidColor", inStorm ? new Color(0.56f, 0.30f, 0.21f, 1f) : new Color(0.76f, 0.44f, 0.34f, 1f));
+                if (RenderSettings.skybox.HasProperty("_ZenithColor"))
+                    RenderSettings.skybox.SetColor("_ZenithColor", inStorm ? new Color(0.28f, 0.16f, 0.17f, 1f) : new Color(0.38f, 0.23f, 0.28f, 1f));
+            }
 
             if (marsSunLight != null)
             {

@@ -347,6 +347,9 @@ MonoBehaviour:
   messageLocalizationKey: room.window.fact
   doorTarget: {fileID: 0}
   airlockTarget: {fileID: 0}
+  customPromptText: 
+  customMessageText: 
+  sourceId: 
 --- !u!1 &3853897814424299999
 GameObject:
   m_ObjectHideFlags: 0

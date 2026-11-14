@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <title>health - Arctic</title>
+  <desc>Original vector HUD and interface asset generated for Neon Command.</desc>
+  <rect x="22" y="22" width="84" height="84" rx="14" fill="none" stroke="#48e0d0" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M64 40v48M40 64h48" stroke="#7bdfff" stroke-width="9" stroke-linecap="round"/>
+</svg>

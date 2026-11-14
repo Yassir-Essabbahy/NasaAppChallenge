@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6d18abb8b1e9e9444af29dab49b049bb, type: 3}
+  m_Name: IconLibrary
+  m_EditorClassIdentifier: Outpost.Runtime::Outpost.Runtime.Terminal.IconLibrary
+  entries:
+  - id: Icon_PlusBox
+    sprite: {fileID: 21300000, guid: 68405eb8946adbe4db319b58b05f7012, type: 3}
+  - id: Icon_Shield
+    sprite: {fileID: 21300000, guid: 4bd0d85507318fe48bbc48651dc8c867, type: 3}
+  - id: Icon_Bolt
+    sprite: {fileID: 21300000, guid: 94325050e3145114f8f0e9b62da8db49, type: 3}
+  - id: Icon_Sliders
+    sprite: {fileID: 21300000, guid: 0aef163d7226768489922837f58834b4, type: 3}
+  - id: Icon_Scan
+    sprite: {fileID: 21300000, guid: 22e40b65ea928c84d85eb7ed00046188, type: 3}
+  - id: Icon_Target
+    sprite: {fileID: 21300000, guid: 3ccce9eeff42835428535070658392a0, type: 3}
+  - id: Icon_Lock
+    sprite: {fileID: 21300000, guid: 2ebef559519594943987875dfd443b4a, type: 3}
+  - id: Icon_Warning
+    sprite: {fileID: 21300000, guid: d133cab0d4da9d64aaaaed89f53188f6, type: 3}
+  - id: Icon_Battery
+    sprite: {fileID: 21300000, guid: 4cb137a13bdc17843a7aa9cde4d626a2, type: 3}
+  - id: Icon_Gauge
+    sprite: {fileID: 21300000, guid: 9168e26f6226ef341bf4186378a54ed9, type: 3}
+  - id: Icon_NextHex
+    sprite: {fileID: 21300000, guid: 05b38c08b73baaa4cb2ce5ceb4dd0c49, type: 3}
+  - id: Icon_Hazard
+    sprite: {fileID: 21300000, guid: 8ff0ca5e5cd66c74e93236f8d7379289, type: 3}
+  - id: Icon_Oxygen
+    sprite: {fileID: 21300000, guid: d7bba0d61d531db41990c57cf113564e, type: 3}
+  - id: Icon_Water
+    sprite: {fileID: 21300000, guid: 0d76f2539ae9e69408ab016dda907398, type: 3}
+  - id: Icon_Food
+    sprite: {fileID: 21300000, guid: 5c8b336cedf04bd45ac437bcfb508c5a, type: 3}
+  - id: Icon_Signal
+    sprite: {fileID: 21300000, guid: bfe61f341a04d1047bb4b9787a206189, type: 3}
+  - id: Icon_Log
+    sprite: {fileID: 21300000, guid: fa92867aeb7ac43478bc7aae84ee08fa, type: 3}
+  - id: Icon_Sources
+    sprite: {fileID: 21300000, guid: 53464d84eb69dce4c9ac4c965bc97971, type: 3}
+  - id: Icon_Help
+    sprite: {fileID: 21300000, guid: 9d892564a3bb4bf48a67650cb4426ee6, type: 3}
+  - id: Icon_Goal
+    sprite: {fileID: 21300000, guid: 2102b99121fdfeb4784ee59034080b88, type: 3}

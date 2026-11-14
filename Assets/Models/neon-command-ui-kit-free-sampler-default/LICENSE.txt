@@ -1,0 +1,21 @@
+NEON COMMAND FREE SAMPLER LICENSE
+
+This sampler contains 12 original sci-fi HUD and UI assets in the Arctic
+colorway.
+
+Permitted use:
+- Use in personal and commercial projects.
+- Modify, recolor, crop and combine the files.
+- Share the unmodified sampler with a link to the original itch.io page.
+
+Not permitted:
+- Resell or redistribute the source files as a standalone asset pack.
+- Claim authorship of the original source files.
+
+Full pack:
+https://gen-xia.itch.io/neon-command-ui-kit
+
+AI disclosure:
+The artwork was generated algorithmically with generative AI assistance. No
+third-party images, trademarks, logos, celebrity likenesses or protected
+characters were used.

@@ -1,0 +1,12 @@
+{
+ "name": "Corridor_End",
+ "set": "shell_modules",
+ "tris": 4296,
+ "dims_m": [
+  4.0,
+  4.0,
+  4.0
+ ],
+ "budget": 6000,
+ "texel_px_per_m": 5120
+}

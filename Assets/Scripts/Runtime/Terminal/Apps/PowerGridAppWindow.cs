@@ -32,34 +32,42 @@ namespace Outpost.Runtime.Terminal.Apps
         {
             _batteryBar = TerminalUiBuilder.CreateStatusBar(
                 "BatteryBar", content, Localization.Get("mc.status.power"), Theme, Scaler,
-                0f, 0.85f, 1f, 1f, TerminalIconId.Battery, Theme.AccentPower);
+                0f, 0.865f, 1f, 1f, TerminalIconId.Battery, Theme.AccentPower);
             TerminalUiBuilder.AttachTooltip(_batteryBar.FillImage.transform.parent.parent, "gloss.power.term", "gloss.power.def");
 
             _projectedText = TerminalUiBuilder.CreateText("Projected", content, Theme, Theme.BodyFontSize, Theme.TextAmber, TextAlignmentOptions.MidlineLeft, Scaler);
-            TerminalUiBuilder.SetAnchors(_projectedText.rectTransform, 0f, 0.77f, 1f, 0.85f);
+            TerminalUiBuilder.SetAnchors(_projectedText.rectTransform, 0f, 0.79f, 1f, 0.86f);
 
             // Preset bar
             var presetLabel = TerminalUiBuilder.CreateText("PresetLbl", content, Theme, Theme.BodyFontSize, Theme.TextMuted, TextAlignmentOptions.MidlineLeft, Scaler);
             presetLabel.text = Localization.Get("pwr.preset.label");
-            TerminalUiBuilder.SetAnchors(presetLabel.rectTransform, 0f, 0.69f, 0.25f, 0.76f);
+            TerminalUiBuilder.SetAnchors(presetLabel.rectTransform, 0f, 0.71f, 0.25f, 0.785f);
 
             _safePresetBtn = TerminalUiBuilder.CreateButton("PresetSafe", content, Localization.Get("pwr.preset.safe"), Theme, Theme.ButtonBg, Theme.AccentPower, Theme.TextPrimary, Theme.BodyFontSize,
                 () => ApplyPreset(90, 70, 60, 50), Scaler);
-            TerminalUiBuilder.SetAnchors(_safePresetBtn.GetComponent<RectTransform>(), 0.26f, 0.69f, 0.49f, 0.76f);
+            TerminalUiBuilder.SetAnchors(_safePresetBtn.GetComponent<RectTransform>(), 0.26f, 0.71f, 0.49f, 0.785f);
 
             _balancedPresetBtn = TerminalUiBuilder.CreateButton("PresetBalanced", content, Localization.Get("pwr.preset.balanced"), Theme, Theme.ButtonAccentBg, Theme.AccentPower, Theme.TextPrimary, Theme.BodyFontSize,
                 () => ApplyPreset(70, 60, 50, 30), Scaler);
-            TerminalUiBuilder.SetAnchors(_balancedPresetBtn.GetComponent<RectTransform>(), 0.51f, 0.69f, 0.74f, 0.76f);
+            TerminalUiBuilder.SetAnchors(_balancedPresetBtn.GetComponent<RectTransform>(), 0.51f, 0.71f, 0.74f, 0.785f);
 
             _savePresetBtn = TerminalUiBuilder.CreateButton("PresetSave", content, Localization.Get("pwr.preset.save"), Theme, Theme.ButtonBg, Theme.BorderUnfocused, Theme.TextAmber, Theme.BodyFontSize,
                 () => ApplyPreset(50, 30, 50, 0), Scaler);
-            TerminalUiBuilder.SetAnchors(_savePresetBtn.GetComponent<RectTransform>(), 0.76f, 0.69f, 1f, 0.76f);
+            TerminalUiBuilder.SetAnchors(_savePresetBtn.GetComponent<RectTransform>(), 0.76f, 0.71f, 1f, 0.785f);
+
+            // Allocation sliders header with Icon_Sliders
+            var allocIcon = TerminalUiBuilder.CreateIcon("SlidersIcon", content, TerminalIconId.Sliders, Theme.AccentPower);
+            TerminalUiBuilder.SetAnchors(allocIcon.rectTransform, 0f, 0.65f, 0.048f, 0.705f);
+            var allocHdr = TerminalUiBuilder.CreateText("AllocHeader", content, Theme, Theme.BodyFontSize, Theme.TextPrimary, TextAlignmentOptions.MidlineLeft, Scaler);
+            allocHdr.fontStyle = FontStyles.Bold;
+            allocHdr.text = "POWER ALLOCATION";
+            TerminalUiBuilder.SetAnchors(allocHdr.rectTransform, 0.056f, 0.65f, 1f, 0.705f);
 
             // 4 allocation sliders with live plain-English consequences underneath
-            (_lsSlider, _lsValText, _lsConseqText) = CreateFriendlySliderRow(content, Localization.Get("pwr.ls.name"), PowerSystemType.LifeSupport, 0.56f, 0.68f, "gloss.o2.term", "gloss.o2.def");
-            (_ghSlider, _ghValText, _ghConseqText) = CreateFriendlySliderRow(content, Localization.Get("pwr.gh.name"), PowerSystemType.Greenhouse, 0.43f, 0.55f, "gloss.food.term", "gloss.food.def");
-            (_htSlider, _htValText, _htConseqText) = CreateFriendlySliderRow(content, Localization.Get("pwr.ht.name"), PowerSystemType.Heating, 0.30f, 0.42f, "gloss.power.term", "gloss.power.def");
-            (_cmSlider, _cmValText, _cmConseqText) = CreateFriendlySliderRow(content, Localization.Get("pwr.cm.name"), PowerSystemType.Comms, 0.17f, 0.29f, "gloss.dsn.term", "gloss.dsn.def");
+            (_lsSlider, _lsValText, _lsConseqText) = CreateFriendlySliderRow(content, Localization.Get("pwr.ls.name"), PowerSystemType.LifeSupport, 0.525f, 0.642f, "gloss.o2.term", "gloss.o2.def");
+            (_ghSlider, _ghValText, _ghConseqText) = CreateFriendlySliderRow(content, Localization.Get("pwr.gh.name"), PowerSystemType.Greenhouse, 0.405f, 0.520f, "gloss.food.term", "gloss.food.def");
+            (_htSlider, _htValText, _htConseqText) = CreateFriendlySliderRow(content, Localization.Get("pwr.ht.name"), PowerSystemType.Heating, 0.285f, 0.400f, "gloss.power.term", "gloss.power.def");
+            (_cmSlider, _cmValText, _cmConseqText) = CreateFriendlySliderRow(content, Localization.Get("pwr.cm.name"), PowerSystemType.Comms, 0.165f, 0.280f, "gloss.dsn.term", "gloss.dsn.def");
 
             // More details foldout & technical math
             _detailsFoldout = TerminalUiBuilder.CreateMoreDetailsFoldout(

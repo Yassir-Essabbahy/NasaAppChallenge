@@ -10,6 +10,7 @@ namespace Outpost.Runtime.Terminal.Apps
         private const int MaxVisiblePackets = 7;
 
         private TextMeshProUGUI _statusBanner;
+        private Image _scanIcon;
         private readonly RectTransform[] _msgPanels = new RectTransform[MaxVisiblePackets];
         private readonly TextMeshProUGUI[] _msgLabels = new TextMeshProUGUI[MaxVisiblePackets];
         private TextMeshProUGUI _bodyTitle;
@@ -23,9 +24,12 @@ namespace Outpost.Runtime.Terminal.Apps
             TerminalUiBuilder.SetAnchors(intro.rectTransform, 0f, 0.91f, 0.56f, 1f);
             TerminalUiBuilder.AttachTooltip(intro, "gloss.dsn.term", "gloss.dsn.def");
 
+            _scanIcon = TerminalUiBuilder.CreateIcon("ScanIcon", content, TerminalIconId.Scan, Theme.StatusOk);
+            TerminalUiBuilder.SetAnchors(_scanIcon.rectTransform, 0.50f, 0.915f, 0.555f, 0.995f);
+
             _statusBanner = TerminalUiBuilder.CreateText("CommsStatus", content, Theme, Theme.BodyFontSize, Theme.StatusOk, TextAlignmentOptions.MidlineRight, Scaler);
             _statusBanner.fontStyle = FontStyles.Bold;
-            TerminalUiBuilder.SetAnchors(_statusBanner.rectTransform, 0.57f, 0.91f, 1f, 1f);
+            TerminalUiBuilder.SetAnchors(_statusBanner.rectTransform, 0.565f, 0.91f, 1f, 1f);
 
             for (int i = 0; i < MaxVisiblePackets; i++)
             {
@@ -92,6 +96,8 @@ namespace Outpost.Runtime.Terminal.Apps
                 _statusBanner.color = Theme.StatusCrit;
                 _statusBanner.text = $"{Localization.Get("status.word.danger")} (0%)";
             }
+            if (_scanIcon != null)
+                _scanIcon.color = _statusBanner.color;
 
             CommsMessageSnapshot active = null;
             for (int i = 0; i < MaxVisiblePackets; i++)

@@ -1,0 +1,14 @@
+{
+  "product": "Neon Command Free Sampler",
+  "base_asset_count": 12,
+  "theme": "Arctic",
+  "formats": [
+    "SVG",
+    "PNG"
+  ],
+  "png_sizes": [
+    64,
+    128
+  ],
+  "full_pack_url": "https://gen-xia.itch.io/neon-command-ui-kit"
+}

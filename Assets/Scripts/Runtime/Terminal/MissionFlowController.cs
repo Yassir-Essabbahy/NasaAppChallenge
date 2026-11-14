@@ -38,6 +38,9 @@ namespace Outpost.Runtime.Terminal
         [Header("Flow Options")]
         [SerializeField] private bool startAtTitleScreen = true;
 
+        [Header("Title Wallpaper")]
+        [SerializeField] private Texture2D titleWallpaperTexture;
+
         private GameSession _session;
         private UITheme _theme;
         private FontTheme _fontTheme;
@@ -68,12 +71,21 @@ namespace Outpost.Runtime.Terminal
 
         // Title UI
         private GameObject _titlePanel;
+        private GameObject _titleMarsRig;
+        private GameObject _titleFallbackWallpaperGo;
         private TextMeshProUGUI _titlePressAnyKeyText;
         private Button _titleStartBtn;
         private GameObject _titleHowBtnGo;
         private GameObject _titleQuickStartBtnGo;
         private GameObject _titleCredBtnGo;
         private GameObject _howToPlayModal;
+        private GameObject _titleSettingsModal;
+        private Slider _titleVolumeSlider;
+        private TextMeshProUGUI _titleVolumeValText;
+        private TextMeshProUGUI _titleLargeTextLabel;
+        private TextMeshProUGUI _titleReduceFlickerLabel;
+        private TextMeshProUGUI _titlePsxEnabledLabel;
+        private TextMeshProUGUI _titlePsxResLabel;
 
         // Cinematic Intro UI
         private GameObject _introPanel;
@@ -274,6 +286,16 @@ namespace Outpost.Runtime.Terminal
                     return;
                 }
 
+                if (_titleSettingsModal != null && _titleSettingsModal.activeSelf)
+                {
+                    if (kb != null && kb.escapeKey.wasPressedThisFrame)
+                    {
+                        _audioManager?.PlayUiClick();
+                        _titleSettingsModal.SetActive(false);
+                    }
+                    return;
+                }
+
                 if (Time.frameCount > _stateEnteredFrame && ShouldStartFromTitleKeyboard(kb))
                 {
                     _audioManager?.PlayUiClick();
@@ -359,8 +381,11 @@ namespace Outpost.Runtime.Terminal
 
         private void HideAllFlowPanels()
         {
+            if (_titleMarsRig == null) _titleMarsRig = GameObject.Find("TitleMarsRig");
+            if (_titleMarsRig != null) _titleMarsRig.SetActive(false);
             if (_titlePanel != null) _titlePanel.SetActive(false);
             if (_howToPlayModal != null) _howToPlayModal.SetActive(false);
+            if (_titleSettingsModal != null) _titleSettingsModal.SetActive(false);
             if (_introPanel != null) _introPanel.SetActive(false);
             if (_bootLoginPanel != null) _bootLoginPanel.SetActive(false);
             if (_pausePanel != null) _pausePanel.SetActive(false);
@@ -376,6 +401,7 @@ namespace Outpost.Runtime.Terminal
         {
             StopActiveRoutine();
             Time.timeScale = 1f;
+            if (_titleMarsRig == null) _titleMarsRig = GameObject.Find("TitleMarsRig");
             _state = FlowState.Title;
             _stateEnteredFrame = Time.frameCount;
 
@@ -384,6 +410,9 @@ namespace Outpost.Runtime.Terminal
             _roomStateBinder?.SetEndingLightingOverride(false, false);
 
             HideAllFlowPanels();
+            if (_titleMarsRig != null) _titleMarsRig.SetActive(true);
+            if (_titleFallbackWallpaperGo != null)
+                _titleFallbackWallpaperGo.SetActive(_titleMarsRig == null && titleWallpaperTexture != null);
             _roomController?.TeleportPlayerToSpawn();
             _roomController?.SetFlowLocked(unlockCursor: true);
             EventSystem.current?.SetSelectedGameObject(null);
@@ -1261,7 +1290,27 @@ namespace Outpost.Runtime.Terminal
             _sb.AppendLine(Localization.Get("credits.unity"));
             _sb.AppendLine(Localization.Get("credits.fonts"));
             _sb.AppendLine();
-            _sb.AppendLine("<b><color=#FFB84D>--- SOURCES DATABASE ---</color></b>");
+            _sb.AppendLine("<b><color=#45E3D3>--- ASSETS, PACKAGES & TOOLS ---</color></b>");
+
+            if (_sourcesDb != null && _sourcesDb.AssetCredits != null)
+            {
+                string lastSec = string.Empty;
+                for (int i = 0; i < _sourcesDb.AssetCredits.Count; i++)
+                {
+                    var a = _sourcesDb.AssetCredits[i];
+                    if (a.Section != lastSec)
+                    {
+                        lastSec = a.Section;
+                        _sb.AppendLine($"<b><color=#7FDFFF>[{lastSec}]</color></b>");
+                    }
+                    _sb.AppendLine($"• {a.Title} — {a.Organization}");
+                    if (!string.IsNullOrEmpty(a.License))
+                        _sb.AppendLine($"  License: {a.License} | Used: {a.WhereUsed}");
+                }
+            }
+
+            _sb.AppendLine();
+            _sb.AppendLine("<b><color=#F7C948>--- SCIENTIFIC SOURCES DATABASE ---</color></b>");
 
             if (_sourcesDb != null && _sourcesDb.Entries != null)
             {
@@ -1366,106 +1415,63 @@ namespace Outpost.Runtime.Terminal
 
         private void BuildTitlePanel(RectTransform parent)
         {
-            _titlePanel = CreateFullscreenBg(parent, "TitlePanel", _theme.DesktopBg);
+            // Keep title background transparent so TitleBackdropCanvas (MainMenu.jpg + 3D MarsSphere_Title) shows through
+            _titlePanel = CreateFullscreenBg(parent, "TitlePanel", new Color(0f, 0f, 0f, 0f));
             var root = _titlePanel.GetComponent<RectTransform>();
 
-            // Mars dusk horizon artwork backdrop (from Assets/Art/UI/Icons/MarsWallpaper.png or procedural fallback)
-            var wallSprite = TerminalUiArt.GetMarsWallpaperSprite(_theme);
-            if (wallSprite != null)
+            // Fallback wallpaper if TitleMarsRig is absent in a standalone test scene
+            if (titleWallpaperTexture != null)
             {
-                var wallRect = TerminalUiBuilder.CreateRect("MarsBackdrop", root);
-                TerminalUiBuilder.SetStretch(wallRect);
-                var wallImg = wallRect.gameObject.AddComponent<Image>();
-                wallImg.sprite = wallSprite;
-                wallImg.color = Color.white;
-                wallImg.preserveAspect = false;
-                wallImg.raycastTarget = false;
+                var wpRect = TerminalUiBuilder.CreateRect("TitleFallbackWallpaper", root);
+                TerminalUiBuilder.SetStretch(wpRect);
+                var wpImg = wpRect.gameObject.AddComponent<RawImage>();
+                wpImg.texture = titleWallpaperTexture;
+                wpImg.color = Color.white;
+                wpImg.raycastTarget = false;
+                var arf = wpRect.gameObject.AddComponent<AspectRatioFitter>();
+                arf.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+                arf.aspectRatio = titleWallpaperTexture.width / (float)Mathf.Max(1, titleWallpaperTexture.height);
+                _titleFallbackWallpaperGo = wpRect.gameObject;
+                _titleFallbackWallpaperGo.SetActive(false);
             }
 
-            // Subtle dark scrim so centered Mission Control card reads effortlessly
-            var scrimRect = TerminalUiBuilder.CreateRect("TitleScrim", root);
-            TerminalUiBuilder.SetStretch(scrimRect);
-            var scrimImg = scrimRect.gameObject.AddComponent<Image>();
-            scrimImg.color = new Color(0.03f, 0.05f, 0.10f, 0.46f);
-            scrimImg.raycastTarget = false;
-
-            // Main Mission Control Hero Card
-            var card = TerminalUiBuilder.CreateFlatPanel("TitleCard", root, _theme.WindowBg, _theme.BorderFocused, 2f, addDropShadow: true);
-            TerminalUiBuilder.SetAnchors(card, 0.18f, 0.12f, 0.82f, 0.88f);
-            var cardInner = TerminalUiBuilder.GetInner(card);
-
-            var badgeTmp = TerminalUiBuilder.CreateText("MissionBadge", cardInner, _theme, 24f, _theme.AccentLifeSupport, TextAlignmentOptions.Center, _textScaler);
-            badgeTmp.font = _theme.ResolveStampFont();
-            badgeTmp.fontStyle = FontStyles.Bold;
-            badgeTmp.text = Localization.Get("title.badge");
-            TerminalUiBuilder.SetAnchors(badgeTmp.rectTransform, 0.06f, 0.86f, 0.94f, 0.94f);
-
-            var titleTmp = TerminalUiBuilder.CreateText("GameTitle", cardInner, _theme, 58f, _theme.TextAmber, TextAlignmentOptions.Center, _textScaler);
-            titleTmp.font = _theme.ResolveTitleFont();
-            titleTmp.fontStyle = FontStyles.Bold;
-            titleTmp.characterSpacing = 4f;
-            titleTmp.text = Localization.Get("game.title").ToUpperInvariant();
-            TerminalUiBuilder.SetAnchors(titleTmp.rectTransform, 0.04f, 0.68f, 0.96f, 0.85f);
-
-            var ruleRect = TerminalUiBuilder.CreateRect("TitleAmberRule", cardInner);
-            TerminalUiBuilder.SetAnchors(ruleRect, 0.25f, 0.655f, 0.75f, 0.661f);
-            var ruleImg = ruleRect.gameObject.AddComponent<Image>();
-            ruleImg.color = _theme.TextAmber;
-            ruleImg.raycastTarget = false;
-
-            var subTmp = TerminalUiBuilder.CreateText("Subtitle", cardInner, _theme, 24f, _theme.TextPrimary, TextAlignmentOptions.Center, _textScaler);
-            subTmp.text = Localization.Get("title.goal_hook");
-            TerminalUiBuilder.SetAnchors(subTmp.rectTransform, 0.08f, 0.54f, 0.92f, 0.64f);
-
-            // 5 Outpost System Chips (visual onboarding at a glance)
-            CreateTitleSystemChip(cardInner, "ChipPower", TerminalIconId.Battery, Localization.Get("ui.power"), _theme.AccentPower, 0.08f, 0.23f);
-            CreateTitleSystemChip(cardInner, "ChipO2", TerminalIconId.Oxygen, Localization.Get("ui.oxygen"), _theme.AccentLifeSupport, 0.25f, 0.40f);
-            CreateTitleSystemChip(cardInner, "ChipWater", TerminalIconId.Water, Localization.Get("ui.water"), _theme.AccentLifeSupport, 0.42f, 0.58f);
-            CreateTitleSystemChip(cardInner, "ChipFood", TerminalIconId.Food, Localization.Get("ui.food"), _theme.AccentGreenhouse, 0.60f, 0.75f);
-            CreateTitleSystemChip(cardInner, "ChipShield", TerminalIconId.Shield, Localization.Get("mc.status.shield").ToUpperInvariant(), _theme.AccentRadiation, 0.77f, 0.92f);
-
-            _titleStartBtn = TerminalUiBuilder.CreateButton("PressAnyKeyBtn", cardInner, Localization.Get("title.press_any_key"), _theme, _theme.ButtonAccentBg, _theme.TextAmber, _theme.TextPrimary, 30f, () =>
+            // Minimal left-aligned menu under the wallpaper's "Mars / Last Shift" title (no borders, no icons/emojis, plain text)
+            _titleStartBtn = CreateSimpleTextMenuButton("PlayGameBtn", root, "Play Game", 0.435f, 0.505f, () =>
             {
                 _audioManager?.PlayUiClick();
                 StartIntroSequence();
-            }, _textScaler, addDropShadow: true);
-            TerminalUiBuilder.SetAnchors(_titleStartBtn.GetComponent<RectTransform>(), 0.22f, 0.23f, 0.78f, 0.37f);
+            });
 
-            var howBtn = TerminalUiBuilder.CreateButton("HowToPlayBtn", cardInner, Localization.Get("title.how_to_play"), _theme, _theme.ButtonBg, _theme.BorderUnfocused, _theme.TextPrimary, 24f, () =>
+            CreateSimpleTextMenuButton("SettingsBtn", root, "Settings", 0.345f, 0.415f, () =>
             {
                 _audioManager?.PlayUiClick();
-                _howToPlayModal.SetActive(true);
-            }, _textScaler);
-            _titleHowBtnGo = howBtn.gameObject;
+                RefreshPauseLabels();
+                if (_titleSettingsModal != null)
+                    _titleSettingsModal.SetActive(true);
+            });
 
-            var quickBtn = TerminalUiBuilder.CreateButton("QuickStartBtn", cardInner, Localization.Get("title.quick_start"), _theme, _theme.PanelRaisedBg, _theme.BorderFocused, _theme.TextAmber, 24f, () =>
-            {
-                _audioManager?.PlayUiClick();
-                StartBootAndLogin(skipTyping: false);
-            }, _textScaler);
-            _titleQuickStartBtnGo = quickBtn.gameObject;
-
-            var credBtn = TerminalUiBuilder.CreateButton("CreditsBtn", cardInner, Localization.Get("title.credits"), _theme, _theme.ButtonBg, _theme.BorderUnfocused, _theme.TextPrimary, 24f, () =>
+            var credBtn = CreateSimpleTextMenuButton("CreditsBtn", root, "Credits", 0.255f, 0.325f, () =>
             {
                 _audioManager?.PlayUiClick();
                 EnterCreditsState(FlowState.Title);
-            }, _textScaler);
+            });
             _titleCredBtnGo = credBtn.gameObject;
 
-            _titlePressAnyKeyText = TerminalUiBuilder.CreateText("StartPromptHint", cardInner, _theme, 24f, _theme.TextAmber, TextAlignmentOptions.Center, _textScaler);
-            _titlePressAnyKeyText.font = _theme.ResolveStampFont();
-            _titlePressAnyKeyText.text = Localization.Get("title.prompt_hint");
-            TerminalUiBuilder.SetAnchors(_titlePressAnyKeyText.rectTransform, 0.08f, 0.02f, 0.92f, 0.085f);
+            CreateSimpleTextMenuButton("ExitBtn", root, "Exit", 0.165f, 0.235f, () =>
+            {
+                _audioManager?.PlayUiClick();
+                QuitApplication();
+            });
 
-            RefreshTitleActionRow();
+            BuildTitleSettingsModal(root);
 
-            // How To Play Modal
-            _howToPlayModal = CreateFullscreenBg(root, "HowToPlayModal", new Color(0.02f, 0.03f, 0.06f, 0.84f));
-            var box = TerminalUiBuilder.CreateFlatPanel("HowBox", _howToPlayModal.GetComponent<RectTransform>(), _theme.WindowBg, _theme.BorderFocused, 2f, addDropShadow: true);
+            // How To Play Modal (accessible from Title Settings)
+            _howToPlayModal = CreateFullscreenBg(root, "HowToPlayModal", new Color(0.02f, 0.02f, 0.04f, 0.86f));
+            var box = TerminalUiBuilder.CreateFlatPanel("HowBox", _howToPlayModal.GetComponent<RectTransform>(), _theme.WindowBg, new Color(0.86f, 0.45f, 0.27f, 1f), 2f, addDropShadow: true);
             TerminalUiBuilder.SetAnchors(box, 0.18f, 0.20f, 0.82f, 0.80f);
             var inner = TerminalUiBuilder.GetInner(box);
 
-            var hTitle = TerminalUiBuilder.CreateText("HowTitle", inner, _theme, 34f, _theme.TextAmber, TextAlignmentOptions.Center, _textScaler);
+            var hTitle = TerminalUiBuilder.CreateText("HowTitle", inner, _theme, 34f, new Color(0.95f, 0.65f, 0.42f, 1f), TextAlignmentOptions.Center, _textScaler);
             hTitle.font = _theme.ResolveTitleFont();
             hTitle.fontStyle = FontStyles.Bold;
             hTitle.text = Localization.Get("title.how_to_play");
@@ -1475,7 +1481,7 @@ namespace Outpost.Runtime.Terminal
             hBody.text = Localization.Get("title.how_to_play.body");
             TerminalUiBuilder.SetAnchors(hBody.rectTransform, 0.07f, 0.24f, 0.93f, 0.78f);
 
-            var closeBtn = TerminalUiBuilder.CreateButton("CloseHowBtn", inner, Localization.Get("title.close"), _theme, _theme.ButtonAccentBg, _theme.BorderFocused, _theme.TextPrimary, 24f, () =>
+            var closeBtn = TerminalUiBuilder.CreateButton("CloseHowBtn", inner, Localization.Get("title.close"), _theme, _theme.ButtonAccentBg, new Color(0.86f, 0.45f, 0.27f, 1f), _theme.TextPrimary, 24f, () =>
             {
                 _audioManager?.PlayUiClick();
                 _howToPlayModal.SetActive(false);
@@ -1486,22 +1492,90 @@ namespace Outpost.Runtime.Terminal
             _titlePanel.SetActive(false);
         }
 
-        private void CreateTitleSystemChip(RectTransform parent, string name, TerminalIconId iconId, string label, Color accent, float xMin, float xMax)
+        private Button CreateSimpleTextMenuButton(string name, RectTransform parent, string label, float yMin, float yMax, Action onClick)
         {
-            var chip = TerminalUiBuilder.CreateFlatPanel(name, parent, _theme.PanelRaisedBg, accent * 0.72f, 2f);
-            TerminalUiBuilder.SetAnchors(chip, xMin, 0.41f, xMax, 0.51f);
-            var inner = TerminalUiBuilder.GetInner(chip);
+            var rect = TerminalUiBuilder.CreateRect(name, parent);
+            TerminalUiBuilder.SetAnchors(rect, 0.088f, yMin, 0.36f, yMax);
 
-            var icon = TerminalUiBuilder.CreateIcon("Icon", inner, iconId, accent);
-            TerminalUiBuilder.SetAnchors(icon.rectTransform, 0.10f, 0.20f, 0.30f, 0.80f);
+            // Transparent hit area with no visible box or border
+            var hitImg = rect.gameObject.AddComponent<Image>();
+            hitImg.color = Color.clear;
+            hitImg.raycastTarget = true;
 
-            var txt = TerminalUiBuilder.CreateText("Label", inner, _theme, 24f, _theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
+            var txt = TerminalUiBuilder.CreateText("Label", rect, _theme, 36f, Color.white, TextAlignmentOptions.MidlineLeft, _textScaler);
+            txt.font = _theme.ResolveTitleFont();
             txt.fontStyle = FontStyles.Bold;
-            txt.fontSizeMin = 18f;
-            txt.enableAutoSizing = true;
-            txt.fontSizeMax = 24f;
+            txt.characterSpacing = 2.0f;
             txt.text = label;
-            TerminalUiBuilder.SetAnchors(txt.rectTransform, 0.35f, 0.08f, 0.94f, 0.92f);
+            txt.raycastTarget = true;
+            TerminalUiBuilder.SetStretch(txt.rectTransform);
+
+            var btn = rect.gameObject.AddComponent<Button>();
+            btn.transition = Selectable.Transition.ColorTint;
+            btn.targetGraphic = txt;
+            var colors = btn.colors;
+            colors.normalColor = new Color(0.86f, 0.45f, 0.27f, 1f);
+            colors.highlightedColor = new Color(1.00f, 0.74f, 0.50f, 1f);
+            colors.selectedColor = new Color(1.00f, 0.74f, 0.50f, 1f);
+            colors.pressedColor = new Color(0.70f, 0.33f, 0.18f, 1f);
+            colors.disabledColor = new Color(0.45f, 0.25f, 0.18f, 0.6f);
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.08f;
+            btn.colors = colors;
+            if (onClick != null)
+                btn.onClick.AddListener(() => onClick());
+            return btn;
+        }
+
+        private void BuildTitleSettingsModal(RectTransform root)
+        {
+            _titleSettingsModal = CreateFullscreenBg(root, "TitleSettingsModal", new Color(0.02f, 0.02f, 0.04f, 0.82f));
+            var box = TerminalUiBuilder.CreateFlatPanel("SettingsBox", _titleSettingsModal.GetComponent<RectTransform>(), new Color(0.08f, 0.06f, 0.07f, 0.96f), new Color(0.86f, 0.45f, 0.27f, 1f), 2f, addDropShadow: true);
+            TerminalUiBuilder.SetAnchors(box, 0.26f, 0.14f, 0.74f, 0.86f);
+            var inner = TerminalUiBuilder.GetInner(box);
+
+            var title = TerminalUiBuilder.CreateText("SettingsTitle", inner, _theme, 36f, new Color(0.95f, 0.65f, 0.42f, 1f), TextAlignmentOptions.Center, _textScaler);
+            title.font = _theme.ResolveTitleFont();
+            title.fontStyle = FontStyles.Bold;
+            title.text = "SETTINGS";
+            TerminalUiBuilder.SetAnchors(title.rectTransform, 0f, 0.86f, 1f, 0.97f);
+
+            BuildSharedSettingsControls(
+                inner,
+                0.80f,
+                out _titleVolumeSlider,
+                out _titleVolumeValText,
+                out _titleLargeTextLabel,
+                out _titleReduceFlickerLabel,
+                out _titlePsxEnabledLabel,
+                out _titlePsxResLabel);
+
+            var howBtn = TerminalUiBuilder.CreateButton("SettingsHowToPlayBtn", inner, Localization.Get("title.how_to_play"), _theme, _theme.ButtonBg, _theme.BorderUnfocused, _theme.TextPrimary, 22f, () =>
+            {
+                _audioManager?.PlayUiClick();
+                _titleSettingsModal.SetActive(false);
+                if (_howToPlayModal != null)
+                    _howToPlayModal.SetActive(true);
+            }, _textScaler);
+            TerminalUiBuilder.SetAnchors(howBtn.GetComponent<RectTransform>(), 0.10f, 0.06f, 0.48f, 0.18f);
+
+            var closeBtn = TerminalUiBuilder.CreateButton("CloseSettingsBtn", inner, Localization.Get("title.close"), _theme, _theme.ButtonAccentBg, new Color(0.86f, 0.45f, 0.27f, 1f), _theme.TextPrimary, 22f, () =>
+            {
+                _audioManager?.PlayUiClick();
+                _titleSettingsModal.SetActive(false);
+            }, _textScaler);
+            TerminalUiBuilder.SetAnchors(closeBtn.GetComponent<RectTransform>(), 0.52f, 0.06f, 0.90f, 0.18f);
+
+            _titleSettingsModal.SetActive(false);
+        }
+
+        private static void QuitApplication()
+        {
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
         }
 
         private void BuildIntroPanel(RectTransform parent)
@@ -1757,17 +1831,56 @@ namespace Outpost.Runtime.Terminal
             }, _textScaler);
             TerminalUiBuilder.SetAnchors(restartBtn.GetComponent<RectTransform>(), 0.10f, 0.67f, 0.90f, 0.76f);
 
-            // Volume Slider row
+            BuildSharedSettingsControls(
+                inner,
+                0.65f,
+                out _pauseVolumeSlider,
+                out _pauseVolumeValText,
+                out _pauseLargeTextLabel,
+                out _pauseReduceFlickerLabel,
+                out _pausePsxEnabledLabel,
+                out _pausePsxResLabel);
+
+            var quitBtn = TerminalUiBuilder.CreateButton("QuitTitleBtn", inner, Localization.Get("pause.quit_title"), _theme, _theme.ButtonDangerBg, _theme.StatusCrit, Color.white, 24f, () =>
+            {
+                _audioManager?.PlayUiClick();
+                QuitToTitle();
+            }, _textScaler);
+            TerminalUiBuilder.SetAnchors(quitBtn.GetComponent<RectTransform>(), 0.10f, 0.06f, 0.90f, 0.17f);
+
+            _pausePanel.SetActive(false);
+        }
+
+        private void BuildSharedSettingsControls(
+            RectTransform inner,
+            float topY,
+            out Slider volumeSlider,
+            out TextMeshProUGUI volumeValText,
+            out TextMeshProUGUI largeTextLabel,
+            out TextMeshProUGUI reduceFlickerLabel,
+            out TextMeshProUGUI psxEnabledLabel,
+            out TextMeshProUGUI psxResLabel)
+        {
+            float volLabelMin = topY - 0.06f;
+            float volSliderMin = topY - 0.12f;
+            float volSliderMax = topY - 0.07f;
+            float row1Min = topY - 0.24f;
+            float row1Max = topY - 0.15f;
+            float gfxMin = topY - 0.31f;
+            float gfxMax = topY - 0.26f;
+            float row2Min = topY - 0.42f;
+            float row2Max = topY - 0.32f;
+
             var volLabel = TerminalUiBuilder.CreateText("VolLabel", inner, _theme, 22f, _theme.TextMuted, TextAlignmentOptions.MidlineLeft, _textScaler);
             volLabel.text = Localization.Get("pause.volume");
-            TerminalUiBuilder.SetAnchors(volLabel.rectTransform, 0.10f, 0.59f, 0.65f, 0.65f);
+            TerminalUiBuilder.SetAnchors(volLabel.rectTransform, 0.10f, volLabelMin, 0.65f, topY);
 
-            _pauseVolumeValText = TerminalUiBuilder.CreateText("VolValue", inner, _theme, 22f, _theme.TextPrimary, TextAlignmentOptions.MidlineRight, _textScaler);
-            TerminalUiBuilder.SetAnchors(_pauseVolumeValText.rectTransform, 0.65f, 0.59f, 0.90f, 0.65f);
+            volumeValText = TerminalUiBuilder.CreateText("VolValue", inner, _theme, 22f, _theme.TextPrimary, TextAlignmentOptions.MidlineRight, _textScaler);
+            TerminalUiBuilder.SetAnchors(volumeValText.rectTransform, 0.65f, volLabelMin, 0.90f, topY);
 
-            _pauseVolumeSlider = CreateFlatSlider("VolSlider", inner);
-            TerminalUiBuilder.SetAnchors(_pauseVolumeSlider.GetComponent<RectTransform>(), 0.10f, 0.53f, 0.90f, 0.58f);
-            _pauseVolumeSlider.onValueChanged.AddListener(v =>
+            volumeSlider = CreateFlatSlider("VolSlider", inner);
+            TerminalUiBuilder.SetAnchors(volumeSlider.GetComponent<RectTransform>(), 0.10f, volSliderMin, 0.90f, volSliderMax);
+            volumeSlider.onValueChanged.AddListener(v =>
             {
                 if (_audioManager != null) _audioManager.MasterVolume = v;
                 RefreshPauseLabels();
@@ -1779,8 +1892,8 @@ namespace Outpost.Runtime.Terminal
                 if (_accessibility != null) _accessibility.SetLargerText(!_accessibility.LargerText);
                 RefreshPauseLabels();
             }, _textScaler);
-            TerminalUiBuilder.SetAnchors(largeBtn.GetComponent<RectTransform>(), 0.10f, 0.41f, 0.48f, 0.50f);
-            _pauseLargeTextLabel = largeBtn.GetComponentInChildren<TextMeshProUGUI>();
+            TerminalUiBuilder.SetAnchors(largeBtn.GetComponent<RectTransform>(), 0.10f, row1Min, 0.48f, row1Max);
+            largeTextLabel = largeBtn.GetComponentInChildren<TextMeshProUGUI>();
 
             var flickerBtn = TerminalUiBuilder.CreateButton("ReduceFlickerBtn", inner, "", _theme, _theme.ButtonBg, _theme.BorderUnfocused, _theme.TextPrimary, 22f, () =>
             {
@@ -1794,13 +1907,13 @@ namespace Outpost.Runtime.Terminal
                 }
                 RefreshPauseLabels();
             }, _textScaler);
-            TerminalUiBuilder.SetAnchors(flickerBtn.GetComponent<RectTransform>(), 0.52f, 0.41f, 0.90f, 0.50f);
-            _pauseReduceFlickerLabel = flickerBtn.GetComponentInChildren<TextMeshProUGUI>();
+            TerminalUiBuilder.SetAnchors(flickerBtn.GetComponent<RectTransform>(), 0.52f, row1Min, 0.90f, row1Max);
+            reduceFlickerLabel = flickerBtn.GetComponentInChildren<TextMeshProUGUI>();
 
             var gfxHeader = TerminalUiBuilder.CreateText("GraphicsLabel", inner, _theme, 22f, _theme.TextAmber, TextAlignmentOptions.MidlineLeft, _textScaler);
             gfxHeader.font = _theme.ResolveStampFont();
             gfxHeader.text = "GRAPHICS";
-            TerminalUiBuilder.SetAnchors(gfxHeader.rectTransform, 0.10f, 0.34f, 0.90f, 0.39f);
+            TerminalUiBuilder.SetAnchors(gfxHeader.rectTransform, 0.10f, gfxMin, 0.90f, gfxMax);
 
             var psxBtn = TerminalUiBuilder.CreateButton("PsxLookBtn", inner, "", _theme, _theme.ButtonBg, _theme.BorderUnfocused, _theme.TextPrimary, 22f, () =>
             {
@@ -1808,8 +1921,8 @@ namespace Outpost.Runtime.Terminal
                 if (_psxSettings != null) _psxSettings.SetEnabled(!_psxSettings.enabled, savePrefs: true);
                 RefreshPauseLabels();
             }, _textScaler);
-            TerminalUiBuilder.SetAnchors(psxBtn.GetComponent<RectTransform>(), 0.10f, 0.23f, 0.48f, 0.33f);
-            _pausePsxEnabledLabel = psxBtn.GetComponentInChildren<TextMeshProUGUI>();
+            TerminalUiBuilder.SetAnchors(psxBtn.GetComponent<RectTransform>(), 0.10f, row2Min, 0.48f, row2Max);
+            psxEnabledLabel = psxBtn.GetComponentInChildren<TextMeshProUGUI>();
 
             var resBtn = TerminalUiBuilder.CreateButton("PsxResBtn", inner, "", _theme, _theme.ButtonBg, _theme.BorderUnfocused, _theme.TextPrimary, 22f, () =>
             {
@@ -1821,17 +1934,8 @@ namespace Outpost.Runtime.Terminal
                 }
                 RefreshPauseLabels();
             }, _textScaler);
-            TerminalUiBuilder.SetAnchors(resBtn.GetComponent<RectTransform>(), 0.52f, 0.23f, 0.90f, 0.33f);
-            _pausePsxResLabel = resBtn.GetComponentInChildren<TextMeshProUGUI>();
-
-            var quitBtn = TerminalUiBuilder.CreateButton("QuitTitleBtn", inner, Localization.Get("pause.quit_title"), _theme, _theme.ButtonDangerBg, _theme.StatusCrit, Color.white, 24f, () =>
-            {
-                _audioManager?.PlayUiClick();
-                QuitToTitle();
-            }, _textScaler);
-            TerminalUiBuilder.SetAnchors(quitBtn.GetComponent<RectTransform>(), 0.10f, 0.06f, 0.90f, 0.17f);
-
-            _pausePanel.SetActive(false);
+            TerminalUiBuilder.SetAnchors(resBtn.GetComponent<RectTransform>(), 0.52f, row2Min, 0.90f, row2Max);
+            psxResLabel = resBtn.GetComponentInChildren<TextMeshProUGUI>();
         }
 
         private Slider CreateFlatSlider(string name, RectTransform parent)
@@ -1842,12 +1946,14 @@ namespace Outpost.Runtime.Terminal
             var fillArea = TerminalUiBuilder.CreateRect("Fill Area", inner);
             TerminalUiBuilder.SetStretch(fillArea, 2f);
             var fillRect = TerminalUiBuilder.CreateRect("Fill", fillArea);
+            TerminalUiBuilder.SetStretch(fillRect);
             fillRect.gameObject.AddComponent<Image>().color = _theme.StatusOk;
 
             var handleArea = TerminalUiBuilder.CreateRect("Handle Slide Area", inner);
             TerminalUiBuilder.SetStretch(handleArea, 4f);
             var handleRect = TerminalUiBuilder.CreateRect("Handle", handleArea);
             handleRect.sizeDelta = new Vector2(18f, 0f);
+            handleRect.anchoredPosition = Vector2.zero;
             handleRect.gameObject.AddComponent<Image>().color = _theme.TextAmber;
 
             var slider = panel.gameObject.AddComponent<Slider>();
@@ -1862,28 +1968,38 @@ namespace Outpost.Runtime.Terminal
         private void RefreshPauseLabels()
         {
             float vol = _audioManager != null ? _audioManager.MasterVolume : 0.75f;
-            if (_pauseVolumeSlider != null) _pauseVolumeSlider.SetValueWithoutNotify(vol);
-            if (_pauseVolumeValText != null) _pauseVolumeValText.text = $"{Mathf.RoundToInt(vol * 100f)}%";
-            if (_pauseLargeTextLabel != null)
-            {
-                bool on = _accessibility != null && _accessibility.LargerText;
-                _pauseLargeTextLabel.text = $"{Localization.Get("pause.larger_text")}: {(on ? "ON" : "OFF")}";
-            }
-            if (_pauseReduceFlickerLabel != null)
-            {
-                bool on = _accessibility != null && _accessibility.ReduceFlicker;
-                _pauseReduceFlickerLabel.text = $"{Localization.Get("pause.reduce_flicker")}: {(on ? "ON" : "OFF")}";
-            }
-            if (_pausePsxEnabledLabel != null)
-            {
-                bool on = _psxSettings != null && _psxSettings.enabled;
-                _pausePsxEnabledLabel.text = $"{Localization.Get("pause.psx_look")}: {(on ? "ON" : "OFF")}";
-            }
-            if (_pausePsxResLabel != null)
-            {
-                string lbl = _psxSettings != null ? _psxSettings.GetPresetLabel() : "MED (480x270)";
-                _pausePsxResLabel.text = $"{Localization.Get("pause.psx_res")}: {lbl}";
-            }
+            bool largeOn = _accessibility != null && _accessibility.LargerText;
+            bool flickerOn = _accessibility != null && _accessibility.ReduceFlicker;
+            bool psxOn = _psxSettings != null && _psxSettings.enabled;
+            string resLbl = _psxSettings != null ? _psxSettings.GetPresetLabel() : "MED (480x270)";
+
+            ApplySettingsValues(vol, largeOn, flickerOn, psxOn, resLbl, _pauseVolumeSlider, _pauseVolumeValText, _pauseLargeTextLabel, _pauseReduceFlickerLabel, _pausePsxEnabledLabel, _pausePsxResLabel);
+            ApplySettingsValues(vol, largeOn, flickerOn, psxOn, resLbl, _titleVolumeSlider, _titleVolumeValText, _titleLargeTextLabel, _titleReduceFlickerLabel, _titlePsxEnabledLabel, _titlePsxResLabel);
+        }
+
+        private static void ApplySettingsValues(
+            float vol,
+            bool largeOn,
+            bool flickerOn,
+            bool psxOn,
+            string resLbl,
+            Slider volumeSlider,
+            TextMeshProUGUI volumeValText,
+            TextMeshProUGUI largeTextLabel,
+            TextMeshProUGUI reduceFlickerLabel,
+            TextMeshProUGUI psxEnabledLabel,
+            TextMeshProUGUI psxResLabel)
+        {
+            if (volumeSlider != null) volumeSlider.SetValueWithoutNotify(vol);
+            if (volumeValText != null) volumeValText.text = $"{Mathf.RoundToInt(vol * 100f)}%";
+            if (largeTextLabel != null)
+                largeTextLabel.text = $"{Localization.Get("pause.larger_text")}: {(largeOn ? "ON" : "OFF")}";
+            if (reduceFlickerLabel != null)
+                reduceFlickerLabel.text = $"{Localization.Get("pause.reduce_flicker")}: {(flickerOn ? "ON" : "OFF")}";
+            if (psxEnabledLabel != null)
+                psxEnabledLabel.text = $"{Localization.Get("pause.psx_look")}: {(psxOn ? "ON" : "OFF")}";
+            if (psxResLabel != null)
+                psxResLabel.text = $"{Localization.Get("pause.psx_res")}: {resLbl}";
         }
 
         private void BuildEndingPanel(RectTransform parent)

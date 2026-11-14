@@ -444,6 +444,9 @@ MonoBehaviour:
   messageLocalizationKey: prompt.medbay
   doorTarget: {fileID: 0}
   airlockTarget: {fileID: 0}
+  customPromptText: 
+  customMessageText: 
+  sourceId: 
 --- !u!1 &8680469715803818746
 GameObject:
   m_ObjectHideFlags: 0

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <title>progress-bar - Arctic</title>
+  <desc>Original vector HUD and interface asset generated for Neon Command.</desc>
+  <path d="M12 42h104v44H12z" fill="none" stroke="#48e0d0" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 50h54v28H20z" fill="#48e0d0"/><path d="M80 50h28v28H80z" fill="#7bdfff" opacity="0.28"/><path d="M20 34v60M108 34v60" stroke="#9ab5d4" stroke-width="4"/>
+</svg>

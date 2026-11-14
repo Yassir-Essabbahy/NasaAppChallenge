@@ -8,7 +8,7 @@ namespace Outpost.Runtime.Terminal.Apps
     public class SourcesAppWindow : WindowView
     {
         private SourcesDatabase _database;
-        private const int MaxRows = 10;
+        private const int MaxRows = 12;
         private readonly RectTransform[] _rowPanels = new RectTransform[MaxRows];
         private readonly TextMeshProUGUI[] _rowLabels = new TextMeshProUGUI[MaxRows];
         private TextMeshProUGUI _detailTitle;
@@ -29,8 +29,8 @@ namespace Outpost.Runtime.Terminal.Apps
             for (int i = 0; i < MaxRows; i++)
             {
                 int slot = i;
-                float top = 0.88f - i * 0.087f;
-                float bot = top - 0.079f;
+                float top = 0.885f - i * 0.072f;
+                float bot = top - 0.065f;
                 var panel = TerminalUiBuilder.CreateFlatPanel($"SrcRow_{i}", content, Theme.PanelBg, Theme.BorderUnfocused, 2f);
                 TerminalUiBuilder.SetAnchors(panel, 0f, bot, 0.44f, top);
                 var inner = TerminalUiBuilder.GetInner(panel);

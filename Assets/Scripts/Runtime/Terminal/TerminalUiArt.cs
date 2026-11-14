@@ -23,13 +23,22 @@ namespace Outpost.Runtime.Terminal
         ArrowUp,
         ArrowDown,
         ArrowRight,
-        Check
+        Check,
+        PlusBox,
+        Bolt,
+        Sliders,
+        Scan,
+        Target,
+        Lock,
+        Warning,
+        Gauge,
+        NextHex,
+        Hazard,
+        Goal
     }
 
     /// <summary>
-    /// Procedural UI sprite and icon generator (rounded 8px 9-slice panels, soft drop shadows,
-    /// Mars horizon wallpaper with tiny sun, and crisp 48x48 icons).
-    /// Swap any icon cleanly by dropping replacement sprites under Resources/UI/Icons/.
+    /// Procedural UI sprite and icon generator plus IconLibrary lookup for crisp 128px terminal icons.
     /// </summary>
     public static class TerminalUiArt
     {
@@ -37,7 +46,59 @@ namespace Outpost.Runtime.Terminal
         private static Sprite _dropShadow;
         private static Sprite _marsWallpaper;
         private static UITheme _activeTheme;
-        private static readonly Sprite[] Icons = new Sprite[20];
+        private static IconLibrary _fallbackLibrary;
+        private static readonly Sprite[] Icons = new Sprite[32];
+
+        public static string GetIconKey(TerminalIconId id)
+        {
+            switch (id)
+            {
+                case TerminalIconId.PlusBox:
+                case TerminalIconId.Crew:
+                case TerminalIconId.Heart: return "Icon_PlusBox";
+                case TerminalIconId.Shield: return "Icon_Shield";
+                case TerminalIconId.Bolt: return "Icon_Bolt";
+                case TerminalIconId.Sliders: return "Icon_Sliders";
+                case TerminalIconId.Scan: return "Icon_Scan";
+                case TerminalIconId.Target: return "Icon_Target";
+                case TerminalIconId.Lock: return "Icon_Lock";
+                case TerminalIconId.Warning:
+                case TerminalIconId.MoodWarn: return "Icon_Warning";
+                case TerminalIconId.Battery: return "Icon_Battery";
+                case TerminalIconId.Gauge: return "Icon_Gauge";
+                case TerminalIconId.NextHex:
+                case TerminalIconId.ArrowRight: return "Icon_NextHex";
+                case TerminalIconId.Hazard:
+                case TerminalIconId.MoodCrit: return "Icon_Hazard";
+                case TerminalIconId.Oxygen: return "Icon_Oxygen";
+                case TerminalIconId.Water: return "Icon_Water";
+                case TerminalIconId.Food: return "Icon_Food";
+                case TerminalIconId.Signal: return "Icon_Signal";
+                case TerminalIconId.Log: return "Icon_Log";
+                case TerminalIconId.Sources: return "Icon_Sources";
+                case TerminalIconId.Help: return "Icon_Help";
+                case TerminalIconId.Goal: return "Icon_Goal";
+                default: return null;
+            }
+        }
+
+        public static Sprite GetIcon(string iconId)
+        {
+            if (string.IsNullOrEmpty(iconId)) return null;
+            if (_activeTheme != null && _activeTheme.IconLibrary != null)
+            {
+                var fromActive = _activeTheme.IconLibrary.GetSprite(iconId);
+                if (fromActive != null) return fromActive;
+            }
+            if (_fallbackLibrary == null)
+                _fallbackLibrary = Resources.Load<IconLibrary>("IconLibrary");
+            if (_fallbackLibrary != null)
+            {
+                var fromRes = _fallbackLibrary.GetSprite(iconId);
+                if (fromRes != null) return fromRes;
+            }
+            return Resources.Load<Sprite>($"UI/Icons/{iconId}");
+        }
 
         public static void SetActiveTheme(UITheme theme)
         {
@@ -198,11 +259,11 @@ namespace Outpost.Runtime.Terminal
         {
             switch (appId)
             {
-                case TerminalAppId.PowerGrid: return GetIcon(TerminalIconId.Battery);
-                case TerminalAppId.LifeSupport: return GetIcon(TerminalIconId.Oxygen);
+                case TerminalAppId.PowerGrid: return GetIcon(TerminalIconId.Bolt);
+                case TerminalAppId.LifeSupport: return GetIcon(TerminalIconId.Gauge);
                 case TerminalAppId.Greenhouse: return GetIcon(TerminalIconId.Food);
                 case TerminalAppId.Radiation: return GetIcon(TerminalIconId.Shield);
-                case TerminalAppId.Crew: return GetIcon(TerminalIconId.Crew);
+                case TerminalAppId.Crew: return GetIcon(TerminalIconId.PlusBox);
                 case TerminalAppId.Comms: return GetIcon(TerminalIconId.Signal);
                 case TerminalAppId.CommandersLog: return GetIcon(TerminalIconId.Log);
                 case TerminalAppId.Sources: return GetIcon(TerminalIconId.Sources);
@@ -216,6 +277,13 @@ namespace Outpost.Runtime.Terminal
             {
                 var themed = _activeTheme.GetIconSprite(id);
                 if (themed != null) return themed;
+            }
+
+            string libKey = GetIconKey(id);
+            if (!string.IsNullOrEmpty(libKey))
+            {
+                var libSprite = GetIcon(libKey);
+                if (libSprite != null) return libSprite;
             }
 
             int idx = (int)id;

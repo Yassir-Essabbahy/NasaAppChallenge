@@ -36,6 +36,8 @@ namespace Outpost.Runtime.Room
         [Header("Room HUD (Crosshair + Prompt + Fact Banner)")]
         [SerializeField] private GameObject roomHudRoot;
         [SerializeField] private TextMeshProUGUI promptText;
+        [SerializeField] private UnityEngine.UI.Image crosshairIcon;
+        [SerializeField] private UnityEngine.UI.Image promptLockIcon;
         [SerializeField] private GameObject factBannerRoot;
         [SerializeField] private TextMeshProUGUI factBannerText;
 
@@ -297,13 +299,41 @@ namespace Outpost.Runtime.Room
             InteractableProp hovered = null;
             Ray ray = new Ray(cam.transform.position, cam.transform.forward);
             if (Physics.Raycast(ray, out RaycastHit hit, raycastDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
-                hovered = hit.collider.GetComponent<InteractableProp>() ?? hit.collider.GetComponentInParent<InteractableProp>();
+            {
+                hovered = hit.collider.GetComponent<InteractableProp>();
+                if (hovered == null)
+                    hovered = hit.collider.GetComponentInParent<InteractableProp>();
+            }
 
             string newPrompt = hovered != null ? hovered.GetDynamicPrompt(_session) : string.Empty;
             if (newPrompt != _lastPromptStr)
             {
                 _lastPromptStr = newPrompt;
                 if (promptText != null) promptText.text = newPrompt;
+                if (crosshairIcon != null)
+                {
+                    var targetSpr = Outpost.Runtime.Terminal.TerminalUiArt.GetIcon("Icon_Target");
+                    if (hovered != null && targetSpr != null)
+                    {
+                        crosshairIcon.sprite = targetSpr;
+                        crosshairIcon.color = Outpost.Runtime.Terminal.UITheme.AccentPrimary;
+                        crosshairIcon.rectTransform.sizeDelta = new Vector2(20f, 20f);
+                    }
+                    else
+                    {
+                        crosshairIcon.sprite = null;
+                        crosshairIcon.color = new Color(1f, 1f, 1f, 0.85f);
+                        crosshairIcon.rectTransform.sizeDelta = new Vector2(6f, 6f);
+                    }
+                }
+                if (promptLockIcon != null)
+                {
+                    bool locked = hovered != null && ((hovered.DoorTarget != null && hovered.DoorTarget.IsLocked) || newPrompt.IndexOf("LOCK", System.StringComparison.OrdinalIgnoreCase) >= 0);
+                    var lockSpr = Outpost.Runtime.Terminal.TerminalUiArt.GetIcon("Icon_Lock");
+                    promptLockIcon.gameObject.SetActive(locked && lockSpr != null);
+                    if (lockSpr != null) promptLockIcon.sprite = lockSpr;
+                    promptLockIcon.color = Outpost.Runtime.Terminal.UITheme.WarnStatic;
+                }
             }
 
             if (kb != null && kb.eKey.wasPressedThisFrame && hovered != null)
@@ -384,7 +414,11 @@ namespace Outpost.Runtime.Room
                     break;
                 case InteractablePropType.SurfaceRover:
                     audioManager?.PlayUiClick();
-                    ShowFactBanner(Localization.Get("poi.rover.fact"), 5.2f);
+                    ShowFactBanner(!string.IsNullOrEmpty(prop.CustomMessageText) ? prop.CustomMessageText : Localization.Get("poi.rover.fact"), 5.2f);
+                    break;
+                case InteractablePropType.CustomFact:
+                    audioManager?.PlayUiClick();
+                    ShowFactBanner(prop.MessageText, 5.2f);
                     break;
                 case InteractablePropType.SurfaceAntenna:
                     audioManager?.PlayRadioBlip();

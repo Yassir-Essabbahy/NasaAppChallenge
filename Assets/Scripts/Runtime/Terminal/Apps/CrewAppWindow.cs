@@ -113,7 +113,7 @@ namespace Outpost.Runtime.Terminal.Apps
                     : (c.Health < 65f || c.Morale < 50f) ? Localization.Get("status.word.low")
                     : Localization.Get("status.word.good");
 
-                _moodIcons[i].sprite = TerminalUiArt.GetIcon(!c.IsAlive || c.Health < 35f ? TerminalIconId.MoodCrit : (c.Morale < 50f ? TerminalIconId.MoodWarn : TerminalIconId.MoodGood));
+                _moodIcons[i].sprite = TerminalUiArt.GetIcon(!c.IsAlive || c.Health < 35f ? TerminalIconId.Hazard : (c.Health < 65f || c.Morale < 50f ? TerminalIconId.Warning : TerminalIconId.PlusBox));
                 _moodIcons[i].color = col;
 
                 _rowTexts[i].color = !c.IsAlive ? Theme.StatusCrit : Theme.TextPrimary;

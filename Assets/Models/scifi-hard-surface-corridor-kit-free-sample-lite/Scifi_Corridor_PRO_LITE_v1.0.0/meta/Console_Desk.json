@@ -1,0 +1,15 @@
+{
+ "name": "Console_Desk",
+ "set": "props_tech",
+ "tris": 4242,
+ "dims_m": [
+  1.64,
+  0.836,
+  1.45
+ ],
+ "budget": 5000,
+ "tris_lod1": 2120,
+ "tris_lod2": 848,
+ "col_tris": 64,
+ "texel_px_per_m": 269.0
+}

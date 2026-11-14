@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <title>button-primary - Arctic</title>
+  <desc>Original vector HUD and interface asset generated for Neon Command.</desc>
+  <path d="M20 34h72l18 30-18 30H20L4 64z" fill="#48e0d0" opacity="0.18" stroke="#48e0d0" stroke-width="5" stroke-linejoin="round"/><path d="M39 64h50M75 50l14 14-14 14" stroke="#7bdfff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

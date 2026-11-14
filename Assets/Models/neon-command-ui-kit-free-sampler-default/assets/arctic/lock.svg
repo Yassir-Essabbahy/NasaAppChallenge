@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <title>lock - Arctic</title>
+  <desc>Original vector HUD and interface asset generated for Neon Command.</desc>
+  <rect x="25" y="55" width="78" height="58" rx="10" fill="none" stroke="#48e0d0" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M42 55V40a22 22 0 0 1 44 0v15" stroke="#7bdfff" stroke-width="7"/><circle cx="64" cy="84" r="8" fill="#48e0d0"/>
+</svg>

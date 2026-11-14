@@ -63,20 +63,8 @@ namespace Outpost.Editor
             ConfigureSpriteImporter(wallPath, FilterMode.Bilinear);
             theme.MarsWallpaperSprite = AssetDatabase.LoadAssetAtPath<Sprite>(wallPath);
 
-            // Export all 19 48x48 icons into Assets/Art/UI/Icons/ and assign to swappable array on UITheme
-            Array iconValues = Enum.GetValues(typeof(TerminalIconId));
-            theme.IconSprites = new Sprite[iconValues.Length];
-            for (int i = 0; i < iconValues.Length; i++)
-            {
-                var id = (TerminalIconId)iconValues.GetValue(i);
-                string iconPath = $"{IconsDir}/Icon_{id}.png";
-                var iconTex = TerminalUiArt.BuildIconTexture(id, 48);
-                File.WriteAllBytes(iconPath, iconTex.EncodeToPNG());
-                UnityEngine.Object.DestroyImmediate(iconTex);
-                AssetDatabase.ImportAsset(iconPath, ImportAssetOptions.ForceUpdate);
-                ConfigureSpriteImporter(iconPath, FilterMode.Bilinear);
-                theme.IconSprites[i] = AssetDatabase.LoadAssetAtPath<Sprite>(iconPath);
-            }
+            // Populate Assets/Art/UI/Icons & IconLibrary via TerminalIconAssetBuilder (preserves 128px Neon Command + generated icons)
+            TerminalIconAssetBuilder.BuildIconLibraryAndUpdateTheme();
 
             theme.ApplyFriendlyThemeDefaults();
             EditorUtility.SetDirty(theme);

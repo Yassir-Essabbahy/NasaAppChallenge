@@ -1,0 +1,15 @@
+{
+ "name": "Crate_Small",
+ "set": "props_cargo",
+ "tris": 1150,
+ "dims_m": [
+  0.63,
+  0.663,
+  0.62
+ ],
+ "budget": 1600,
+ "tris_lod1": 574,
+ "tris_lod2": 229,
+ "col_tris": 77,
+ "texel_px_per_m": 306.7
+}

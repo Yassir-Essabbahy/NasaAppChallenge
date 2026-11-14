@@ -18,49 +18,244 @@ MonoBehaviour:
     Organization: NASA JPL / Mars Exploration
     UrlText: https://science.nasa.gov/mission/mars-exploration-rovers/
     UsedByConstantsAndEvents: DustAccumulationPerSol, evt_panel_dust
+    Section: NASA/USGS data and models
+    License: 
+    DateAdded: 2026-11-14
+    WhereUsed: 
+    ModifiedNotes: No
   - Id: src_co2
     Title: '[Placeholder] Cabin CO2 Scrubbing & ECLSS'
     Organization: NASA Human Spaceflight
     UrlText: https://www.nasa.gov/missions/station/eclss/
     UsedByConstantsAndEvents: OxygenGenAtFull, LowScrubberThreshold, evt_scrubber_clog
+    Section: NASA/USGS data and models
+    License: 
+    DateAdded: 2026-11-14
+    WhereUsed: 
+    ModifiedNotes: No
   - Id: src_storm
     Title: '[Placeholder] Martian Dust Storms & Optical Depth'
     Organization: NASA Mars Science
     UrlText: https://science.nasa.gov/resource/mars-dust-storms/
     UsedByConstantsAndEvents: StormSolarFactor, StormExtraDustPerSol, evt_dust_storm
+    Section: NASA/USGS data and models
+    License: 
+    DateAdded: 2026-11-14
+    WhereUsed: 
+    ModifiedNotes: No
   - Id: src_rad
     Title: '[Placeholder] Mars Surface Radiation & SPE'
     Organization: NASA / Curiosity RAD
     UrlText: https://science.nasa.gov/mission/msl-curiosity/radiation-assessment-detector/
     UsedByConstantsAndEvents: BaselineSurfaceDoseMsvPerSol, SolarFlareUnshieldedDoseMsv,
       evt_solar_flare
+    Section: NASA/USGS data and models
+    License: 
+    DateAdded: 2026-11-14
+    WhereUsed: 
+    ModifiedNotes: No
   - Id: src_water
     Title: '[Placeholder] Closed-Loop Water Recovery'
     Organization: NASA MSFC / ISS
     UrlText: https://www.nasa.gov/reference/environmental-control-and-life-support-systems/
     UsedByConstantsAndEvents: WaterGenAtFull, WaterFixedLoss, evt_water_recycler
+    Section: NASA/USGS data and models
+    License: 
+    DateAdded: 2026-11-14
+    WhereUsed: 
+    ModifiedNotes: No
   - Id: src_crops
     Title: '[Placeholder] Space Crop & Veggie Systems'
     Organization: NASA KSC
     UrlText: https://www.nasa.gov/exploration-research-and-technology/growing-plants-in-space/
     UsedByConstantsAndEvents: FoodGenAtFull, GreenhouseOxygenBonus, evt_greenhouse_blight
+    Section: NASA/USGS data and models
+    License: 
+    DateAdded: 2026-11-14
+    WhereUsed: 
+    ModifiedNotes: No
   - Id: src_cold
     Title: '[Placeholder] Martian Thermal Environment'
     Organization: NASA GSFC Mars Fact Sheet
     UrlText: https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html
     UsedByConstantsAndEvents: HeatingSafeThreshold, ColdHealthPenalty, evt_cold_snap
+    Section: NASA/USGS data and models
+    License: 
+    DateAdded: 2026-11-14
+    WhereUsed: 
+    ModifiedNotes: No
   - Id: src_psych
     Title: '[Placeholder] Isolated Crew Behavioral Health'
     Organization: NASA JSC CHAPEA / HERA
     UrlText: https://www.nasa.gov/humans-in-space/chapea/
     UsedByConstantsAndEvents: LowMoraleThreshold, RationMoraleCost, evt_crew_tension
+    Section: NASA/USGS data and models
+    License: 
+    DateAdded: 2026-11-14
+    WhereUsed: 
+    ModifiedNotes: No
   - Id: src_comms
     Title: '[Placeholder] Earth-Mars Light-Time Delay'
     Organization: NASA Deep Space Network
     UrlText: https://eyes.nasa.gov/apps/dsn-now/dsn.html
     UsedByConstantsAndEvents: CommsMaxPower, evt_earth_message
+    Section: NASA/USGS data and models
+    License: 
+    DateAdded: 2026-11-14
+    WhereUsed: 
+    ModifiedNotes: No
   - Id: src_shield
     Title: '[Placeholder] Regolith Shielding & Micrometeoroids'
     Organization: NASA Moon to Mars
     UrlText: https://www.nasa.gov/humans-in-space/radiation/
     UsedByConstantsAndEvents: ShieldingMaxReduction, ReinforceShieldingGain, evt_micrometeorite
+    Section: NASA/USGS data and models
+    License: 
+    DateAdded: 2026-11-14
+    WhereUsed: 
+    ModifiedNotes: No
+  - Id: nasa-perseverance-model
+    Title: Mars 2020 Perseverance Rover 3D Model (Placeholder Fact)
+    Organization: NASA / JPL-Caltech
+    UrlText: https://science.nasa.gov/resource/perseverance-rover-3d-model/ (UNVERIFIED
+      - check before submission)
+    UsedByConstantsAndEvents: Exterior Prop_Rover POI near Solar Array
+    Section: NASA/USGS data and models
+    License: 
+    DateAdded: 2026-11-14
+    WhereUsed: 
+    ModifiedNotes: No
+  AssetCredits:
+  - Id: nasa-mars-equirect
+    Title: Mars Global Color Map (Assets/Models/Mars.jpg)
+    Organization: NASA / USGS Astrogeology (UNVERIFIED - check source exact attribution)
+    UrlText: UNVERIFIED - check before submission
+    UsedByConstantsAndEvents: 
+    Section: NASA/USGS data and models
+    License: "Public Domain (assumed NASA/USGS \u2014 UNVERIFIED - check before submission)"
+    DateAdded: 2026-11-14
+    WhereUsed: MarsSphere prefab (TitleScreen backdrop & Command Module sky window)
+    ModifiedNotes: Imported with Point filter, No Mipmaps, Max Size 2048, Wrap Repeat
+  - Id: nasa-perseverance-model
+    Title: 25042_Perseverance.glb (Mars 2020 Perseverance Rover)
+    Organization: NASA / JPL-Caltech (UNVERIFIED - confirm catalog ID)
+    UrlText: UNVERIFIED - check before submission
+    UsedByConstantsAndEvents: 
+    Section: NASA/USGS data and models
+    License: NASA Media Usage Guidelines / Public Domain (UNVERIFIED - check before
+      submission)
+    DateAdded: 2026-11-14
+    WhereUsed: Assets/Prefabs/Prop_Rover.prefab; placed near Solar Array on Mars
+      surface
+    ModifiedNotes: Scaled uniformly to ~3.0m length, PSX Lit material conversion,
+      BoxCollider added (199,309 tris; recommend decimation in Blender)
+  - Id: usgs-mars-dem
+    Title: Mars MOLA / HiRISE Heightmap (Pending RAW Import)
+    Organization: NASA / USGS Astrogeology
+    UrlText: TO CONFIRM when added
+    UsedByConstantsAndEvents: 
+    Section: NASA/USGS data and models
+    License: TO CONFIRM when added
+    DateAdded: TO CONFIRM
+    WhereUsed: BackdropTerrain (Outpost/Import NASA Heightmap (RAW))
+    ModifiedNotes: Pending user RAW export (GDAL gdal_translate -of ENVI)
+  - Id: hopefulsham-corridor-kit
+    Title: SciFi Corridor PRO LITE (v1.0.0)
+    Organization: 'hopefulsham (source PBR textures: Poly Haven)'
+    UrlText: https://hopefulsham.itch.io/scifi-modular-corridor-pro
+    UsedByConstantsAndEvents: 
+    Section: Corridor kit
+    License: Commercial & non-commercial projects without attribution; no resale/redistribution/AI
+      training (Poly Haven source textures CC0 1.0)
+    DateAdded: 2026-11-14
+    WhereUsed: Assets/Prefabs/Interior/Corridor_Straight, Corridor_Doors, Corridor_End,
+      Prop_Crate, Prop_Locker, Prop_Console
+    ModifiedNotes: Used FBX only (GLB skipped); Point-filtered textures; PSX shader
+      conversion preserving emissives; separated DoorLeaf sliding mesh
+  - Id: neon-command-ui-kit
+    Title: Neon Command UI Kit - Free Sampler (Arctic colorway)
+    Organization: gen-xia
+    UrlText: https://gen-xia.itch.io/neon-command-ui-kit
+    UsedByConstantsAndEvents: 
+    Section: UI icons
+    License: Commercial & non-commercial projects permitted; modify/recolor/crop
+      allowed; no standalone resale (AI-assisted per LICENSE.txt)
+    DateAdded: 2026-11-14
+    WhereUsed: Assets/Art/UI/Icons/ (12 copied 128x128 UI icons) + Terminal HUD &
+      Apps via IconLibrary.asset
+    ModifiedNotes: Renamed to Icon_* and registered in IconLibrary.asset
+  - Id: project-fonts
+    Title: Terminal & HUD Typography
+    Organization: "TextMeshPro / Unity LegacyRuntime / Google Fonts (if ShareTech/Roboto/Orbitron
+      installed \u2014 UNVERIFIED exact TTF source)"
+    UrlText: Check Assets/Fonts or FontTheme assets
+    UsedByConstantsAndEvents: 
+    Section: Fonts
+    License: SIL OFL 1.1 / Unity Built-in (verify before submission)
+    DateAdded: 2026-11-14
+    WhereUsed: Assets/Art/UI/TerminalTheme.asset, OutpostFlowCanvas, RoomHudCanvas
+    ModifiedNotes: No
+  - Id: pkg-gltfast
+    Title: glTFast (com.unity.cloud.gltfast 6.10.1)
+    Organization: Unity Technologies / Andreas Atteneder
+    UrlText: https://docs.unity3d.com/Packages/com.unity.cloud.gltfast@6.10/manual/index.html
+    UsedByConstantsAndEvents: 
+    Section: Packages
+    License: Unity Companion License / Apache-2.0
+    DateAdded: 2026-11-14
+    WhereUsed: Packages/manifest.json (imports 25042_Perseverance.glb)
+    ModifiedNotes: No
+  - Id: pkg-urp
+    Title: Universal RP (com.unity.render-pipelines.universal 17.5.0) & Input System
+    Organization: Unity Technologies
+    UrlText: https://unity.com/
+    UsedByConstantsAndEvents: 
+    Section: Packages
+    License: Unity Companion License
+    DateAdded: 2026-11-14
+    WhereUsed: Active render pipeline and FPS/terminal input
+    ModifiedNotes: No
+  - Id: gen-terrain
+    Title: Procedural MarsPlayTerrain, BackdropTerrain & 3 Low-Poly Rock Variants
+    Organization: In-project script (MarsTerrainGenerator.cs)
+    UrlText: Internal project asset
+    UsedByConstantsAndEvents: 
+    Section: Generated in-project
+    License: Original project work
+    DateAdded: 2026-11-14
+    WhereUsed: Outpost scene exterior Mars terrain, BackdropTerrain ring, Rock_Small/Medium/Large
+      prefabs
+    ModifiedNotes: Generated via Outpost/Generate Mars Terrain
+  - Id: gen-psx-textures-shaders
+    Title: PSX Shaders & 64x64 Procedural Surface/Terrain Textures
+    Organization: In-project script (PSXMaterialApplier.cs, Assets/Shaders/*)
+    UrlText: Internal project asset
+    UsedByConstantsAndEvents: 
+    Section: Generated in-project
+    License: Original project work
+    DateAdded: 2026-11-14
+    WhereUsed: Assets/Shaders/ (PSXLit, PSXUnlit, PSXLit_Cutout, PSXParticle, PSXPost,
+      PSXTerrain, PSXSkyGradient) & Assets/Art/PSX/
+    ModifiedNotes: Generated procedurally at 64x64 with Point filtering
+  - Id: gen-ui-icons
+    Title: 8 Matching 128x128 Procedural UI Icons
+    Organization: In-project script (TerminalIconAssetBuilder.cs)
+    UrlText: Internal project asset
+    UsedByConstantsAndEvents: 
+    Section: Generated in-project
+    License: Original project work
+    DateAdded: 2026-11-14
+    WhereUsed: Assets/Art/UI/Icons/ (Icon_Oxygen, Icon_Water, Icon_Food, Icon_Signal,
+      Icon_Log, Icon_Sources, Icon_Help, Icon_Goal)
+    ModifiedNotes: Generated in matching teal/light-blue/yellow/coral 6px line style
+  - Id: tool-unity
+    Title: Unity Editor (6000.x), Unity MCP (com.coplaydev.unity-mcp), Python & Antigravity
+      AI Assistant
+    Organization: Unity Technologies / CoplayDev / Google DeepMind Antigravity
+    UrlText: https://unity.com/
+    UsedByConstantsAndEvents: 
+    Section: Tools and AI assistance
+    License: Unity Personal / MIT / Assistant workflow
+    DateAdded: 2026-11-14
+    WhereUsed: Scene assembly, editor automation, shader/UI integration & verification
+    ModifiedNotes: AI-assisted implementation and integration scripts

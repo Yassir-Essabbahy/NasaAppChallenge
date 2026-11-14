@@ -1,0 +1,14 @@
+CREDITS
+Source PBR textures: Poly Haven (https://polyhaven.com), CC0 1.0 (public domain; attribution not required, listed as a courtesy). Slugs used (registry names in brackets):
+- blue_metal_plate (panel_blue): https://polyhaven.com/a/blue_metal_plate, by Rob Tuytel
+- container_side (panel_green): https://polyhaven.com/a/container_side, by Dimitrios Savva
+- corrugated_iron (glow, glow_cyan, glow_orange): https://polyhaven.com/a/corrugated_iron, by Jenelle van Heerden, Dimitrios Savva
+- green_metal_rust (glass, steel): https://polyhaven.com/a/green_metal_rust, by Rob Tuytel
+- metal_grate_rusty (grate_rusty): https://polyhaven.com/a/metal_grate_rusty, by Rob Tuytel, Dimitrios Savva
+- metal_plate_02 (panel_grey): https://polyhaven.com/a/metal_plate_02, by Rob Tuytel
+- painted_metal_shutter (panel_orange, panel_white): https://polyhaven.com/a/painted_metal_shutter, by Dario Barresi, Rico Cilliers, Charlotte Baglioni
+- rusty_metal_02 (rust_heavy): https://polyhaven.com/a/rusty_metal_02, by Rob Tuytel
+- rusty_metal_04 (iron, rust_pitted): https://polyhaven.com/a/rusty_metal_04, by Amal Kumar
+- worn_corrugated_iron (corrugated): https://polyhaven.com/a/worn_corrugated_iron, by Jenelle van Heerden, Dimitrios Savva
+Models: original geometry written as Blender Python (tools/propkit) with AI assistance; no image-generation models were used for geometry or textures.
+Baked textures in this pack are derivative works of the CC0 sources above.

@@ -20,7 +20,8 @@ namespace Outpost.Runtime.Room
         SurfaceRover,
         SurfaceAntenna,
         SurfaceRadiationPost,
-        SurfaceIceMarker
+        SurfaceIceMarker,
+        CustomFact
     }
 
     /// <summary>
@@ -33,12 +34,25 @@ namespace Outpost.Runtime.Room
         [SerializeField] private string messageLocalizationKey;
         [SerializeField] private DoorInteractable doorTarget;
         [SerializeField] private AirlockController airlockTarget;
+        [SerializeField] private string customPromptText;
+        [SerializeField] private string customMessageText;
+        [SerializeField] private string sourceId;
 
         public InteractablePropType PropType => propType;
         public DoorInteractable DoorTarget => doorTarget;
         public AirlockController AirlockTarget => airlockTarget;
-        public string PromptText => Localization.Get(promptLocalizationKey);
-        public string MessageText => Localization.Get(messageLocalizationKey);
+        public string CustomMessageText => customMessageText;
+        public string SourceId => sourceId;
+        public string PromptText => !string.IsNullOrEmpty(customPromptText) ? customPromptText : Localization.Get(promptLocalizationKey);
+        public string MessageText => !string.IsNullOrEmpty(customMessageText) ? customMessageText : Localization.Get(messageLocalizationKey);
+
+        public void ConfigureCustomFact(string prompt, string message, string srcId = "", InteractablePropType type = InteractablePropType.CustomFact)
+        {
+            propType = type;
+            customPromptText = prompt;
+            customMessageText = message;
+            sourceId = srcId;
+        }
 
         public void Configure(InteractablePropType type, string promptKey, string messageKey = "")
         {

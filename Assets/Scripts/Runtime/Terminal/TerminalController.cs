@@ -65,6 +65,7 @@ namespace Outpost.Runtime.Terminal
         // Top Bar
         private RectTransform _alertBarPanel;
         private Image _alertBarInner;
+        private Image _alertBarIcon;
         private TextMeshProUGUI _alertBarText;
         private TextMeshProUGUI _solClockText;
         private TextMeshProUGUI _apHeaderText;
@@ -134,6 +135,7 @@ namespace Outpost.Runtime.Terminal
         private readonly TextMeshProUGUI[] _onboardLabels = new TextMeshProUGUI[3];
 
         private GameObject _heliosBubble;
+        private Image _heliosIcon;
         private TextMeshProUGUI _heliosText;
         private Button _hintsToggleBtn;
         private TextMeshProUGUI _hintsToggleLabel;
@@ -617,15 +619,26 @@ namespace Outpost.Runtime.Terminal
         {
             if (!_built || s == null) return;
 
-            // 1. Top Alert Bar
-            Color alertCol = s.AlertSeverity == 2 ? theme.StatusCrit : (s.AlertSeverity == 1 ? theme.StatusWarn : theme.StatusOk);
-            string alertWord = s.AlertSeverity == 2 ? Localization.Get("status.word.danger")
+            // 1. Top Alert Bar + Airlock/Hazard Lock Awareness
+            bool hazardCrit = s.AlertSeverity == 2 || s.SolarFlareActive;
+            bool airlockLocked = s.SolarFlareActive || s.DustStormSolsRemaining > 0;
+            Color alertCol = hazardCrit ? theme.StatusCrit : (s.AlertSeverity == 1 || airlockLocked ? theme.StatusWarn : theme.StatusOk);
+            string alertWord = hazardCrit ? Localization.Get("status.word.danger")
                 : (s.AlertSeverity == 1 ? Localization.Get("status.word.low") : Localization.Get("status.word.good"));
             TerminalUiBuilder.SetBorderColor(_alertBarPanel, alertCol);
-            _alertBarInner.color = s.AlertSeverity == 2 ? new Color(0.28f, 0.08f, 0.11f, 0.96f)
-                : (s.AlertSeverity == 1 ? new Color(0.24f, 0.17f, 0.06f, 0.96f) : theme.PanelBg);
-            _alertBarText.color = s.AlertSeverity == 0 ? theme.TextPrimary : alertCol;
-            _alertBarText.text = $"{alertWord}:  {s.AlertText}";
+            _alertBarInner.color = hazardCrit ? new Color(0.28f, 0.08f, 0.11f, 0.96f)
+                : ((s.AlertSeverity == 1 || airlockLocked) ? new Color(0.24f, 0.17f, 0.06f, 0.96f) : theme.PanelBg);
+            _alertBarText.color = (s.AlertSeverity == 0 && !airlockLocked) ? theme.TextPrimary : alertCol;
+            string lockTag = airlockLocked ? "  [EVA LOCKED]" : string.Empty;
+            _alertBarText.text = $"{alertWord}:  {s.AlertText}{lockTag}";
+            if (_alertBarIcon != null)
+            {
+                TerminalIconId barIcon = hazardCrit ? TerminalIconId.Hazard
+                    : (airlockLocked ? TerminalIconId.Lock
+                    : (s.AlertSeverity == 1 ? TerminalIconId.Warning : TerminalIconId.Scan));
+                _alertBarIcon.sprite = TerminalUiArt.GetIcon(barIcon);
+                _alertBarIcon.color = alertCol;
+            }
 
             _apHeaderText.text = Localization.Format("ui.ap_count", s.ActionPoints, s.MaxActionPoints);
             _apHeaderText.color = s.ActionPoints > 0 ? theme.TextAmber : theme.TextMuted;
@@ -674,6 +687,14 @@ namespace Outpost.Runtime.Terminal
                 _heliosBubble.SetActive(_hintsEnabled);
                 if (_hintsEnabled)
                     _heliosText.text = eval.HeliosHintText;
+                if (_heliosIcon != null)
+                {
+                    bool danger = s.AlertSeverity >= 2 || s.SolarFlareActive;
+                    TerminalIconId hIconId = danger ? TerminalIconId.Hazard
+                        : (eval.IsUrgent ? TerminalIconId.Warning : TerminalIconId.Help);
+                    _heliosIcon.sprite = TerminalUiArt.GetIcon(hIconId);
+                    _heliosIcon.color = danger ? theme.StatusCrit : (eval.IsUrgent ? theme.StatusWarn : theme.AccentHelp);
+                }
             }
             if (_hintsToggleLabel != null)
                 _hintsToggleLabel.text = _hintsEnabled ? Localization.Get("helios.hints_on") : Localization.Get("helios.hints_off");
@@ -925,18 +946,18 @@ namespace Outpost.Runtime.Terminal
 
         private void ApplyEventIllustrationTheme(string eventId)
         {
-            TerminalIconId iconId = TerminalIconId.Battery;
-            Color tint = theme.AccentPower;
+            TerminalIconId iconId = TerminalIconId.Warning;
+            Color tint = theme.StatusWarn;
             string sub = Localization.Get("modal.incoming_event");
 
             if (!string.IsNullOrEmpty(eventId))
             {
-                if (eventId.Contains("scrubber") || eventId.Contains("water")) { iconId = TerminalIconId.Water; tint = theme.AccentLifeSupport; }
-                else if (eventId.Contains("greenhouse") || eventId.Contains("blight")) { iconId = TerminalIconId.Food; tint = theme.AccentGreenhouse; }
-                else if (eventId.Contains("flare") || eventId.Contains("meteor")) { iconId = TerminalIconId.Shield; tint = theme.AccentRadiation; }
-                else if (eventId.Contains("tension")) { iconId = TerminalIconId.Crew; tint = theme.AccentCrew; }
-                else if (eventId.Contains("message")) { iconId = TerminalIconId.Signal; tint = theme.AccentComms; }
-                else if (eventId.Contains("cold")) { iconId = TerminalIconId.MoodWarn; tint = theme.StatusWarn; }
+                if (eventId.Contains("flare") || eventId.Contains("meteor") || eventId.Contains("blight")) { iconId = TerminalIconId.Hazard; tint = theme.StatusCrit; }
+                else if (eventId.Contains("cold") || eventId.Contains("storm") || eventId.Contains("dust")) { iconId = TerminalIconId.Warning; tint = theme.StatusWarn; }
+                else if (eventId.Contains("scrubber") || eventId.Contains("water")) { iconId = TerminalIconId.Water; tint = theme.AccentLifeSupport; }
+                else if (eventId.Contains("greenhouse")) { iconId = TerminalIconId.Food; tint = theme.AccentGreenhouse; }
+                else if (eventId.Contains("tension")) { iconId = TerminalIconId.PlusBox; tint = theme.AccentCrew; }
+                else if (eventId.Contains("message")) { iconId = TerminalIconId.Scan; tint = theme.AccentComms; }
             }
 
             if (_eventBannerBg != null) _eventBannerBg.color = Color.Lerp(theme.PanelBg, tint, 0.24f);
@@ -1103,9 +1124,11 @@ namespace Outpost.Runtime.Terminal
             _alertBarPanel.offsetMin = new Vector2(14f, -64f);
             _alertBarPanel.offsetMax = new Vector2(-6f, -10f);
             _alertBarInner = TerminalUiBuilder.GetInner(_alertBarPanel).GetComponent<Image>();
+            _alertBarIcon = TerminalUiBuilder.CreateIcon("AlertIcon", _alertBarInner.transform, TerminalIconId.Warning, theme.StatusOk);
+            TerminalUiBuilder.SetAnchors(_alertBarIcon.rectTransform, 0.01f, 0.14f, 0.052f, 0.86f);
             _alertBarText = TerminalUiBuilder.CreateText("AlertText", _alertBarInner.transform, theme, theme.BodyFontSize, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
             _alertBarText.fontStyle = FontStyles.Bold;
-            TerminalUiBuilder.SetAnchors(_alertBarText.rectTransform, 0f, 0f, 1f, 1f, 14f, 0f, 10f, 0f);
+            TerminalUiBuilder.SetAnchors(_alertBarText.rectTransform, 0.058f, 0f, 1f, 1f, 4f, 0f, 10f, 0f);
 
             var statusPill = TerminalUiBuilder.CreateFlatPanel("TopStatusPill", terminalRoot, theme.PanelBg, theme.BorderUnfocused, 2f, true);
             statusPill.anchorMin = new Vector2(0.70f, 1f);
@@ -1205,7 +1228,7 @@ namespace Outpost.Runtime.Terminal
 
             (string labelKey, TerminalIconId icon, Color accent, TerminalAppId targetApp, string glossTerm, string glossDef)[] defs =
             {
-                ("mc.status.power", TerminalIconId.Battery, theme.AccentPower, TerminalAppId.PowerGrid, "gloss.power.term", "gloss.power.def"),
+                ("mc.status.power", TerminalIconId.Bolt, theme.AccentPower, TerminalAppId.PowerGrid, "gloss.power.term", "gloss.power.def"),
                 ("mc.status.oxygen", TerminalIconId.Oxygen, theme.AccentLifeSupport, TerminalAppId.LifeSupport, "gloss.o2.term", "gloss.o2.def"),
                 ("mc.status.water", TerminalIconId.Water, theme.AccentLifeSupport, TerminalAppId.LifeSupport, "gloss.water.term", "gloss.water.def"),
                 ("mc.status.food", TerminalIconId.Food, theme.AccentGreenhouse, TerminalAppId.Greenhouse, "gloss.food.term", "gloss.food.def"),
@@ -1393,9 +1416,12 @@ namespace Outpost.Runtime.Terminal
             TerminalUiBuilder.SetAnchors(goalCard, 0f, 0.705f, 1f, 0.845f);
             var gInner = TerminalUiBuilder.GetInner(goalCard);
 
+            var goalIcon = TerminalUiBuilder.CreateIcon("GoalIcon", gInner, TerminalIconId.Goal, theme.BorderFocused);
+            TerminalUiBuilder.SetAnchors(goalIcon.rectTransform, 0.015f, 0.52f, 0.068f, 0.93f);
+
             _goalTitleText = TerminalUiBuilder.CreateText("GoalTitle", gInner, theme, theme.HeaderFontSize, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
             _goalTitleText.fontStyle = FontStyles.Bold;
-            TerminalUiBuilder.SetAnchors(_goalTitleText.rectTransform, 0.02f, 0.50f, 0.98f, 0.95f);
+            TerminalUiBuilder.SetAnchors(_goalTitleText.rectTransform, 0.078f, 0.50f, 0.98f, 0.95f);
 
             for (int i = 0; i < 7; i++)
             {
@@ -1464,8 +1490,8 @@ namespace Outpost.Runtime.Terminal
             _heliosBubble = heliosPanel.gameObject;
             var hInner = TerminalUiBuilder.GetInner(heliosPanel);
 
-            var hIcon = TerminalUiBuilder.CreateIcon("HeliosBot", hInner, TerminalIconId.Helios, theme.AccentHelp);
-            TerminalUiBuilder.SetAnchors(hIcon.rectTransform, 0.02f, 0.16f, 0.12f, 0.84f);
+            _heliosIcon = TerminalUiBuilder.CreateIcon("HeliosBot", hInner, TerminalIconId.Help, theme.AccentHelp);
+            TerminalUiBuilder.SetAnchors(_heliosIcon.rectTransform, 0.02f, 0.16f, 0.12f, 0.84f);
 
             var hName = TerminalUiBuilder.CreateText("HeliosName", hInner, theme, theme.HeaderFontSize, theme.AccentHelp, TextAlignmentOptions.MidlineLeft, _textScaler);
             hName.fontStyle = FontStyles.Bold;
@@ -1554,11 +1580,11 @@ namespace Outpost.Runtime.Terminal
         {
             switch (id)
             {
-                case TerminalAppId.PowerGrid: return TerminalIconId.Battery;
-                case TerminalAppId.LifeSupport: return TerminalIconId.Oxygen;
+                case TerminalAppId.PowerGrid: return TerminalIconId.Bolt;
+                case TerminalAppId.LifeSupport: return TerminalIconId.Gauge;
                 case TerminalAppId.Greenhouse: return TerminalIconId.Food;
                 case TerminalAppId.Radiation: return TerminalIconId.Shield;
-                case TerminalAppId.Crew: return TerminalIconId.Crew;
+                case TerminalAppId.Crew: return TerminalIconId.PlusBox;
                 case TerminalAppId.Comms: return TerminalIconId.Signal;
                 case TerminalAppId.CommandersLog: return TerminalIconId.Log;
                 case TerminalAppId.Sources: return TerminalIconId.Sources;
@@ -1655,10 +1681,18 @@ namespace Outpost.Runtime.Terminal
             TerminalUiBuilder.SetAnchors(_leaveTerminalBtn.GetComponent<RectTransform>(), 0.656f, 0.08f, 0.822f, 0.92f);
             _leaveTerminalBtn.gameObject.SetActive(_showLeaveButton);
 
-            // Big friendly END SOL button
+            // Big friendly END SOL button with Icon_NextHex
             _endSolBtn = TerminalUiBuilder.CreateButton("EndSolBtn", parent, Localization.Get("ui.end_sol"), theme, theme.ButtonAccentBg, theme.StatusOk, theme.TextPrimary, theme.HeaderFontSize, OnEndSolClicked, _textScaler, true);
             TerminalUiBuilder.SetAnchors(_endSolBtn.GetComponent<RectTransform>(), 0.830f, 0.04f, 0.995f, 0.96f);
             _endSolLabel = _endSolBtn.GetComponentInChildren<TextMeshProUGUI>();
+            var endInner = _endSolLabel != null ? _endSolLabel.transform.parent as RectTransform : null;
+            if (endInner != null)
+            {
+                var nextIcon = TerminalUiBuilder.CreateIcon("NextHexIcon", endInner, TerminalIconId.NextHex, theme.TextPrimary);
+                TerminalUiBuilder.SetAnchors(nextIcon.rectTransform, 0.05f, 0.18f, 0.24f, 0.82f);
+                if (_endSolLabel != null)
+                    TerminalUiBuilder.SetAnchors(_endSolLabel.rectTransform, 0.25f, 0f, 0.97f, 1f);
+            }
         }
 
         private void BuildEventModal()

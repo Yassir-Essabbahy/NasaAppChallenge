@@ -166,6 +166,9 @@ MonoBehaviour:
   messageLocalizationKey: 
   doorTarget: {fileID: 0}
   airlockTarget: {fileID: 0}
+  customPromptText: 
+  customMessageText: 
+  sourceId: 
 --- !u!1 &8325111022055233746
 GameObject:
   m_ObjectHideFlags: 0

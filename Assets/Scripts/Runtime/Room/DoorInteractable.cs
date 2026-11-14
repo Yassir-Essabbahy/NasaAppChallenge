@@ -21,6 +21,9 @@ namespace Outpost.Runtime.Room
         [SerializeField] private Transform movingLeaf;
         [SerializeField] private Collider blockingCollider;
         [SerializeField] private Vector3 openLocalOffset = new Vector3(1.18f, 0f, 0f);
+        [SerializeField] private Transform secondaryLeaf;
+        [SerializeField] private Collider secondaryCollider;
+        [SerializeField] private Vector3 secondaryOpenLocalOffset = new Vector3(-0.94f, 0f, 0f);
         [SerializeField] private float openHingeAngle = 88f;
         [SerializeField] private float animDuration = 0.6f;
 
@@ -37,6 +40,8 @@ namespace Outpost.Runtime.Room
 
         private Vector3 _closedLocalPos;
         private Quaternion _closedLocalRot;
+        private Vector3 _secondaryClosedLocalPos;
+        private Quaternion _secondaryClosedLocalRot;
         private bool _poseCaptured;
         private bool _targetOpen;
         private float _openAmount;
@@ -105,6 +110,17 @@ namespace Outpost.Runtime.Room
             RefreshIndicatorColor();
         }
 
+        public void ConfigureBiPartingLeaves(Transform secondLeaf, Vector3 secondSlideOffset, Collider secondCollider = null)
+        {
+            secondaryLeaf = secondLeaf;
+            secondaryOpenLocalOffset = secondSlideOffset;
+            secondaryCollider = secondCollider;
+            _poseCaptured = false;
+            CaptureClosedPose();
+            ApplyDoorTransformAndCollider(_openAmount, null);
+            RefreshIndicatorColor();
+        }
+
         public string GetPromptText()
         {
             if (isLocked)
@@ -168,6 +184,11 @@ namespace Outpost.Runtime.Room
             Transform t = movingLeaf != null ? movingLeaf : transform;
             _closedLocalPos = t.localPosition;
             _closedLocalRot = t.localRotation;
+            if (secondaryLeaf != null)
+            {
+                _secondaryClosedLocalPos = secondaryLeaf.localPosition;
+                _secondaryClosedLocalRot = secondaryLeaf.localRotation;
+            }
             _poseCaptured = true;
         }
 
@@ -177,37 +198,59 @@ namespace Outpost.Runtime.Room
             float s = Mathf.SmoothStep(0f, 1f, t);
             Transform target = movingLeaf != null ? movingLeaf : transform;
             if (motionType == DoorMotionType.SlideLocalOffset)
+            {
                 target.localPosition = _closedLocalPos + openLocalOffset * s;
+                if (secondaryLeaf != null)
+                    secondaryLeaf.localPosition = _secondaryClosedLocalPos + secondaryOpenLocalOffset * s;
+            }
             else
+            {
                 target.localRotation = _closedLocalRot * Quaternion.Euler(0f, openHingeAngle * s, 0f);
+                if (secondaryLeaf != null)
+                    secondaryLeaf.localRotation = _secondaryClosedLocalRot * Quaternion.Euler(0f, -openHingeAngle * s, 0f);
+            }
 
             SyncColliderState(t, ignoreTransform);
         }
 
         private void SyncColliderState(float openAmt, Transform ignoreTransform)
         {
-            if (blockingCollider == null) return;
-            if (openAmt > 0.22f)
+            bool wantTrigger = openAmt > 0.22f;
+            Collider playerCol = null;
+            bool lookedUpPlayer = false;
+
+            SyncSingleCollider(blockingCollider, wantTrigger, ref playerCol, ref lookedUpPlayer);
+            SyncSingleCollider(secondaryCollider, wantTrigger, ref playerCol, ref lookedUpPlayer);
+        }
+
+        private static void SyncSingleCollider(Collider col, bool wantTrigger, ref Collider playerCol, ref bool lookedUpPlayer)
+        {
+            if (col == null) return;
+            if (wantTrigger)
             {
-                blockingCollider.isTrigger = true;
+                col.isTrigger = true;
                 return;
             }
 
-            if (blockingCollider.isTrigger)
+            if (col.isTrigger)
             {
-                // Avoid pinning the player directly inside the closing doorway threshold
-                var gate = FindAnyObjectByType<PlayerGate>();
-                Collider playerCol = gate != null && gate.PlayerTransform != null
-                    ? gate.PlayerTransform.GetComponentInChildren<Collider>()
-                    : null;
+                if (!lookedUpPlayer)
+                {
+                    lookedUpPlayer = true;
+                    var gate = FindAnyObjectByType<PlayerGate>();
+                    playerCol = gate != null && gate.PlayerTransform != null
+                        ? gate.PlayerTransform.GetComponentInChildren<Collider>()
+                        : null;
+                }
+
                 if (playerCol != null)
                 {
-                    Bounds b = blockingCollider.bounds;
+                    Bounds b = col.bounds;
                     b.Expand(0.18f);
                     if (b.Intersects(playerCol.bounds))
                         return;
                 }
-                blockingCollider.isTrigger = false;
+                col.isTrigger = false;
             }
         }
 
