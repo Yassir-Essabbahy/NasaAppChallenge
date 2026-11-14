@@ -1,0 +1,115 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bf632bdf20d73c4bb7705562dd8e039, type: 3}
+  m_Name: IntroSequenceData
+  m_EditorClassIdentifier: Outpost.Runtime::Outpost.Runtime.Terminal.IntroSequenceData
+  Cards:
+  - id: card1_sun
+    type: 0
+    textLineKeys:
+    - intro.card1.line1
+    accentWordIndex: -1
+    holdTime: 3.5
+    fadeInTime: 1.1
+    fadeOutTime: 0.15
+    hardCutExit: 0
+    sfxSlot: 0
+    customSfx: {fileID: 0}
+    uiShakeIntensity: 0.4
+  - id: card2_stamp
+    type: 1
+    textLineKeys:
+    - intro.card2.line1
+    - intro.card2.line2
+    - intro.card2.line3
+    accentWordIndex: -1
+    holdTime: 2
+    fadeInTime: 0.15
+    fadeOutTime: 0.15
+    hardCutExit: 0
+    sfxSlot: 2
+    customSfx: {fileID: 0}
+    uiShakeIntensity: 0
+  - id: card3_survivors
+    type: 0
+    textLineKeys:
+    - intro.card3.line1
+    accentWordIndex: -1
+    holdTime: 1.6
+    fadeInTime: 0.12
+    fadeOutTime: 0
+    hardCutExit: 1
+    sfxSlot: 1
+    customSfx: {fileID: 0}
+    uiShakeIntensity: 3.5
+  - id: card4_sols
+    type: 0
+    textLineKeys:
+    - intro.card4.line1
+    accentWordIndex: -1
+    holdTime: 1.6
+    fadeInTime: 0.12
+    fadeOutTime: 0
+    hardCutExit: 1
+    sfxSlot: 1
+    customSfx: {fileID: 0}
+    uiShakeIntensity: 3.5
+  - id: card5_commander
+    type: 0
+    textLineKeys:
+    - intro.card5.line1
+    accentWordIndex: 1
+    holdTime: 1.6
+    fadeInTime: 0.12
+    fadeOutTime: 0
+    hardCutExit: 1
+    sfxSlot: 1
+    customSfx: {fileID: 0}
+    uiShakeIntensity: 4.5
+  - id: card6_transfer
+    type: 2
+    textLineKeys:
+    - intro.card6.line1
+    - intro.card6.line2
+    accentWordIndex: -1
+    holdTime: 2.2
+    fadeInTime: 0.15
+    fadeOutTime: 0.15
+    hardCutExit: 0
+    sfxSlot: 2
+    customSfx: {fileID: 0}
+    uiShakeIntensity: 0.4
+  - id: card7_radio
+    type: 3
+    textLineKeys:
+    - intro.card7.line1
+    accentWordIndex: -1
+    holdTime: 2.6
+    fadeInTime: 0.2
+    fadeOutTime: 0.15
+    hardCutExit: 1
+    sfxSlot: 3
+    customSfx: {fileID: 0}
+    uiShakeIntensity: 1
+  - id: card8_titleslam
+    type: 4
+    textLineKeys:
+    - intro.card8.line1
+    - intro.card8.line2
+    accentWordIndex: -1
+    holdTime: 2.4
+    fadeInTime: 0.18
+    fadeOutTime: 0
+    hardCutExit: 1
+    sfxSlot: 1
+    customSfx: {fileID: 0}
+    uiShakeIntensity: 6

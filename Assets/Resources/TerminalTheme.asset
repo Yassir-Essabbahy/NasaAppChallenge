@@ -1,0 +1,70 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6a00a9a043380d4429d203b693f5e544, type: 3}
+  m_Name: TerminalTheme
+  m_EditorClassIdentifier: Outpost.Runtime::Outpost.Runtime.Terminal.UITheme
+  FontTheme: {fileID: 11400000, guid: 276efb1f4d212c84190150a053a7af33, type: 2}
+  Font: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  TitleFontSize: 36
+  HeaderFontSize: 28
+  BodyFontSize: 24
+  DesktopBg: {r: 0.078, g: 0.118, b: 0.188, a: 1}
+  PanelBg: {r: 0.118, g: 0.176, b: 0.271, a: 0.96}
+  PanelRaisedBg: {r: 0.149, g: 0.216, b: 0.329, a: 0.98}
+  WindowBg: {r: 0.102, g: 0.153, b: 0.239, a: 0.99}
+  TaskbarBg: {r: 0.063, g: 0.094, b: 0.153, a: 0.98}
+  TitleBarFocusedBg: {r: 0.165, g: 0.247, b: 0.38, a: 1}
+  TitleBarUnfocusedBg: {r: 0.125, g: 0.184, b: 0.282, a: 1}
+  BorderThickness: 2
+  BorderFocused: {r: 0.42, g: 0.72, b: 1, a: 1}
+  BorderUnfocused: {r: 0.24, g: 0.34, b: 0.48, a: 1}
+  GuidedPulseColor: {r: 1, g: 0.8, b: 0.26, a: 1}
+  TextPrimary: {r: 0.957, g: 0.969, b: 1, a: 1}
+  TextAmber: {r: 1, g: 0.82, b: 0.32, a: 1}
+  TextMuted: {r: 0.65, g: 0.74, b: 0.85, a: 1}
+  StatusOk: {r: 0.18, g: 0.898, b: 0.49, a: 1}
+  StatusWarn: {r: 1, g: 0.745, b: 0.18, a: 1}
+  StatusCrit: {r: 1, g: 0.302, b: 0.345, a: 1}
+  AccentPower: {r: 1, g: 0.831, b: 0.231, a: 1}
+  AccentLifeSupport: {r: 0.22, g: 0.851, b: 0.961, a: 1}
+  AccentGreenhouse: {r: 0.298, g: 0.878, b: 0.478, a: 1}
+  AccentRadiation: {r: 1, g: 0.549, b: 0.22, a: 1}
+  AccentCrew: {r: 1, g: 0.42, b: 0.616, a: 1}
+  AccentComms: {r: 0.69, g: 0.486, b: 1, a: 1}
+  AccentLog: {r: 1, g: 0.722, b: 0.22, a: 1}
+  AccentSources: {r: 0.361, g: 0.659, b: 1, a: 1}
+  AccentHelp: {r: 0.227, g: 0.847, b: 0.71, a: 1}
+  ButtonBg: {r: 0.165, g: 0.243, b: 0.369, a: 1}
+  ButtonAccentBg: {r: 0.169, g: 0.506, b: 0.365, a: 1}
+  ButtonDangerBg: {r: 0.72, g: 0.22, b: 0.25, a: 1}
+  BarTrackBg: {r: 0.067, g: 0.098, b: 0.161, a: 1}
+  MarsWallpaperSprite: {fileID: 21300000, guid: b6793d6e82d24dd4a966907ea43fb1af, type: 3}
+  IconSprites:
+  - {fileID: 21300000, guid: 4cb137a13bdc17843a7aa9cde4d626a2, type: 3}
+  - {fileID: 21300000, guid: d7bba0d61d531db41990c57cf113564e, type: 3}
+  - {fileID: 21300000, guid: 0d76f2539ae9e69408ab016dda907398, type: 3}
+  - {fileID: 21300000, guid: 5c8b336cedf04bd45ac437bcfb508c5a, type: 3}
+  - {fileID: 21300000, guid: 4bd0d85507318fe48bbc48651dc8c867, type: 3}
+  - {fileID: 21300000, guid: 9155ec6f04d60bd4cb4d938a07d369e6, type: 3}
+  - {fileID: 21300000, guid: bfe61f341a04d1047bb4b9787a206189, type: 3}
+  - {fileID: 21300000, guid: e363c7de22d2962408b65f15d66e9b31, type: 3}
+  - {fileID: 21300000, guid: fa92867aeb7ac43478bc7aae84ee08fa, type: 3}
+  - {fileID: 21300000, guid: 53464d84eb69dce4c9ac4c965bc97971, type: 3}
+  - {fileID: 21300000, guid: 9d892564a3bb4bf48a67650cb4426ee6, type: 3}
+  - {fileID: 21300000, guid: 13a2c3f64b462c0479bc608c74177c10, type: 3}
+  - {fileID: 21300000, guid: 8498806a34b938942a3ae5eed99a1f93, type: 3}
+  - {fileID: 21300000, guid: 27cc1efe45e8a7743b8c212e62f2950b, type: 3}
+  - {fileID: 21300000, guid: 479233b0e15ba3f47863b2412b3e309d, type: 3}
+  - {fileID: 21300000, guid: ca818c47a94feee48adeb9b8bffbf6e3, type: 3}
+  - {fileID: 21300000, guid: f8549132738cac14885ef473f62fee9b, type: 3}
+  - {fileID: 21300000, guid: 374f1c8893cb826429dcbf658ce6e4a6, type: 3}
+  - {fileID: 21300000, guid: 7fa0c49103814f14794544248b81df08, type: 3}

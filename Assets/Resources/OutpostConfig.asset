@@ -1,0 +1,83 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cb48925a8707244d990b7d33127e773, type: 3}
+  m_Name: OutpostConfig
+  m_EditorClassIdentifier: Outpost.Runtime::Outpost.Runtime.OutpostConfigAsset
+  Config:
+    TotalSols: 7
+    ActionPointsPerSol: 3
+    StartPower: 80
+    StartOxygen: 70
+    StartWater: 70
+    StartFood: 60
+    StartShielding: 75
+    StartCrewHealth: 100
+    StartFallenCommanderHealth: 60
+    StartCrewMorale: 70
+    LifeSupportMaxPower: 20
+    GreenhouseMaxPower: 15
+    HeatingMaxPower: 15
+    CommsMaxPower: 5
+    BaseSolarGeneration: 60
+    StartPanelDust: 0.22
+    DustAccumulationPerSol: 0.08
+    StormExtraDustPerSol: 0.25
+    StormSolarFactor: 0.4
+    MaxPanelDust: 0.9
+    ZeroBatteryEffectiveness: 0.2
+    OxygenGenAtFull: 12
+    GreenhouseOxygenBonus: 2
+    OxygenUsePerCrew: 2.5
+    WaterGenAtFull: 10
+    WaterUsePerCrew: 1.5
+    WaterFixedLoss: 3.5
+    FoodGenAtFull: 9
+    FoodUsePerCrew: 1.5
+    RationConsumptionMultiplier: 0.75
+    RationMoraleCost: 8
+    HeatingSafeThreshold: 0.5
+    ColdHealthPenalty: 5
+    ColdMoralePenalty: 5
+    BaseFailureChance: 0.22
+    ColdFailureChanceBonus: 0.4
+    FailureSystemDamage: 0.42
+    FailureOxygenLeak: 12
+    LowMoraleThreshold: 20
+    LowMoraleHealthPenalty: 7
+    BaselineSurfaceDoseMsvPerSol: 0.67
+    ShieldingMaxReduction: 0.5
+    SolarFlareUnshieldedDoseMsv: 18
+    SolarFlareShelterMultiplier: 0.1
+    EvaCleanDoseMsv: 0.55
+    DoseHealthThresholdMsv: 3.5
+    DoseHealthPenaltyFactor: 3.4
+    ZeroOxygenHealthPenalty: 45
+    ZeroWaterHealthPenalty: 28
+    ZeroFoodHealthPenalty: 16
+    LowScrubberThreshold: 0.45
+    HighCo2HealthPenalty: 12
+    MinSystemHealth: 0.15
+    CleanPanelsDustReduction: 0.4
+    RepairHealthRestore: 0.45
+    ReinforceShieldingGain: 14
+    ReinforceShieldingPowerCost: 8
+    RestMealMoraleGain: 15
+    RestMealHealthGain: 4
+    TreatCrewHealthGain: 18
+    MedicTreatBonus: 10
+    EngineerRepairBonus: 0.2
+    EngineerPowerSaved: 0
+    ScientistGreenhouseBonus: 0.15
+    PilotMoraleStabilityBonus: 2
+    GradeSMinScore: 88
+    GradeAMinScore: 72
+    GradeBMinScore: 54

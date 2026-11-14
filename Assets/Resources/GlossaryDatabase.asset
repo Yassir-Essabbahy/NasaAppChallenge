@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 308659d4ca42aca45b05941cbfa54bd0, type: 3}
+  m_Name: GlossaryDatabase
+  m_EditorClassIdentifier: Outpost.Runtime::Outpost.Runtime.Terminal.GlossaryDatabase
+  Entries:
+  - Id: sol
+    TermKey: gloss.sol.term
+    DefinitionKey: gloss.sol.def
+    SourceId: SRC-COLD
+  - Id: power
+    TermKey: gloss.power.term
+    DefinitionKey: gloss.power.def
+    SourceId: SRC-DUST
+  - Id: o2
+    TermKey: gloss.o2.term
+    DefinitionKey: gloss.o2.def
+    SourceId: SRC-CO2
+  - Id: water
+    TermKey: gloss.water.term
+    DefinitionKey: gloss.water.def
+    SourceId: SRC-WATER
+  - Id: food
+    TermKey: gloss.food.term
+    DefinitionKey: gloss.food.def
+    SourceId: SRC-CROPS
+  - Id: rad
+    TermKey: gloss.rad.term
+    DefinitionKey: gloss.rad.def
+    SourceId: SRC-RAD
+  - Id: shield
+    TermKey: gloss.shield.term
+    DefinitionKey: gloss.shield.def
+    SourceId: SRC-SHIELD
+  - Id: ap
+    TermKey: gloss.ap.term
+    DefinitionKey: gloss.ap.def
+    SourceId: 
+  - Id: dsn
+    TermKey: gloss.dsn.term
+    DefinitionKey: gloss.dsn.def
+    SourceId: SRC-COMMS
+  - Id: storm
+    TermKey: gloss.storm.term
+    DefinitionKey: gloss.storm.def
+    SourceId: SRC-STORM
