@@ -315,9 +315,13 @@ namespace Outpost.Sim
 
             // M4 Title Screen & Intro
             { "title.subtitle", "JUNIOR ASTRONAUT MISSION TRAINER  |  ARES-4 OUTPOST" },
-            { "title.press_any_key", "PRESS ANY KEY TO BEGIN SHIFT" },
+            { "title.badge", "NASA SPACE APPS CHALLENGE 2026  •  ARES-4 OUTPOST" },
+            { "title.goal_hook", "Keep 4 crewmates alive for 7 sols until rescue touches down." },
+            { "title.press_any_key", "BEGIN SHIFT" },
+            { "title.quick_start", "SKIP INTRO" },
+            { "title.prompt_hint", "Click BEGIN SHIFT or press ENTER / SPACE" },
             { "title.how_to_play", "HOW TO PLAY" },
-            { "title.how_to_play.body", "1. Balance Power, Oxygen, Water, Food, and Shielding for 7 sols until rescue.\n2. Walk with WASD, look with Mouse, press E on Terminal or Radio, ESC to pause or stand up.\n3. Every decision has a cost — keep your crew alive until Touchdown." },
+            { "title.how_to_play.body", "1. Balance Power, Air, Water, Food, and Shielding for 7 sols until rescue.\n\n2. Move with WASD, look with Mouse, press E to interact, ESC to pause or stand up.\n\n3. Every choice has a real trade-off — keep your crew alive until Touchdown." },
             { "title.credits", "CREDITS" },
             { "title.close", "CLOSE" },
             { "intro.skip_hint", "[PRESS ANY KEY TO SKIP INTRO]" },

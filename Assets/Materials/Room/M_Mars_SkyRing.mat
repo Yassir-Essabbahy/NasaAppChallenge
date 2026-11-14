@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: M_Mars_SkyRing
-  m_Shader: {fileID: 4800000, guid: 3a47b3962ed013c459a9abccb4421f4e, type: 3}
+  m_Shader: {fileID: 4800000, guid: 933532a4fcc9baf4fa0491de14d08ed7, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -16,7 +16,7 @@ Material:
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
-  m_CustomRenderQueue: 2000
+  m_CustomRenderQueue: -1
   stringTagMap:
     RenderType: Opaque
   disabledShaderPasses:
@@ -50,7 +50,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
-        m_Texture: {fileID: 2800000, guid: 9ebb237a73e337640bd79600eaf3d5fd, type: 3}
+        m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MetallicGlossMap:
@@ -121,8 +121,8 @@ Material:
     - _ZWrite: 1
     m_Colors:
     - _BaseColor: {r: 0.62, g: 0.34, b: 0.24, a: 1}
-    - _Color: {r: 0.62, g: 0.33999988, b: 0.23999986, a: 1}
-    - _EmissionColor: {r: 0.2355999, g: 0.12919989, b: 0.09119993, a: 0.38}
+    - _Color: {r: 0.62, g: 0.33999997, b: 0.23999995, a: 1}
+    - _EmissionColor: {r: 0.2356, g: 0.1292, b: 0.091199994, a: 0.38}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

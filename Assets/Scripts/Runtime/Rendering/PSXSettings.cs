@@ -23,8 +23,8 @@ namespace Outpost.Runtime.Rendering
         private const string PrefPreset = "Outpost_PSX_Preset";
 
         [Header("Master Toggle & Target Render Resolution")]
-        public bool enabled = true;
-        public PSXResolutionPreset preset = PSXResolutionPreset.Medium;
+        public bool enabled = false;
+        public PSXResolutionPreset preset = PSXResolutionPreset.Off;
         [Min(64)] public int renderWidth = 480;
         [Min(36)] public int renderHeight = 270;
 

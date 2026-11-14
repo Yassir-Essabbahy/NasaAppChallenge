@@ -42,19 +42,17 @@ namespace Outpost.Editor
             EnsureDirectories();
             var factDb = CreateFactDatabaseAssets();
             CreateM5ResourceAssets(out var fontTheme, out var introData, out var psxSettings);
-            var psxMats = PSXMaterialApplier.EnsurePsxMaterialsAndTextures();
 
             var mats = CreateMaterials();
             var prefabs = CreateAllRoomPrefabs(mats);
-            ConvertRoomPrefabsToPsx(prefabs, psxMats);
 
-            AssembleOutpostScene(prefabs, factDb, fontTheme, introData, psxSettings, psxMats);
+            AssembleOutpostScene(prefabs, factDb, fontTheme, introData, psxSettings);
             ConfigureBuildSettings();
             ConfigureWebGlQualitySettings();
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("[OutpostM3Builder] Successfully built M5 PSX scene, prefabs, intro/font/psx assets, and Assets/Scenes/Outpost.unity.");
+            Debug.Log("[OutpostM3Builder] Successfully built plain URP primitive Outpost scene, prefabs, and Assets/Scenes/Outpost.unity.");
         }
 
         private static void EnsureDirectories()
@@ -119,7 +117,7 @@ namespace Outpost.Editor
             if (psxSettings == null)
             {
                 psxSettings = ScriptableObject.CreateInstance<PSXSettings>();
-                psxSettings.ApplyPreset(PSXResolutionPreset.Medium, savePrefs: false);
+                psxSettings.ApplyPreset(PSXResolutionPreset.Off, savePrefs: false);
                 psxSettings.vertexSnapResolution = 160;
                 psxSettings.affineAmount = 0.35f;
                 psxSettings.colorLevels = 24;
@@ -129,30 +127,12 @@ namespace Outpost.Editor
             }
             else
             {
-                // Keep subtle dither and zero grain defaults after CRT removal patch
+                // Keep PSX disabled by default so primitives use standard URP shaders
+                psxSettings.ApplyPreset(PSXResolutionPreset.Off, savePrefs: false);
                 psxSettings.ditherStrength = 0.25f;
                 psxSettings.grainAmount = 0f;
             }
             EditorUtility.SetDirty(psxSettings);
-        }
-
-        private static void ConvertRoomPrefabsToPsx(PrefabSet p, PSXMaterialApplier.PsxMaterialSet psxMats)
-        {
-            GameObject[] all =
-            {
-                p.Floor, p.Ceiling, p.Wall,
-                p.Desk, p.Chair, p.Monitor, p.Radio,
-                p.WindowFrame, p.MarsExterior,
-                p.StatusLightsPanel, p.OverheadAlarmLight,
-                p.MedbayDoor, p.CrewDoor, p.Locker
-            };
-            foreach (var prefab in all)
-            {
-                if (prefab == null) continue;
-                string path = AssetDatabase.GetAssetPath(prefab);
-                if (!string.IsNullOrEmpty(path))
-                    PSXMaterialApplier.ConvertPrefabAssetToPsx(path, psxMats);
-            }
         }
 
         private static void ConfigureWebGlQualitySettings()
@@ -262,7 +242,7 @@ namespace Outpost.Editor
         private class MaterialSet
         {
             public Material Floor, Wall, Ceiling, Trim;
-            public Material Desk, Chair, MonitorBody, MonitorScreen;
+            public Material Desk, Chair, LampBulb, MonitorBody, MonitorScreen;
             public Material RadioBody, LedIndicator;
             public Material MedbayDoor, CrewDoor, Locker;
             public Material WindowGlass, MarsGround, MarsRock, MarsSky, MarsSun, MarsDust;
@@ -281,6 +261,7 @@ namespace Outpost.Editor
                 Trim = CreateUrpLitMat("M_Room_Trim", new Color(0.18f, 0.19f, 0.22f, 1f), 0.15f),
                 Desk = CreateUrpLitMat("M_Desk", new Color(0.29f, 0.31f, 0.34f, 1f), 0.12f),
                 Chair = CreateUrpLitMat("M_Chair", new Color(0.16f, 0.18f, 0.22f, 1f), 0.08f),
+                LampBulb = CreateUrpEmissiveMat("M_Desk_LampBulb", new Color(1.00f, 0.90f, 0.68f, 1f), 1.6f),
                 MonitorBody = CreateUrpLitMat("M_Monitor_Body", new Color(0.24f, 0.25f, 0.28f, 1f), 0.15f),
                 MonitorScreen = CreateUrpEmissiveMat("M_Monitor_Screen", new Color(0.05f, 0.18f, 0.24f, 1f), 1.0f),
                 RadioBody = CreateUrpLitMat("M_Radio_Body", new Color(0.20f, 0.23f, 0.20f, 1f), 0.12f),
@@ -358,6 +339,8 @@ namespace Outpost.Editor
                 AssetDatabase.CreateAsset(mat, path);
             }
             mat.shader = shader;
+            mat.SetTexture("_BaseMap", null);
+            mat.SetTexture("_MainTex", null);
             mat.SetColor("_BaseColor", color);
             mat.SetColor("_Color", color);
             mat.SetFloat("_Smoothness", smoothness);
@@ -377,6 +360,8 @@ namespace Outpost.Editor
                 AssetDatabase.CreateAsset(mat, path);
             }
             mat.shader = shader;
+            mat.SetTexture("_BaseMap", null);
+            mat.SetTexture("_MainTex", null);
             mat.SetColor("_BaseColor", color);
             mat.SetColor("_Color", color);
             mat.SetFloat("_Smoothness", 0.1f);
@@ -397,6 +382,8 @@ namespace Outpost.Editor
                 AssetDatabase.CreateAsset(mat, path);
             }
             mat.shader = shader;
+            mat.SetTexture("_BaseMap", null);
+            mat.SetTexture("_MainTex", null);
             mat.SetColor("_BaseColor", color);
             mat.SetColor("_Color", color);
             EditorUtility.SetDirty(mat);
@@ -423,6 +410,8 @@ namespace Outpost.Editor
                 AssetDatabase.CreateAsset(mat, path);
             }
             mat.shader = shader;
+            mat.SetTexture("_BaseMap", null);
+            mat.SetTexture("_MainTex", null);
             mat.SetFloat("_Surface", 1f); // Transparent in URP
             mat.SetFloat("_Blend", 0f);
             mat.SetOverrideTag("RenderType", "Transparent");
@@ -540,7 +529,7 @@ namespace Outpost.Editor
             AddPrimitive(lamp, PrimitiveType.Cylinder, "LampBase", new Vector3(0f, 0.02f, 0f), Vector3.zero, new Vector3(0.16f, 0.02f, 0.16f), m.Trim, removeCollider: true);
             AddPrimitive(lamp, PrimitiveType.Cylinder, "LampStem", new Vector3(0f, 0.22f, 0f), new Vector3(12f, 0f, -8f), new Vector3(0.03f, 0.22f, 0.03f), m.Trim, removeCollider: true);
             AddPrimitive(lamp, PrimitiveType.Cube, "LampShade", new Vector3(0.05f, 0.42f, -0.05f), new Vector3(24f, 20f, 0f), new Vector3(0.16f, 0.08f, 0.20f), m.MonitorBody, removeCollider: true);
-            AddPrimitive(lamp, PrimitiveType.Sphere, "LampBulb", new Vector3(0.05f, 0.37f, -0.05f), Vector3.zero, new Vector3(0.065f, 0.065f, 0.065f), null, removeCollider: true);
+            AddPrimitive(lamp, PrimitiveType.Sphere, "LampBulb", new Vector3(0.05f, 0.37f, -0.05f), Vector3.zero, new Vector3(0.065f, 0.065f, 0.065f), m.LampBulb, removeCollider: true);
             return SavePrefab(root, "PF_Desk");
         }
 
@@ -851,8 +840,7 @@ namespace Outpost.Editor
             FactDatabase factDb,
             FontTheme fontTheme,
             IntroSequenceData introData,
-            PSXSettings psxSettings,
-            PSXMaterialApplier.PsxMaterialSet psxMats)
+            PSXSettings psxSettings)
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -962,22 +950,18 @@ namespace Outpost.Editor
             }
             var builtInHud = fpsInstance.GetComponentInChildren<Canvas>(true);
 
-            // Convert any loose scene renderers (such as player capsule if visible) cleanly to PSX shaders
-            var looseRenderers = Object.FindObjectsByType<Renderer>(FindObjectsInactive.Include);
-            foreach (var lr in looseRenderers)
-                PSXMaterialApplier.ConvertRendererToPsx(lr, psxMats);
-
             // Guarantee strictly 1 Camera and 1 AudioListener in Outpost scene
             var allCams = Object.FindObjectsByType<Camera>(FindObjectsInactive.Include);
             var allListeners = Object.FindObjectsByType<AudioListener>(FindObjectsInactive.Include);
             if (allCams.Length != 1 || allListeners.Length != 1)
                 Debug.LogWarning($"[OutpostM3Builder] Expected 1 Camera / 1 AudioListener, found {allCams.Length} Cameras / {allListeners.Length} AudioListeners.");
 
-            // --- PSX WORLD VIEW OVERLAY CANVAS (Lowest Sorting Order = -100) ---
+            // --- OPTIONAL WORLD VIEW OVERLAY CANVAS (Inactive by default; standard native URP rendering) ---
             var worldViewGo = new GameObject("WorldView", typeof(Canvas), typeof(CanvasScaler));
             var worldViewCanvas = worldViewGo.GetComponent<Canvas>();
             worldViewCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
             worldViewCanvas.sortingOrder = -100;
+            worldViewGo.SetActive(false);
 
             var worldBgGo = new GameObject("WorldViewBackdrop", typeof(RectTransform), typeof(Image));
             worldBgGo.transform.SetParent(worldViewGo.transform, false);
@@ -991,7 +975,7 @@ namespace Outpost.Editor
             StretchRect(worldImgGo.GetComponent<RectTransform>());
             var worldViewRawImage = worldImgGo.GetComponent<RawImage>();
             worldViewRawImage.color = Color.white;
-            worldViewRawImage.material = psxMats != null ? psxMats.Post : null;
+            worldViewRawImage.material = null;
             worldViewRawImage.raycastTarget = false;
             var fitter = worldImgGo.GetComponent<AspectRatioFitter>();
             fitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
@@ -1104,7 +1088,7 @@ namespace Outpost.Editor
                 worldViewCanvas,
                 worldViewRawImage,
                 fitter,
-                psxMats != null ? psxMats.Post : null);
+                null);
 
             playerGate.ConfigureReferences(
                 fpsMono,

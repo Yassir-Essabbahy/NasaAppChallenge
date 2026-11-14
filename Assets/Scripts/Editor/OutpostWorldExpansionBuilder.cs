@@ -352,6 +352,8 @@ namespace Outpost.Editor
             Shader sh = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
             if (mat == null) { mat = new Material(sh); AssetDatabase.CreateAsset(mat, path); }
             mat.shader = sh;
+            mat.SetTexture("_BaseMap", null);
+            mat.SetTexture("_MainTex", null);
             mat.SetColor("_BaseColor", col);
             mat.SetColor("_Color", col);
             mat.SetFloat("_Smoothness", smoothness);
@@ -367,6 +369,8 @@ namespace Outpost.Editor
             Shader sh = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
             if (mat == null) { mat = new Material(sh); AssetDatabase.CreateAsset(mat, path); }
             mat.shader = sh;
+            mat.SetTexture("_BaseMap", null);
+            mat.SetTexture("_MainTex", null);
             mat.SetColor("_BaseColor", col);
             mat.SetColor("_Color", col);
             mat.SetFloat("_Smoothness", 0.12f);

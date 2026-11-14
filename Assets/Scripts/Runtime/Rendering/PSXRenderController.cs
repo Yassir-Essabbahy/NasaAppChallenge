@@ -206,7 +206,8 @@ namespace Outpost.Runtime.Rendering
         {
             if (worldCamera == null) return;
 
-            bool useLowRes = settings != null && settings.enabled && settings.preset != PSXResolutionPreset.Off;
+            bool hasPostShader = postMaterial != null || Shader.Find("Outpost/PSXPost") != null;
+            bool useLowRes = settings != null && settings.enabled && settings.preset != PSXResolutionPreset.Off && hasPostShader;
             if (!useLowRes)
             {
                 if (worldViewCanvas != null && worldViewCanvas.gameObject.activeSelf)

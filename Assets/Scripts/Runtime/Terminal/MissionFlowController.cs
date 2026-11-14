@@ -7,6 +7,7 @@ using Outpost.Runtime.Room;
 using Outpost.Sim;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
@@ -68,6 +69,10 @@ namespace Outpost.Runtime.Terminal
         // Title UI
         private GameObject _titlePanel;
         private TextMeshProUGUI _titlePressAnyKeyText;
+        private Button _titleStartBtn;
+        private GameObject _titleHowBtnGo;
+        private GameObject _titleQuickStartBtnGo;
+        private GameObject _titleCredBtnGo;
         private GameObject _howToPlayModal;
 
         // Cinematic Intro UI
@@ -253,7 +258,7 @@ namespace Outpost.Runtime.Terminal
             {
                 if (_titlePressAnyKeyText != null)
                 {
-                    float a = 0.45f + 0.55f * (0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 3.5f));
+                    float a = 0.55f + 0.45f * (0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 3.2f));
                     Color c = _theme.TextAmber;
                     c.a = a;
                     _titlePressAnyKeyText.color = c;
@@ -262,14 +267,24 @@ namespace Outpost.Runtime.Terminal
                 if (_howToPlayModal != null && _howToPlayModal.activeSelf)
                 {
                     if (kb != null && kb.escapeKey.wasPressedThisFrame)
+                    {
+                        _audioManager?.PlayUiClick();
                         _howToPlayModal.SetActive(false);
+                    }
                     return;
                 }
 
-                if (Time.frameCount > _stateEnteredFrame && AnyNonDebugKeyPressedThisFrame(kb))
+                if (Time.frameCount > _stateEnteredFrame && ShouldStartFromTitleKeyboard(kb))
                 {
                     _audioManager?.PlayUiClick();
                     StartIntroSequence();
+                }
+            }
+            else if (_state == FlowState.Credits)
+            {
+                if (kb != null && Time.frameCount > _stateEnteredFrame && kb.escapeKey.wasPressedThisFrame)
+                {
+                    ReturnFromCredits();
                 }
             }
             else if (_state == FlowState.Intro)
@@ -314,12 +329,22 @@ namespace Outpost.Runtime.Terminal
             }
         }
 
-        private bool AnyNonDebugKeyPressedThisFrame(Keyboard kb)
+        private bool ShouldStartFromTitleKeyboard(Keyboard kb)
         {
             if (kb == null) return false;
-            if (!kb.anyKey.wasPressedThisFrame) return false;
-            if (kb.backquoteKey.wasPressedThisFrame) return false;
             if (_terminalController != null && _terminalController.IsDebugPanelVisible) return false;
+
+            bool confirmPressed =
+                kb.enterKey.wasPressedThisFrame ||
+                kb.numpadEnterKey.wasPressedThisFrame ||
+                kb.spaceKey.wasPressedThisFrame;
+            if (!confirmPressed) return false;
+
+            var es = EventSystem.current;
+            var selected = es != null ? es.currentSelectedGameObject : null;
+            if (selected != null && (_titleStartBtn == null || selected != _titleStartBtn.gameObject))
+                return false;
+
             return true;
         }
 
@@ -361,7 +386,34 @@ namespace Outpost.Runtime.Terminal
             HideAllFlowPanels();
             _roomController?.TeleportPlayerToSpawn();
             _roomController?.SetFlowLocked(unlockCursor: true);
+            EventSystem.current?.SetSelectedGameObject(null);
+            RefreshTitleActionRow();
             if (_titlePanel != null) _titlePanel.SetActive(true);
+        }
+
+        private void RefreshTitleActionRow()
+        {
+            bool introSeen = PlayerPrefs.GetInt(IntroSeenPrefsKey, 0) == 1;
+            if (_titleQuickStartBtnGo != null)
+                _titleQuickStartBtnGo.SetActive(introSeen);
+
+            if (_titleHowBtnGo == null || _titleCredBtnGo == null)
+                return;
+
+            var howRect = _titleHowBtnGo.GetComponent<RectTransform>();
+            var credRect = _titleCredBtnGo.GetComponent<RectTransform>();
+            if (introSeen && _titleQuickStartBtnGo != null)
+            {
+                var quickRect = _titleQuickStartBtnGo.GetComponent<RectTransform>();
+                TerminalUiBuilder.SetAnchors(howRect, 0.08f, 0.10f, 0.34f, 0.20f);
+                TerminalUiBuilder.SetAnchors(quickRect, 0.37f, 0.10f, 0.63f, 0.20f);
+                TerminalUiBuilder.SetAnchors(credRect, 0.66f, 0.10f, 0.92f, 0.20f);
+            }
+            else
+            {
+                TerminalUiBuilder.SetAnchors(howRect, 0.14f, 0.10f, 0.47f, 0.20f);
+                TerminalUiBuilder.SetAnchors(credRect, 0.53f, 0.10f, 0.86f, 0.20f);
+            }
         }
 
         public void StartIntroSequence()
@@ -1314,58 +1366,114 @@ namespace Outpost.Runtime.Terminal
 
         private void BuildTitlePanel(RectTransform parent)
         {
-            _titlePanel = CreateFullscreenBg(parent, "TitlePanel", Color.black);
+            _titlePanel = CreateFullscreenBg(parent, "TitlePanel", _theme.DesktopBg);
             var root = _titlePanel.GetComponent<RectTransform>();
 
-            var titleTmp = TerminalUiBuilder.CreateText("GameTitle", root, _theme, 68f, _theme.TextAmber, TextAlignmentOptions.Center, _textScaler);
+            // Mars dusk horizon artwork backdrop (from Assets/Art/UI/Icons/MarsWallpaper.png or procedural fallback)
+            var wallSprite = TerminalUiArt.GetMarsWallpaperSprite(_theme);
+            if (wallSprite != null)
+            {
+                var wallRect = TerminalUiBuilder.CreateRect("MarsBackdrop", root);
+                TerminalUiBuilder.SetStretch(wallRect);
+                var wallImg = wallRect.gameObject.AddComponent<Image>();
+                wallImg.sprite = wallSprite;
+                wallImg.color = Color.white;
+                wallImg.preserveAspect = false;
+                wallImg.raycastTarget = false;
+            }
+
+            // Subtle dark scrim so centered Mission Control card reads effortlessly
+            var scrimRect = TerminalUiBuilder.CreateRect("TitleScrim", root);
+            TerminalUiBuilder.SetStretch(scrimRect);
+            var scrimImg = scrimRect.gameObject.AddComponent<Image>();
+            scrimImg.color = new Color(0.03f, 0.05f, 0.10f, 0.46f);
+            scrimImg.raycastTarget = false;
+
+            // Main Mission Control Hero Card
+            var card = TerminalUiBuilder.CreateFlatPanel("TitleCard", root, _theme.WindowBg, _theme.BorderFocused, 2f, addDropShadow: true);
+            TerminalUiBuilder.SetAnchors(card, 0.18f, 0.12f, 0.82f, 0.88f);
+            var cardInner = TerminalUiBuilder.GetInner(card);
+
+            var badgeTmp = TerminalUiBuilder.CreateText("MissionBadge", cardInner, _theme, 24f, _theme.AccentLifeSupport, TextAlignmentOptions.Center, _textScaler);
+            badgeTmp.font = _theme.ResolveStampFont();
+            badgeTmp.fontStyle = FontStyles.Bold;
+            badgeTmp.text = Localization.Get("title.badge");
+            TerminalUiBuilder.SetAnchors(badgeTmp.rectTransform, 0.06f, 0.86f, 0.94f, 0.94f);
+
+            var titleTmp = TerminalUiBuilder.CreateText("GameTitle", cardInner, _theme, 58f, _theme.TextAmber, TextAlignmentOptions.Center, _textScaler);
             titleTmp.font = _theme.ResolveTitleFont();
             titleTmp.fontStyle = FontStyles.Bold;
-            titleTmp.characterSpacing = 12f;
+            titleTmp.characterSpacing = 4f;
             titleTmp.text = Localization.Get("game.title").ToUpperInvariant();
-            TerminalUiBuilder.SetAnchors(titleTmp.rectTransform, 0.08f, 0.62f, 0.92f, 0.78f);
+            TerminalUiBuilder.SetAnchors(titleTmp.rectTransform, 0.04f, 0.68f, 0.96f, 0.85f);
 
-            var subTmp = TerminalUiBuilder.CreateText("Subtitle", root, _theme, 26f, _theme.TextMuted, TextAlignmentOptions.Center, _textScaler);
-            subTmp.font = _theme.ResolveStampFont();
-            subTmp.text = Localization.Get("title.subtitle");
-            TerminalUiBuilder.SetAnchors(subTmp.rectTransform, 0.12f, 0.53f, 0.88f, 0.61f);
+            var ruleRect = TerminalUiBuilder.CreateRect("TitleAmberRule", cardInner);
+            TerminalUiBuilder.SetAnchors(ruleRect, 0.25f, 0.655f, 0.75f, 0.661f);
+            var ruleImg = ruleRect.gameObject.AddComponent<Image>();
+            ruleImg.color = _theme.TextAmber;
+            ruleImg.raycastTarget = false;
 
-            var startBtn = TerminalUiBuilder.CreateButton("PressAnyKeyBtn", root, Localization.Get("title.press_any_key"), _theme, Color.black, _theme.TextAmber, _theme.TextAmber, 30f, () =>
+            var subTmp = TerminalUiBuilder.CreateText("Subtitle", cardInner, _theme, 24f, _theme.TextPrimary, TextAlignmentOptions.Center, _textScaler);
+            subTmp.text = Localization.Get("title.goal_hook");
+            TerminalUiBuilder.SetAnchors(subTmp.rectTransform, 0.08f, 0.54f, 0.92f, 0.64f);
+
+            // 5 Outpost System Chips (visual onboarding at a glance)
+            CreateTitleSystemChip(cardInner, "ChipPower", TerminalIconId.Battery, Localization.Get("ui.power"), _theme.AccentPower, 0.08f, 0.23f);
+            CreateTitleSystemChip(cardInner, "ChipO2", TerminalIconId.Oxygen, Localization.Get("ui.oxygen"), _theme.AccentLifeSupport, 0.25f, 0.40f);
+            CreateTitleSystemChip(cardInner, "ChipWater", TerminalIconId.Water, Localization.Get("ui.water"), _theme.AccentLifeSupport, 0.42f, 0.58f);
+            CreateTitleSystemChip(cardInner, "ChipFood", TerminalIconId.Food, Localization.Get("ui.food"), _theme.AccentGreenhouse, 0.60f, 0.75f);
+            CreateTitleSystemChip(cardInner, "ChipShield", TerminalIconId.Shield, Localization.Get("mc.status.shield").ToUpperInvariant(), _theme.AccentRadiation, 0.77f, 0.92f);
+
+            _titleStartBtn = TerminalUiBuilder.CreateButton("PressAnyKeyBtn", cardInner, Localization.Get("title.press_any_key"), _theme, _theme.ButtonAccentBg, _theme.TextAmber, _theme.TextPrimary, 30f, () =>
             {
                 _audioManager?.PlayUiClick();
                 StartIntroSequence();
-            }, _textScaler);
-            TerminalUiBuilder.SetAnchors(startBtn.GetComponent<RectTransform>(), 0.28f, 0.36f, 0.72f, 0.45f);
-            _titlePressAnyKeyText = startBtn.GetComponentInChildren<TextMeshProUGUI>();
-            _titlePressAnyKeyText.font = _theme.ResolveStampFont();
+            }, _textScaler, addDropShadow: true);
+            TerminalUiBuilder.SetAnchors(_titleStartBtn.GetComponent<RectTransform>(), 0.22f, 0.23f, 0.78f, 0.37f);
 
-            var howBtn = TerminalUiBuilder.CreateButton("HowToPlayBtn", root, Localization.Get("title.how_to_play"), _theme, _theme.PanelBg, _theme.BorderUnfocused, _theme.TextPrimary, 24f, () =>
+            var howBtn = TerminalUiBuilder.CreateButton("HowToPlayBtn", cardInner, Localization.Get("title.how_to_play"), _theme, _theme.ButtonBg, _theme.BorderUnfocused, _theme.TextPrimary, 24f, () =>
             {
                 _audioManager?.PlayUiClick();
                 _howToPlayModal.SetActive(true);
             }, _textScaler);
-            TerminalUiBuilder.SetAnchors(howBtn.GetComponent<RectTransform>(), 0.32f, 0.20f, 0.49f, 0.28f);
+            _titleHowBtnGo = howBtn.gameObject;
 
-            var credBtn = TerminalUiBuilder.CreateButton("CreditsBtn", root, Localization.Get("title.credits"), _theme, _theme.PanelBg, _theme.BorderUnfocused, _theme.TextPrimary, 24f, () =>
+            var quickBtn = TerminalUiBuilder.CreateButton("QuickStartBtn", cardInner, Localization.Get("title.quick_start"), _theme, _theme.PanelRaisedBg, _theme.BorderFocused, _theme.TextAmber, 24f, () =>
+            {
+                _audioManager?.PlayUiClick();
+                StartBootAndLogin(skipTyping: false);
+            }, _textScaler);
+            _titleQuickStartBtnGo = quickBtn.gameObject;
+
+            var credBtn = TerminalUiBuilder.CreateButton("CreditsBtn", cardInner, Localization.Get("title.credits"), _theme, _theme.ButtonBg, _theme.BorderUnfocused, _theme.TextPrimary, 24f, () =>
             {
                 _audioManager?.PlayUiClick();
                 EnterCreditsState(FlowState.Title);
             }, _textScaler);
-            TerminalUiBuilder.SetAnchors(credBtn.GetComponent<RectTransform>(), 0.51f, 0.20f, 0.68f, 0.28f);
+            _titleCredBtnGo = credBtn.gameObject;
+
+            _titlePressAnyKeyText = TerminalUiBuilder.CreateText("StartPromptHint", cardInner, _theme, 24f, _theme.TextAmber, TextAlignmentOptions.Center, _textScaler);
+            _titlePressAnyKeyText.font = _theme.ResolveStampFont();
+            _titlePressAnyKeyText.text = Localization.Get("title.prompt_hint");
+            TerminalUiBuilder.SetAnchors(_titlePressAnyKeyText.rectTransform, 0.08f, 0.02f, 0.92f, 0.085f);
+
+            RefreshTitleActionRow();
 
             // How To Play Modal
-            _howToPlayModal = CreateFullscreenBg(root, "HowToPlayModal", new Color(0f, 0f, 0f, 0.85f));
-            var box = TerminalUiBuilder.CreateFlatPanel("HowBox", _howToPlayModal.GetComponent<RectTransform>(), _theme.WindowBg, _theme.BorderFocused, 2f);
-            TerminalUiBuilder.SetAnchors(box, 0.20f, 0.26f, 0.80f, 0.74f);
+            _howToPlayModal = CreateFullscreenBg(root, "HowToPlayModal", new Color(0.02f, 0.03f, 0.06f, 0.84f));
+            var box = TerminalUiBuilder.CreateFlatPanel("HowBox", _howToPlayModal.GetComponent<RectTransform>(), _theme.WindowBg, _theme.BorderFocused, 2f, addDropShadow: true);
+            TerminalUiBuilder.SetAnchors(box, 0.18f, 0.20f, 0.82f, 0.80f);
             var inner = TerminalUiBuilder.GetInner(box);
 
-            var hTitle = TerminalUiBuilder.CreateText("HowTitle", inner, _theme, 32f, _theme.TextAmber, TextAlignmentOptions.Center, _textScaler);
+            var hTitle = TerminalUiBuilder.CreateText("HowTitle", inner, _theme, 34f, _theme.TextAmber, TextAlignmentOptions.Center, _textScaler);
+            hTitle.font = _theme.ResolveTitleFont();
             hTitle.fontStyle = FontStyles.Bold;
             hTitle.text = Localization.Get("title.how_to_play");
-            TerminalUiBuilder.SetAnchors(hTitle.rectTransform, 0f, 0.78f, 1f, 0.94f);
+            TerminalUiBuilder.SetAnchors(hTitle.rectTransform, 0.04f, 0.80f, 0.96f, 0.95f);
 
             var hBody = TerminalUiBuilder.CreateText("HowBody", inner, _theme, 25f, _theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
             hBody.text = Localization.Get("title.how_to_play.body");
-            TerminalUiBuilder.SetAnchors(hBody.rectTransform, 0.06f, 0.24f, 0.94f, 0.76f);
+            TerminalUiBuilder.SetAnchors(hBody.rectTransform, 0.07f, 0.24f, 0.93f, 0.78f);
 
             var closeBtn = TerminalUiBuilder.CreateButton("CloseHowBtn", inner, Localization.Get("title.close"), _theme, _theme.ButtonAccentBg, _theme.BorderFocused, _theme.TextPrimary, 24f, () =>
             {
@@ -1376,6 +1484,24 @@ namespace Outpost.Runtime.Terminal
 
             _howToPlayModal.SetActive(false);
             _titlePanel.SetActive(false);
+        }
+
+        private void CreateTitleSystemChip(RectTransform parent, string name, TerminalIconId iconId, string label, Color accent, float xMin, float xMax)
+        {
+            var chip = TerminalUiBuilder.CreateFlatPanel(name, parent, _theme.PanelRaisedBg, accent * 0.72f, 2f);
+            TerminalUiBuilder.SetAnchors(chip, xMin, 0.41f, xMax, 0.51f);
+            var inner = TerminalUiBuilder.GetInner(chip);
+
+            var icon = TerminalUiBuilder.CreateIcon("Icon", inner, iconId, accent);
+            TerminalUiBuilder.SetAnchors(icon.rectTransform, 0.10f, 0.20f, 0.30f, 0.80f);
+
+            var txt = TerminalUiBuilder.CreateText("Label", inner, _theme, 24f, _theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
+            txt.fontStyle = FontStyles.Bold;
+            txt.fontSizeMin = 18f;
+            txt.enableAutoSizing = true;
+            txt.fontSizeMax = 24f;
+            txt.text = label;
+            TerminalUiBuilder.SetAnchors(txt.rectTransform, 0.35f, 0.08f, 0.94f, 0.92f);
         }
 
         private void BuildIntroPanel(RectTransform parent)
