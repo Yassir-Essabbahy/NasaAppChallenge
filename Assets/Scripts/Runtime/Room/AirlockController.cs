@@ -26,7 +26,10 @@ namespace Outpost.Runtime.Room
         private MaterialPropertyBlock _mpb;
 
         private AudioManager _audio;
+        private Audio.AnnouncerSystem _announcer;
         private Action<string, float> _bannerCallback;
+
+        public Func<bool> IsWearingSuitCheck { get; set; }
 
         private static readonly int BaseColorProp = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorProp = Shader.PropertyToID("_Color");
@@ -34,6 +37,15 @@ namespace Outpost.Runtime.Room
 
         public bool IsDepressurized => _isDepressurized;
         public bool IsCycling => _isCycling;
+
+        /// <summary>
+        /// Pure airlock suit gate helper used by both runtime cycle attempts and EditMode unit tests:
+        /// cycling inward is always allowed; cycling outward requires wearing the suit.
+        /// </summary>
+        public static bool CanCycleWithSuit(bool isCurrentlyDepressurized, bool isWearingSuit)
+        {
+            return isCurrentlyDepressurized || isWearingSuit;
+        }
 
         private void Awake()
         {
@@ -58,10 +70,16 @@ namespace Outpost.Runtime.Room
             UpdateChamberVisuals(null);
         }
 
-        public void BindRuntime(AudioManager audioManager, Action<string, float> showBanner)
+        public void BindRuntime(AudioManager audioManager, Action<string, float> showBanner, Audio.AnnouncerSystem announcer = null)
         {
             _audio = audioManager;
             _bannerCallback = showBanner;
+            if (announcer != null) _announcer = announcer;
+        }
+
+        public void SetAnnouncer(Audio.AnnouncerSystem announcer)
+        {
+            _announcer = announcer;
         }
 
         public void OnSessionSnapshotChanged(SessionSnapshot snap)
@@ -103,6 +121,16 @@ namespace Outpost.Runtime.Room
                 return false;
             }
 
+            // Outward EVA suit gate: cycling inward is always allowed
+            bool wearingSuit = IsWearingSuitCheck == null || IsWearingSuitCheck();
+            if (!CanCycleWithSuit(_isDepressurized, wearingSuit))
+            {
+                _audio?.PlayDoorLocked();
+                _announcer?.PlayLineIfPresent("airlock_denied", bypassSuppression: true);
+                statusMessage = Localization.Get("suit_required");
+                return false;
+            }
+
             _debugUnlocked = false;
             _targetDepressurize = !_isDepressurized;
             _isCycling = true;
@@ -124,6 +152,7 @@ namespace Outpost.Runtime.Room
             return true;
         }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
         public void DebugUnlock()
         {
             _debugUnlocked = true;
@@ -132,6 +161,7 @@ namespace Outpost.Runtime.Room
             outerDoor?.DebugUnlock();
             UpdateChamberVisuals(null);
         }
+#endif
 
         public void SetDepressurizedImmediateForTeleport(bool depressurized)
         {

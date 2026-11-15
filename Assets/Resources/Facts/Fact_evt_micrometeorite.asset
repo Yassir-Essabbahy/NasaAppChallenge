@@ -12,10 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3126784b1a2bc234a81ffd836bbe6651, type: 3}
   m_Name: Fact_evt_micrometeorite
   m_EditorClassIdentifier: Outpost.Runtime::Outpost.Runtime.Terminal.FactCard
-  id: fact_micrometeorite
-  title: Regolith & Whipple Shielding
-  text: '[PLACEHOLDER] Thin Martian air allows high-speed micrometeoroids to strike
-    habitats, making layered Whipple shields and regolith protection critical.'
-  sourceId: src_shield
+  id: fact_airlock_dust
+  title: Habitat Shielding Hazards
+  text: A habitat must protect its crew from radiation, tiny meteorites, dust, vacuum
+    and extreme temperatures.
+  sourceId: sis-habitat
+  sourceIds:
+  - sis-habitat
   relatedEventId: evt_micrometeorite
   relatedConstantId: ShieldingMaxReduction
+  titleKey: fact.fact_airlock_dust.title
+  textKey: fact.fact_airlock_dust.text

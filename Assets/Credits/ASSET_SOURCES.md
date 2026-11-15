@@ -30,20 +30,20 @@ Generated cleanly from shared `SourcesDatabase` (`Assets/Resources/SourcesDataba
 
 | Name | Author / Organization | Source URL | License | Date Added | Where Used in Project | Modified? |
 |---|---|---|---|---|---|---|
-| Terminal & HUD Typography | TextMeshPro / Unity LegacyRuntime / Google Fonts (if ShareTech/Roboto/Orbitron installed — UNVERIFIED exact TTF source) | Check Assets/Fonts or FontTheme assets | SIL OFL 1.1 / Unity Built-in (verify before submission) | 2026-11-14 | Assets/Art/UI/TerminalTheme.asset, OutpostFlowCanvas, RoomHudCanvas | No |
+| Terminal & HUD Typography | TextMeshPro / Unity LegacyRuntime / Google Fonts (if ShareTech/Roboto/Orbitron installed — UNVERIFIED exact TTF source) | Check Assets/Fonts or FontTheme assets | SIL OFL 1.1 / Unity Built-in (UNVERIFIED - check before submission) | 2026-11-14 | Assets/Art/UI/TerminalTheme.asset, OutpostFlowCanvas, RoomHudCanvas | No |
 
 ## Sound effects
 
 | Name | Author / Organization | Source URL | License | Date Added | Where Used in Project | Modified? |
 |---|---|---|---|---|---|---|
-| Warning.wav (Facility Hazard Alert Sting) | Project Audio Import (Exact Author/Source URL UNVERIFIED — update before submission) | Assets/Sounds/VOX/Warning.wav (origin URL UNVERIFIED) | Verify original SFX license before distribution | 2026-11-15 | Assets/Sounds/VOX/Warning.wav -> baked lightly via Sting preset to Assets/Audio/Announcer/Processed/alert_sting.wav | Original untouched; baked copy trimmed, lightly reverbed (-1.5 dBFS mono 22050 Hz) |
-| Outpost Atmosphere & Door SFX (SpaceShip.mp3, MarsSound.wav, DoorOpen.wav, CloseDoor.wav) | Project Audio Import (Exact Author/Source URL UNVERIFIED — update before submission) | Assets/Sounds/Atmosphere/ (origin URL UNVERIFIED) | Verify original SFX license before distribution | 2026-11-15 | AudioManager in Outpost.unity: SpaceShip.mp3 (interior loop), MarsSound.wav (exterior Mars loop), DoorOpen.wav / CloseDoor.wav (facility & airlock doors) | Originals untouched; configured Unity AudioImporter compression/loadType (Streaming/CompressedInMemory/DecompressOnLoad) |
+| Warning.wav (Facility Hazard Alert Sting) | Project Audio Import (Exact Author/Source URL UNVERIFIED — update before submission) | Assets/Sounds/VOX/Warning.wav (origin URL UNVERIFIED) | UNVERIFIED - check before submission (verify original SFX license) | 2026-11-15 | Assets/Sounds/VOX/Warning.wav -> baked lightly via Sting preset to Assets/Audio/Announcer/Processed/alert_sting.wav | Original untouched; baked copy trimmed, lightly reverbed (-1.5 dBFS mono 22050 Hz) |
+| Outpost Atmosphere & Door SFX (SpaceShip.mp3, MarsSound.wav, DoorOpen.wav, CloseDoor.wav, footsteps) | Project Audio Import (Exact Author/Source URL UNVERIFIED — update before submission) | Assets/Sounds/Atmosphere/ (origin URL UNVERIFIED) | UNVERIFIED - check before submission (verify original SFX license) | 2026-11-15 | AudioManager in Outpost.unity: SpaceShip.mp3 (interior loop), MarsSound.wav (exterior Mars loop), DoorOpen.wav / CloseDoor.wav, exterior stone footsteps | Originals untouched; configured Unity AudioImporter Vorbis compression |
 
 ## Generated audio
 
 | Name | Author / Organization | Source URL | License | Date Added | Where Used in Project | Modified? |
 |---|---|---|---|---|---|---|
-| ElevenLabs Voice Clips & Facility Announcer Lines | ElevenLabs Speech Synthesis (Voices: Lauren, Jessica) / Project Announcer Recordings | https://elevenlabs.io/ (License/Tier UNVERIFIED) | Check ElevenLabs plan commercial terms before distribution | 2026-11-15 | Assets/Sounds/VOX/ (8 ElevenLabs test voice clips + pending 11 canonical AnnouncerDatabase lines) | Originals kept intact and unmodified |
+| ElevenLabs Voice Clips & Facility Announcer Lines | ElevenLabs Speech Synthesis (Voices: Lauren, Jessica) / Project Announcer Recordings | https://elevenlabs.io/ (License/Tier UNVERIFIED) | UNVERIFIED - check before submission (check ElevenLabs plan commercial terms) | 2026-11-15 | Assets/Sounds/VOX/ (8 ElevenLabs test voice clips + pending 11 canonical AnnouncerDatabase lines) | Originals kept intact and unmodified |
 
 ## Processed audio (baked in-project)
 
@@ -72,19 +72,26 @@ Generated cleanly from shared `SourcesDatabase` (`Assets/Resources/SourcesDataba
 |---|---|---|---|---|---|---|
 | Unity Editor (6000.x), Unity MCP (com.coplaydev.unity-mcp), Python & Antigravity AI Assistant | Unity Technologies / CoplayDev / Google DeepMind Antigravity | https://unity.com/ | Unity Personal / MIT / Assistant workflow | 2026-11-14 | Scene assembly, editor automation, shader/UI integration & verification | AI-assisted implementation and integration scripts |
 
-## Scientific & Fact Sources (In-Game Sources App & POIs)
+## Scientific & Fact Sources (In-Game Sources App & Debrief)
 
-| Source ID | Title | Organization | URL | Used By Constants / Events / POIs |
-|---|---|---|---|---|
-| `src_dust` | [Placeholder] Solar Array Dust Accumulation | NASA JPL / Mars Exploration | https://science.nasa.gov/mission/mars-exploration-rovers/ | DustAccumulationPerSol, evt_panel_dust |
-| `src_co2` | [Placeholder] Cabin CO2 Scrubbing & ECLSS | NASA Human Spaceflight | https://www.nasa.gov/missions/station/eclss/ | OxygenGenAtFull, LowScrubberThreshold, evt_scrubber_clog |
-| `src_storm` | [Placeholder] Martian Dust Storms & Optical Depth | NASA Mars Science | https://science.nasa.gov/resource/mars-dust-storms/ | StormSolarFactor, StormExtraDustPerSol, evt_dust_storm |
-| `src_rad` | [Placeholder] Mars Surface Radiation & SPE | NASA / Curiosity RAD | https://science.nasa.gov/mission/msl-curiosity/radiation-assessment-detector/ | BaselineSurfaceDoseMsvPerSol, SolarFlareUnshieldedDoseMsv, evt_solar_flare |
-| `src_water` | [Placeholder] Closed-Loop Water Recovery | NASA MSFC / ISS | https://www.nasa.gov/reference/environmental-control-and-life-support-systems/ | WaterGenAtFull, WaterFixedLoss, evt_water_recycler |
-| `src_crops` | [Placeholder] Space Crop & Veggie Systems | NASA KSC | https://www.nasa.gov/exploration-research-and-technology/growing-plants-in-space/ | FoodGenAtFull, GreenhouseOxygenBonus, evt_greenhouse_blight |
-| `src_cold` | [Placeholder] Martian Thermal Environment | NASA GSFC Mars Fact Sheet | https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html | HeatingSafeThreshold, ColdHealthPenalty, evt_cold_snap |
-| `src_psych` | [Placeholder] Isolated Crew Behavioral Health | NASA JSC CHAPEA / HERA | https://www.nasa.gov/humans-in-space/chapea/ | LowMoraleThreshold, RationMoraleCost, evt_crew_tension |
-| `src_comms` | [Placeholder] Earth-Mars Light-Time Delay | NASA Deep Space Network | https://eyes.nasa.gov/apps/dsn-now/dsn.html | CommsMaxPower, evt_earth_message |
-| `src_shield` | [Placeholder] Regolith Shielding & Micrometeoroids | NASA Moon to Mars | https://www.nasa.gov/humans-in-space/radiation/ | ShieldingMaxReduction, ReinforceShieldingGain, evt_micrometeorite |
-| `nasa-perseverance-model` | Mars 2020 Perseverance Rover 3D Model (Placeholder Fact) | NASA / JPL-Caltech | https://science.nasa.gov/resource/perseverance-rover-3d-model/ (UNVERIFIED - check before submission) | Exterior Prop_Rover POI near Solar Array |
+| Source ID | Title | Organization | URL | License | Supports |
+|---|---|---|---|---|---|
+| `nasa-jpl-opportunity-recovery` | Six Things About Opportunity's Recovery Efforts | NASA/JPL | https://www.jpl.nasa.gov/news/six-things-about-opportunitys-recovery-efforts/ | UNVERIFIED - check before submission | Supports Dust storm event (fact_dust_storm): why sunlight loss halts solar-powered Mars hardware. |
+| `nasa-jpl-opportunity-hunkers` | Opportunity Hunkers Down During Dust Storm | NASA/JPL | https://www.jpl.nasa.gov/news/opportunity-hunkers-down-during-dust-storm/ | UNVERIFIED - check before submission | Supports Dust storm event (fact_dust_storm): how Opportunity entered safe mode during planet-wide dust storms. |
+| `nasa-ntrs-mer-dust` | MER Opportunity dust-storm recovery operations and implications for future Mars surface missions | NASA NTRS | https://ntrs.nasa.gov/citations/20210015954 | UNVERIFIED - check before submission | Supports Panel dust build-up (fact_panel_dust): cutting rover power loads to preserve battery before storms. |
+| `nasa-artemis2-sun` | To Protect Artemis II Astronauts, NASA Experts Keep Eyes on Sun | NASA | https://science.nasa.gov/missions/artemis/artemis-2/to-protect-artemis-ii-astronauts-nasa-experts-keep-eyes-on-sun/ | UNVERIFIED - check before submission | Supports Solar particle event (fact_solar_flare): monitoring solar flares so crews can shelter in time. |
+| `nasa-svs-radiation` | How NASA Will Protect Astronauts From Space Radiation | NASA SVS | https://svs.gsfc.nasa.gov/vis/a010000/a013200/a013275/script_27781_00.html | UNVERIFIED - check before submission | Supports Solar particle event (fact_solar_flare): shielding techniques and crew storm shelters. |
+| `hassler-2014-rad` | Mars' Surface Radiation Environment Measured with the Mars Science Laboratory's Curiosity Rover (Hassler et al., Science) | Science / SwRI / NASA | https://doi.org/10.1126/science.1244797 | UNVERIFIED - check before submission | Supports Baseline radiation (fact_radiation_baseline & BaselineSurfaceDoseMsvPerSol): ~0.67 mSv/day measured by Curiosity. |
+| `iss-water-98` | NASA Achieves Water Recovery Milestone on International Space Station (98% ECLSS) | NASA / ABC News | https://www.nasa.gov/missions/station/iss-research/nasa-achieves-water-recovery-milestone-on-international-space-station/ | UNVERIFIED - check before submission | Supports Water recycler fault (fact_water_recycler), ~98% ISS recycling & ~1 gal/day water use (ABC report: https://abc7.com/13433546/). |
+| `nasa-veggie-lettuce` | Astronauts Take First Bites of Lettuce Grown in Space | Scientific American (NASA Veggie) | https://www.scientificamerican.com/article/astronauts-take-first-bites-of-lettuce-grown-in-space/ | UNVERIFIED - check before submission | Supports Greenhouse blight (fact_greenhouse): growing and harvesting fresh crops aboard the ISS. |
+| `npr-veggie-mood` | The Salad Frontier: Why Astronauts Need To Grow Lettuce In Space | NPR | https://www.npr.org/blogs/thesalt/2014/06/10/320321553/the-salad-frontier-why-astronauts-need-to-grow-lettuce-in-space | UNVERIFIED - check before submission | Supports Greenhouse blight (fact_greenhouse): fresh vegetables support astronaut morale in isolated missions. |
+| `esa-mars-facts` | Facts about Mars | ESA | https://www.esa.int/content/view/full/200994 | UNVERIFIED - check before submission | Supports ambient announcer facts f_gravity (~38% Earth gravity) and f_moons (Phobos & Deimos). |
+| `esa-meet-mars` | Meet Mars | ESA | https://m.esa.int/Our_Activities/Human_and_Robotic_Exploration/Exploration/ExoMars/Meet_Mars | UNVERIFIED - check before submission | Supports Cold snap (fact_cold_snap) and ambient f_cold (-133 C winter pole to +27 C summer). |
+| `nasa-mars-fact-sheet` | Mars Fact Sheet | NASA NSSDCA | https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html | UNVERIFIED - check before submission | Supports CO2 scrubber clog (fact_co2_scrubber: ~95% CO2), ambient f_sol (24 h 39 m) & f_cold. |
+| `space-mars-atmosphere` | Mars' atmosphere: Facts about composition and climate (MOXIE) | Space.com | https://www.space.com/16903-mars-atmosphere-climate-weather.html | UNVERIFIED - check before submission | Supports CO2 scrubber clog (fact_co2_scrubber): 95% CO2 atmosphere and Perseverance MOXIE oxygen experiment. |
+| `esa-light-time` | Spacecraft event time vs. Earth receive time | ESA Mars Express blog | https://blogs.esa.int/mex/?p=257 | UNVERIFIED - check before submission | Supports Message from Earth (fact_earth_message) and ambient f_signal: 4-24 min one-way light delay. |
+| `sis-habitat` | Building a space habitat in the classroom | Science in School | https://scienceinschool.org/2011/issue19/habitat | UNVERIFIED - check before submission | Supports Airlock dust / impact (fact_airlock_dust): protecting crew from radiation, micrometeorites, dust, vacuum, cold. |
+| `abc-chapea` | NASA says 98% of astronauts' urine, sweat can be recycled (also mentions CHAPEA Mars-analog study) | ABC News | https://abc7ny.com/post/nasa-recycle-urine-sweat/13433546/ | UNVERIFIED - check before submission | Supports Crew tension (fact_crew_tension): year-long Mars habitat isolation study (primary NASA CHAPEA page found via search). |
+| `usgs-jezero-dem` | Mars 2020 Jezero crater landing site products | USGS Astrogeology | https://astrogeology.usgs.gov/search/map/mars-2020-jezero-crater-landing-site-products | UNVERIFIED - check before submission | Supports Mars surface terrain exploration backdrop at Outpost Helios (Jezero Crater). |
+| `nasa-3d-mars` | NASA 3D Resources: Mars texture (Viking, USGS/JPL) | NASA | https://science.nasa.gov/3d-resources/mars | UNVERIFIED - check before submission | Supports Mars global color texture and orbital backdrop on the Title Screen. |
 

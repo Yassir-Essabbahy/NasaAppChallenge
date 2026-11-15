@@ -13,9 +13,14 @@ MonoBehaviour:
   m_Name: Fact_evt_solar_flare
   m_EditorClassIdentifier: Outpost.Runtime::Outpost.Runtime.Terminal.FactCard
   id: fact_solar_flare
-  title: Solar Particle Radiation Events
-  text: '[PLACEHOLDER] Without a global magnetic field on Mars, solar particle storms
-    require dense shelter mass to block dangerous radiation.'
-  sourceId: src_rad
+  title: Solar Particle Events
+  text: In a solar particle event, crews shelter in the most shielded part of their
+    spacecraft until radiation drops.
+  sourceId: nasa-artemis2-sun, nasa-svs-radiation
+  sourceIds:
+  - nasa-artemis2-sun
+  - nasa-svs-radiation
   relatedEventId: evt_solar_flare
-  relatedConstantId: SolarFlareUnshieldedDoseMsv
+  relatedConstantId: ShieldingMaxReduction
+  titleKey: fact.fact_solar_flare.title
+  textKey: fact.fact_solar_flare.text

@@ -13,13 +13,14 @@ MonoBehaviour:
   m_Name: FactDatabase
   m_EditorClassIdentifier: Outpost.Runtime::Outpost.Runtime.Terminal.FactDatabase
   Cards:
-  - {fileID: 11400000, guid: 594ae8a7cb3390640ab04c4b9f3d2e08, type: 2}
-  - {fileID: 11400000, guid: 94f950e06cec4c443a3ab3afb7232b29, type: 2}
   - {fileID: 11400000, guid: 55ced176e143f2b46b210c66b567c1d8, type: 2}
   - {fileID: 11400000, guid: f8dfb1f2b922f7c478c3180ffba0d4c9, type: 2}
+  - {fileID: 11400000, guid: 594ae8a7cb3390640ab04c4b9f3d2e08, type: 2}
   - {fileID: 11400000, guid: d279651e9da48e0438cb5ec7cbd98b38, type: 2}
   - {fileID: 11400000, guid: c03e22d213e61634e9a6cf4a551bdf1e, type: 2}
+  - {fileID: 11400000, guid: 94f950e06cec4c443a3ab3afb7232b29, type: 2}
   - {fileID: 11400000, guid: d27663dd097e50c4d8d55baff7939b2b, type: 2}
   - {fileID: 11400000, guid: 3dc7a18d6c7a8a44b88587a32ae6a3f4, type: 2}
   - {fileID: 11400000, guid: 72d059e434ce6c649a8cd79b7cac0d87, type: 2}
   - {fileID: 11400000, guid: 071de627d8381ca48b3541db4e72d18f, type: 2}
+  - {fileID: 11400000, guid: ea10b040159f1d347a1d489118f69f8b, type: 2}

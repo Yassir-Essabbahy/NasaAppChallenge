@@ -90,7 +90,7 @@ namespace Outpost.Runtime.Terminal.Apps
             if (_statusGaugeIcon != null)
                 _statusGaugeIcon.color = _statusLineText.color;
 
-            _detailsText.text = $"O2 {s.NetOxygenDelta:+0.0;-0.0;0}{Localization.Get("mc.per_sol")} | H2O {s.NetWaterDelta:+0.0;-0.0;0}{Localization.Get("mc.per_sol")} | Crew {s.LivingCrewCount}/4";
+            _detailsText.text = Localization.Format("ls.details_fmt", s.NetOxygenDelta, Localization.GetRaw("mc.per_sol"), s.NetWaterDelta, s.LivingCrewCount);
 
             bool editable = !IsReadOnly && s.Status == MissionStatus.InProgress;
             _repairBtn.interactable = editable && s.ActionPoints > 0;

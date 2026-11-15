@@ -172,71 +172,7 @@ namespace Outpost.Editor
 
         private static FactDatabase CreateFactDatabaseAssets()
         {
-            var specs = new (string id, string title, string text, string srcId, string evtId, string constId)[]
-            {
-                ("fact_panel_dust", "Solar Panel Dust Accumulation",
-                    "[PLACEHOLDER] Martian electrostatic dust coats solar arrays over time, cutting power generation just as experienced on NASA's Spirit and Opportunity rovers.",
-                    "src_dust", "evt_panel_dust", "DustAccumulationPerSol"),
-                ("fact_scrubber_clog", "CO2 Scrubbing & Habitat Air",
-                    "[PLACEHOLDER] Closed habitats must scrub exhaled carbon dioxide continuously because high CO2 harms crew health faster than low oxygen.",
-                    "src_co2", "evt_scrubber_clog", "LowScrubberThreshold"),
-                ("fact_dust_storm", "Martian Global Dust Storms",
-                    "[PLACEHOLDER] Global Martian dust storms block sunlight for weeks, severely reducing solar power output and forcing strict energy conservation.",
-                    "src_storm", "evt_dust_storm", "StormSolarFactor"),
-                ("fact_solar_flare", "Solar Particle Radiation Events",
-                    "[PLACEHOLDER] Without a global magnetic field on Mars, solar particle storms require dense shelter mass to block dangerous radiation.",
-                    "src_rad", "evt_solar_flare", "SolarFlareUnshieldedDoseMsv"),
-                ("fact_water_recycler", "Closed-Loop Water Recovery",
-                    "[PLACEHOLDER] Deep-space outposts recycle nearly all cabin humidity and wastewater because launching replacement water to Mars is extremely costly.",
-                    "src_water", "evt_water_recycler", "WaterGenAtFull"),
-                ("fact_greenhouse_blight", "Hydroponic Crop Biosecurity",
-                    "[PLACEHOLDER] Enclosed orbital and planetary greenhouses require strict airflow and hygiene control so plant pathogens cannot wipe out fresh crops.",
-                    "src_crops", "evt_greenhouse_blight", "FoodGenAtFull"),
-                ("fact_cold_snap", "Thin Atmosphere & Polar Cold",
-                    "[PLACEHOLDER] Mars' thin atmosphere holds little thermal energy, causing nighttime surface temperatures to plunge below -100 C.",
-                    "src_cold", "evt_cold_snap", "HeatingSafeThreshold"),
-                ("fact_crew_tension", "Isolation Behavioral Health",
-                    "[PLACEHOLDER] Extended isolation in confined habitats strains crew cohesion, requiring scheduled rest and communication to maintain mission safety.",
-                    "src_psych", "evt_crew_tension", "LowMoraleThreshold"),
-                ("fact_earth_message", "Earth-Mars Light-Time Delay",
-                    "[PLACEHOLDER] Speed-of-light distance delays radio signals between Earth and Mars by minutes, requiring outpost crews to solve crises autonomously.",
-                    "src_comms", "evt_earth_message", "CommsMaxPower"),
-                ("fact_micrometeorite", "Regolith & Whipple Shielding",
-                    "[PLACEHOLDER] Thin Martian air allows high-speed micrometeoroids to strike habitats, making layered Whipple shields and regolith protection critical.",
-                    "src_shield", "evt_micrometeorite", "ShieldingMaxReduction")
-            };
-
-            string dbPath = "Assets/Resources/FactDatabase.asset";
-            var db = AssetDatabase.LoadAssetAtPath<FactDatabase>(dbPath);
-            if (db == null)
-            {
-                db = ScriptableObject.CreateInstance<FactDatabase>();
-                AssetDatabase.CreateAsset(db, dbPath);
-            }
-            db.Cards.Clear();
-
-            for (int i = 0; i < specs.Length; i++)
-            {
-                var s = specs[i];
-                string cardPath = $"{FactsDir}/Fact_{s.evtId}.asset";
-                var card = AssetDatabase.LoadAssetAtPath<FactCard>(cardPath);
-                if (card == null)
-                {
-                    card = ScriptableObject.CreateInstance<FactCard>();
-                    AssetDatabase.CreateAsset(card, cardPath);
-                }
-                card.id = s.id;
-                card.title = s.title;
-                card.text = s.text;
-                card.sourceId = s.srcId;
-                card.relatedEventId = s.evtId;
-                card.relatedConstantId = s.constId;
-                EditorUtility.SetDirty(card);
-                db.Cards.Add(card);
-            }
-
-            EditorUtility.SetDirty(db);
-            return db;
+            return ContentSyncUtility.SyncFactDatabaseAssets();
         }
 
         private class MaterialSet

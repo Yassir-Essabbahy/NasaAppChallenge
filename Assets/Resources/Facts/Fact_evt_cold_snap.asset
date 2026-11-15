@@ -13,9 +13,13 @@ MonoBehaviour:
   m_Name: Fact_evt_cold_snap
   m_EditorClassIdentifier: Outpost.Runtime::Outpost.Runtime.Terminal.FactCard
   id: fact_cold_snap
-  title: Thin Atmosphere & Polar Cold
-  text: '[PLACEHOLDER] Mars'' thin atmosphere holds little thermal energy, causing
-    nighttime surface temperatures to plunge below -100 C.'
-  sourceId: src_cold
+  title: Extreme Martian Temperatures
+  text: "Mars is cold. Temperatures range from about minus 133\xB0C at the winter
+    pole to plus 27\xB0C in summer."
+  sourceId: esa-meet-mars
+  sourceIds:
+  - esa-meet-mars
   relatedEventId: evt_cold_snap
-  relatedConstantId: HeatingSafeThreshold
+  relatedConstantId: 
+  titleKey: fact.fact_cold_snap.title
+  textKey: fact.fact_cold_snap.text

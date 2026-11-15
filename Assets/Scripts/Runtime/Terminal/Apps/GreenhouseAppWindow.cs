@@ -80,13 +80,13 @@ namespace Outpost.Runtime.Terminal.Apps
                 _statusText.text = $"{Localization.Get("status.word.good")} — {Localization.Format("pwr.conseq.gh", s.GreenhouseAllocPct, s.NetFoodDelta)}";
             }
 
-            _detailsText.text = $"{Localization.Get("pwr.gh.name")}: {s.GreenhouseAllocPct}% | {Localization.Get("act.ration")}: {(s.RationingActive ? "ON (-25%)" : "OFF")}";
+            _detailsText.text = Localization.ShapeDisplay($"{Localization.GetRaw("pwr.gh.name")}: {s.GreenhouseAllocPct}% | {Localization.GetRaw("act.ration")}: {(s.RationingActive ? $"{Localization.GetRaw("pause.on")} (-25%)" : Localization.GetRaw("pause.off"))}");
 
             bool editable = !IsReadOnly && s.Status == MissionStatus.InProgress;
             _rationBtn.interactable = editable && !s.RationingActive && s.ActionPoints > 0;
             _rationLabel.text = s.RationingActive
-                ? $"{Localization.Get("act.ration")}: ON"
-                : (s.ActionPoints > 0 ? $"{Localization.Get("act.ration")} (1 AP)" : $"{Localization.Get("act.ration")} (0 AP)");
+                ? Localization.ShapeDisplay($"{Localization.GetRaw("act.ration")}: {Localization.GetRaw("pause.on")}")
+                : Localization.ShapeDisplay(s.ActionPoints > 0 ? $"{Localization.GetRaw("act.ration")} (1 AP)" : $"{Localization.GetRaw("act.ration")} (0 AP)");
 
             _repairBtn.interactable = editable && s.ActionPoints > 0;
             _repairLabel.text = s.ActionPoints > 0 ? $"{Localization.Get("act.repair")} (1 AP)" : $"{Localization.Get("act.repair")} (0 AP)";

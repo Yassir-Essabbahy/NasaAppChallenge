@@ -12,10 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3126784b1a2bc234a81ffd836bbe6651, type: 3}
   m_Name: Fact_evt_greenhouse_blight
   m_EditorClassIdentifier: Outpost.Runtime::Outpost.Runtime.Terminal.FactCard
-  id: fact_greenhouse_blight
-  title: Hydroponic Crop Biosecurity
-  text: '[PLACEHOLDER] Enclosed orbital and planetary greenhouses require strict
-    airflow and hygiene control so plant pathogens cannot wipe out fresh crops.'
-  sourceId: src_crops
+  id: fact_greenhouse
+  title: Space Lettuce & Crew Morale
+  text: Astronauts have grown and eaten lettuce on the space station. Fresh plants
+    add food and may lift the crew's mood.
+  sourceId: nasa-veggie-lettuce, npr-veggie-mood
+  sourceIds:
+  - nasa-veggie-lettuce
+  - npr-veggie-mood
   relatedEventId: evt_greenhouse_blight
   relatedConstantId: FoodGenAtFull
+  titleKey: fact.fact_greenhouse.title
+  textKey: fact.fact_greenhouse.text

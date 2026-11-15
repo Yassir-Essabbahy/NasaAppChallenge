@@ -226,13 +226,14 @@ namespace Outpost.Tests.EditMode
         }
 
         [Test]
-        public void IntroSequenceData_HasAll8CardsWithNonEmptyLocalizationKeys()
+        public void IntroSequenceData_HasSingleSunCardWithValidLocalizationKeys()
         {
             var seq = ScriptableObject.CreateInstance<IntroSequenceData>();
             try
             {
                 seq.PopulateDefaultCards();
-                Assert.AreEqual(8, seq.Cards.Count);
+                Assert.AreEqual(1, seq.Cards.Count);
+                Assert.AreEqual("card1_sun", seq.Cards[0].id);
 
                 for (int i = 0; i < seq.Cards.Count; i++)
                 {

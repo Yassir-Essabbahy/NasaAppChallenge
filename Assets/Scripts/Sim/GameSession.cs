@@ -464,7 +464,7 @@ namespace Outpost.Sim
                 DoseHealthThresholdMsv = Engine.Config.DoseHealthThresholdMsv,
                 StatusLightOkThreshold = Engine.Config.StatusLightOkThreshold,
                 StatusLightLowThreshold = Engine.Config.StatusLightLowThreshold,
-                ForecastSummaryLine = $"If you end the sol now: Oxygen {f.NetOxygenDelta:+0;-0;0}, Water {f.NetWaterDelta:+0;-0;0}, Food {f.NetFoodDelta:+0;-0;0}, Battery {f.NetPowerDelta:+0;-0;0}.",
+                ForecastSummaryLine = Localization.Format("sim.forecast_summary", f.NetOxygenDelta, f.NetWaterDelta, f.NetFoodDelta, f.NetPowerDelta),
                 CommsOnline = Engine.Allocation.Comms > 0.01f
             };
 
@@ -499,9 +499,9 @@ namespace Outpost.Sim
             if (Engine.DustStormSolsRemaining > 0)
             {
                 int stormLoss = (int)Math.Round((1f - Engine.Config.StormSolarFactor) * 100f);
-                return $"Dust on panels -{dustLoss}%, Dust storm -{stormLoss}%";
+                return Localization.Format("sim.gen_dust_storm", dustLoss, stormLoss);
             }
-            return $"Dust on panels -{dustLoss}%";
+            return Localization.Format("sim.gen_dust", dustLoss);
         }
 
         private void BuildCrewSnapshots(SessionSnapshot snap)
@@ -577,7 +577,7 @@ namespace Outpost.Sim
                     Sol = s,
                     Subject = Localization.Get($"comms.sol{s}.subject"),
                     DelayText = Localization.Get($"comms.sol{s}.delay"),
-                    Body = $"TO: CMDR. {CommanderName}\n\n{Localization.Get($"comms.sol{s}.body")}",
+                    Body = $"{Localization.Format("comms.to_commander", CommanderName)}\n\n{Localization.Get($"comms.sol{s}.body")}",
                     IsRead = read
                 });
             }

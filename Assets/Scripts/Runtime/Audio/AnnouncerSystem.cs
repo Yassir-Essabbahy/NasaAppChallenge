@@ -39,6 +39,7 @@ namespace Outpost.Runtime.Audio
         private bool _controlTimerArmed;
         private float _nextScheduledUnscaledTime = -1f;
         private Coroutine _activePlayback;
+        private float _suitMuffleScale = 1f;
         private readonly Queue<string> _recentIds = new Queue<string>();
 
         public AnnouncerDatabase Database => database;
@@ -377,9 +378,29 @@ namespace Outpost.Runtime.Audio
             announcerMuted = PlayerPrefs.GetInt(PrefMuted, 0) == 1;
         }
 
+        public bool HasLine(string id)
+        {
+            if (database == null)
+                database = Resources.Load<AnnouncerDatabase>("AnnouncerDatabase");
+            if (database == null || string.IsNullOrWhiteSpace(id)) return false;
+            return database.FindLine(id) != null;
+        }
+
+        public bool PlayLineIfPresent(string id, bool bypassSuppression = true)
+        {
+            if (!HasLine(id)) return false;
+            return PlayLineById(id, bypassSuppression);
+        }
+
+        public void SetSuitMuffleScale(float scale)
+        {
+            _suitMuffleScale = Mathf.Clamp01(scale);
+            ApplyAudioVolumes();
+        }
+
         private void ApplyAudioVolumes()
         {
-            float eff = announcerMuted ? 0f : announcerVolume;
+            float eff = (announcerMuted ? 0f : announcerVolume) * _suitMuffleScale;
             if (_voiceSource != null) _voiceSource.volume = eff;
             if (_stingSource != null) _stingSource.volume = eff * 0.85f;
         }

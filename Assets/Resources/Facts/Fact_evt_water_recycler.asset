@@ -13,9 +13,13 @@ MonoBehaviour:
   m_Name: Fact_evt_water_recycler
   m_EditorClassIdentifier: Outpost.Runtime::Outpost.Runtime.Terminal.FactCard
   id: fact_water_recycler
-  title: Closed-Loop Water Recovery
-  text: '[PLACEHOLDER] Deep-space outposts recycle nearly all cabin humidity and
-    wastewater because launching replacement water to Mars is extremely costly.'
-  sourceId: src_water
+  title: ISS Water Recycling (98%)
+  text: On the space station, crews recover about 98% of their water by recycling.
+    Each person uses roughly a gallon a day.
+  sourceId: iss-water-98
+  sourceIds:
+  - iss-water-98
   relatedEventId: evt_water_recycler
   relatedConstantId: WaterGenAtFull
+  titleKey: fact.fact_water_recycler.title
+  textKey: fact.fact_water_recycler.text

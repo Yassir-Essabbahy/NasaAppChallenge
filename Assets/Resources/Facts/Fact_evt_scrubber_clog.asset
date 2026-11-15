@@ -12,10 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3126784b1a2bc234a81ffd836bbe6651, type: 3}
   m_Name: Fact_evt_scrubber_clog
   m_EditorClassIdentifier: Outpost.Runtime::Outpost.Runtime.Terminal.FactCard
-  id: fact_scrubber_clog
-  title: CO2 Scrubbing & Habitat Air
-  text: '[PLACEHOLDER] Closed habitats must scrub exhaled carbon dioxide continuously
-    because high CO2 harms crew health faster than low oxygen.'
-  sourceId: src_co2
+  id: fact_co2_scrubber
+  title: Mars CO2 Air & MOXIE
+  text: Mars air is about 95% carbon dioxide. In 2021, an experiment on Perseverance
+    made oxygen from it.
+  sourceId: space-mars-atmosphere, nasa-mars-fact-sheet
+  sourceIds:
+  - space-mars-atmosphere
+  - nasa-mars-fact-sheet
   relatedEventId: evt_scrubber_clog
-  relatedConstantId: LowScrubberThreshold
+  relatedConstantId: OxygenGenAtFull
+  titleKey: fact.fact_co2_scrubber.title
+  textKey: fact.fact_co2_scrubber.text

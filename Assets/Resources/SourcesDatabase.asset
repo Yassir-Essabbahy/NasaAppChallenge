@@ -13,118 +13,298 @@ MonoBehaviour:
   m_Name: SourcesDatabase
   m_EditorClassIdentifier: Outpost.Runtime::Outpost.Runtime.Terminal.SourcesDatabase
   Entries:
-  - Id: src_dust
-    Title: '[Placeholder] Solar Array Dust Accumulation'
-    Organization: NASA JPL / Mars Exploration
-    UrlText: https://science.nasa.gov/mission/mars-exploration-rovers/
-    UsedByConstantsAndEvents: DustAccumulationPerSol, evt_panel_dust
-    Section: NASA/USGS data and models
-    License: 
-    DateAdded: 2026-11-14
-    WhereUsed: 
-    ModifiedNotes: No
-  - Id: src_co2
-    Title: '[Placeholder] Cabin CO2 Scrubbing & ECLSS'
-    Organization: NASA Human Spaceflight
-    UrlText: https://www.nasa.gov/missions/station/eclss/
-    UsedByConstantsAndEvents: OxygenGenAtFull, LowScrubberThreshold, evt_scrubber_clog
-    Section: NASA/USGS data and models
-    License: 
-    DateAdded: 2026-11-14
-    WhereUsed: 
-    ModifiedNotes: No
-  - Id: src_storm
-    Title: '[Placeholder] Martian Dust Storms & Optical Depth'
-    Organization: NASA Mars Science
-    UrlText: https://science.nasa.gov/resource/mars-dust-storms/
-    UsedByConstantsAndEvents: StormSolarFactor, StormExtraDustPerSol, evt_dust_storm
-    Section: NASA/USGS data and models
-    License: 
-    DateAdded: 2026-11-14
-    WhereUsed: 
-    ModifiedNotes: No
-  - Id: src_rad
-    Title: '[Placeholder] Mars Surface Radiation & SPE'
-    Organization: NASA / Curiosity RAD
-    UrlText: https://science.nasa.gov/mission/msl-curiosity/radiation-assessment-detector/
-    UsedByConstantsAndEvents: BaselineSurfaceDoseMsvPerSol, SolarFlareUnshieldedDoseMsv,
-      evt_solar_flare
-    Section: NASA/USGS data and models
-    License: 
-    DateAdded: 2026-11-14
-    WhereUsed: 
-    ModifiedNotes: No
-  - Id: src_water
-    Title: '[Placeholder] Closed-Loop Water Recovery'
-    Organization: NASA MSFC / ISS
-    UrlText: https://www.nasa.gov/reference/environmental-control-and-life-support-systems/
-    UsedByConstantsAndEvents: WaterGenAtFull, WaterFixedLoss, evt_water_recycler
-    Section: NASA/USGS data and models
-    License: 
-    DateAdded: 2026-11-14
-    WhereUsed: 
-    ModifiedNotes: No
-  - Id: src_crops
-    Title: '[Placeholder] Space Crop & Veggie Systems'
-    Organization: NASA KSC
-    UrlText: https://www.nasa.gov/exploration-research-and-technology/growing-plants-in-space/
-    UsedByConstantsAndEvents: FoodGenAtFull, GreenhouseOxygenBonus, evt_greenhouse_blight
-    Section: NASA/USGS data and models
-    License: 
-    DateAdded: 2026-11-14
-    WhereUsed: 
-    ModifiedNotes: No
-  - Id: src_cold
-    Title: '[Placeholder] Martian Thermal Environment'
-    Organization: NASA GSFC Mars Fact Sheet
+  - Id: nasa-jpl-opportunity-recovery
+    Title: Six Things About Opportunity's Recovery Efforts
+    Organization: NASA/JPL
+    UrlText: https://www.jpl.nasa.gov/news/six-things-about-opportunitys-recovery-efforts/
+    UsedByConstantsAndEvents: evt_dust_storm, fact_dust_storm
+    Section: Scientific & Reference Sources
+    License: UNVERIFIED - check before submission
+    DateAdded: 2026-11-15
+    WhereUsed: evt_dust_storm, fact_dust_storm
+    ModifiedNotes: Reference metadata & FactCard adaptation
+    TitleKey: src.nasa-jpl-opportunity-recovery.title
+    OrganizationKey: src.nasa-jpl-opportunity-recovery.org
+    SupportsKey: src.nasa-jpl-opportunity-recovery.supports
+    SupportsNote: 'Supports Dust storm event (fact_dust_storm): why sunlight loss
+      halts solar-powered Mars hardware.'
+    SecondaryUrl: 
+  - Id: nasa-jpl-opportunity-hunkers
+    Title: Opportunity Hunkers Down During Dust Storm
+    Organization: NASA/JPL
+    UrlText: https://www.jpl.nasa.gov/news/opportunity-hunkers-down-during-dust-storm/
+    UsedByConstantsAndEvents: evt_dust_storm, fact_dust_storm
+    Section: Scientific & Reference Sources
+    License: UNVERIFIED - check before submission
+    DateAdded: 2026-11-15
+    WhereUsed: evt_dust_storm, fact_dust_storm
+    ModifiedNotes: Reference metadata & FactCard adaptation
+    TitleKey: src.nasa-jpl-opportunity-hunkers.title
+    OrganizationKey: src.nasa-jpl-opportunity-hunkers.org
+    SupportsKey: src.nasa-jpl-opportunity-hunkers.supports
+    SupportsNote: 'Supports Dust storm event (fact_dust_storm): how Opportunity entered
+      safe mode during planet-wide dust storms.'
+    SecondaryUrl: 
+  - Id: nasa-ntrs-mer-dust
+    Title: MER Opportunity dust-storm recovery operations and implications for future
+      Mars surface missions
+    Organization: NASA NTRS
+    UrlText: https://ntrs.nasa.gov/citations/20210015954
+    UsedByConstantsAndEvents: evt_panel_dust, fact_panel_dust
+    Section: Scientific & Reference Sources
+    License: UNVERIFIED - check before submission
+    DateAdded: 2026-11-15
+    WhereUsed: evt_panel_dust, fact_panel_dust
+    ModifiedNotes: Reference metadata & FactCard adaptation
+    TitleKey: src.nasa-ntrs-mer-dust.title
+    OrganizationKey: src.nasa-ntrs-mer-dust.org
+    SupportsKey: src.nasa-ntrs-mer-dust.supports
+    SupportsNote: 'Supports Panel dust build-up (fact_panel_dust): cutting rover
+      power loads to preserve battery before storms.'
+    SecondaryUrl: 
+  - Id: nasa-artemis2-sun
+    Title: To Protect Artemis II Astronauts, NASA Experts Keep Eyes on Sun
+    Organization: NASA
+    UrlText: https://science.nasa.gov/missions/artemis/artemis-2/to-protect-artemis-ii-astronauts-nasa-experts-keep-eyes-on-sun/
+    UsedByConstantsAndEvents: evt_solar_flare, fact_solar_flare
+    Section: Scientific & Reference Sources
+    License: UNVERIFIED - check before submission
+    DateAdded: 2026-11-15
+    WhereUsed: evt_solar_flare, fact_solar_flare
+    ModifiedNotes: Reference metadata & FactCard adaptation
+    TitleKey: src.nasa-artemis2-sun.title
+    OrganizationKey: src.nasa-artemis2-sun.org
+    SupportsKey: src.nasa-artemis2-sun.supports
+    SupportsNote: 'Supports Solar particle event (fact_solar_flare): monitoring solar
+      flares so crews can shelter in time.'
+    SecondaryUrl: 
+  - Id: nasa-svs-radiation
+    Title: How NASA Will Protect Astronauts From Space Radiation
+    Organization: NASA SVS
+    UrlText: https://svs.gsfc.nasa.gov/vis/a010000/a013200/a013275/script_27781_00.html
+    UsedByConstantsAndEvents: evt_solar_flare, fact_solar_flare
+    Section: Scientific & Reference Sources
+    License: UNVERIFIED - check before submission
+    DateAdded: 2026-11-15
+    WhereUsed: evt_solar_flare, fact_solar_flare
+    ModifiedNotes: Reference metadata & FactCard adaptation
+    TitleKey: src.nasa-svs-radiation.title
+    OrganizationKey: src.nasa-svs-radiation.org
+    SupportsKey: src.nasa-svs-radiation.supports
+    SupportsNote: 'Supports Solar particle event (fact_solar_flare): shielding techniques
+      and crew storm shelters.'
+    SecondaryUrl: 
+  - Id: hassler-2014-rad
+    Title: Mars' Surface Radiation Environment Measured with the Mars Science Laboratory's
+      Curiosity Rover (Hassler et al., Science)
+    Organization: Science / SwRI / NASA
+    UrlText: https://doi.org/10.1126/science.1244797
+    UsedByConstantsAndEvents: BaselineSurfaceDoseMsvPerSol, fact_radiation_baseline
+    Section: Scientific & Reference Sources
+    License: UNVERIFIED - check before submission
+    DateAdded: 2026-11-15
+    WhereUsed: BaselineSurfaceDoseMsvPerSol, fact_radiation_baseline
+    ModifiedNotes: Reference metadata & FactCard adaptation
+    TitleKey: src.hassler-2014-rad.title
+    OrganizationKey: src.hassler-2014-rad.org
+    SupportsKey: src.hassler-2014-rad.supports
+    SupportsNote: 'Supports Baseline radiation (fact_radiation_baseline & BaselineSurfaceDoseMsvPerSol):
+      ~0.67 mSv/day measured by Curiosity.'
+    SecondaryUrl: 
+  - Id: iss-water-98
+    Title: NASA Achieves Water Recovery Milestone on International Space Station
+      (98% ECLSS)
+    Organization: NASA / ABC News
+    UrlText: https://www.nasa.gov/missions/station/iss-research/nasa-achieves-water-recovery-milestone-on-international-space-station/
+    UsedByConstantsAndEvents: evt_water_recycler, fact_water_recycler, WaterGenAtFull
+    Section: Scientific & Reference Sources
+    License: UNVERIFIED - check before submission
+    DateAdded: 2026-11-15
+    WhereUsed: evt_water_recycler, fact_water_recycler, WaterGenAtFull
+    ModifiedNotes: Reference metadata & FactCard adaptation
+    TitleKey: src.iss-water-98.title
+    OrganizationKey: src.iss-water-98.org
+    SupportsKey: src.iss-water-98.supports
+    SupportsNote: 'Supports Water recycler fault (fact_water_recycler), ~98% ISS
+      recycling & ~1 gal/day water use (ABC report: https://abc7.com/13433546/).'
+    SecondaryUrl: https://abc7.com/13433546/
+  - Id: nasa-veggie-lettuce
+    Title: Astronauts Take First Bites of Lettuce Grown in Space
+    Organization: Scientific American (NASA Veggie)
+    UrlText: https://www.scientificamerican.com/article/astronauts-take-first-bites-of-lettuce-grown-in-space/
+    UsedByConstantsAndEvents: evt_greenhouse_blight, fact_greenhouse
+    Section: Scientific & Reference Sources
+    License: UNVERIFIED - check before submission
+    DateAdded: 2026-11-15
+    WhereUsed: evt_greenhouse_blight, fact_greenhouse
+    ModifiedNotes: Reference metadata & FactCard adaptation
+    TitleKey: src.nasa-veggie-lettuce.title
+    OrganizationKey: src.nasa-veggie-lettuce.org
+    SupportsKey: src.nasa-veggie-lettuce.supports
+    SupportsNote: 'Supports Greenhouse blight (fact_greenhouse): growing and harvesting
+      fresh crops aboard the ISS.'
+    SecondaryUrl: 
+  - Id: npr-veggie-mood
+    Title: 'The Salad Frontier: Why Astronauts Need To Grow Lettuce In Space'
+    Organization: NPR
+    UrlText: https://www.npr.org/blogs/thesalt/2014/06/10/320321553/the-salad-frontier-why-astronauts-need-to-grow-lettuce-in-space
+    UsedByConstantsAndEvents: evt_greenhouse_blight, fact_greenhouse
+    Section: Scientific & Reference Sources
+    License: UNVERIFIED - check before submission
+    DateAdded: 2026-11-15
+    WhereUsed: evt_greenhouse_blight, fact_greenhouse
+    ModifiedNotes: Reference metadata & FactCard adaptation
+    TitleKey: src.npr-veggie-mood.title
+    OrganizationKey: src.npr-veggie-mood.org
+    SupportsKey: src.npr-veggie-mood.supports
+    SupportsNote: 'Supports Greenhouse blight (fact_greenhouse): fresh vegetables
+      support astronaut morale in isolated missions.'
+    SecondaryUrl: 
+  - Id: esa-mars-facts
+    Title: Facts about Mars
+    Organization: ESA
+    UrlText: https://www.esa.int/content/view/full/200994
+    UsedByConstantsAndEvents: f_gravity, f_moons
+    Section: Scientific & Reference Sources
+    License: UNVERIFIED - check before submission
+    DateAdded: 2026-11-15
+    WhereUsed: f_gravity, f_moons
+    ModifiedNotes: Reference metadata & FactCard adaptation
+    TitleKey: src.esa-mars-facts.title
+    OrganizationKey: src.esa-mars-facts.org
+    SupportsKey: src.esa-mars-facts.supports
+    SupportsNote: Supports ambient announcer facts f_gravity (~38% Earth gravity)
+      and f_moons (Phobos & Deimos).
+    SecondaryUrl: 
+  - Id: esa-meet-mars
+    Title: Meet Mars
+    Organization: ESA
+    UrlText: https://m.esa.int/Our_Activities/Human_and_Robotic_Exploration/Exploration/ExoMars/Meet_Mars
+    UsedByConstantsAndEvents: evt_cold_snap, fact_cold_snap, f_cold
+    Section: Scientific & Reference Sources
+    License: UNVERIFIED - check before submission
+    DateAdded: 2026-11-15
+    WhereUsed: evt_cold_snap, fact_cold_snap, f_cold
+    ModifiedNotes: Reference metadata & FactCard adaptation
+    TitleKey: src.esa-meet-mars.title
+    OrganizationKey: src.esa-meet-mars.org
+    SupportsKey: src.esa-meet-mars.supports
+    SupportsNote: Supports Cold snap (fact_cold_snap) and ambient f_cold (-133 C
+      winter pole to +27 C summer).
+    SecondaryUrl: 
+  - Id: nasa-mars-fact-sheet
+    Title: Mars Fact Sheet
+    Organization: NASA NSSDCA
     UrlText: https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html
-    UsedByConstantsAndEvents: HeatingSafeThreshold, ColdHealthPenalty, evt_cold_snap
-    Section: NASA/USGS data and models
-    License: 
-    DateAdded: 2026-11-14
-    WhereUsed: 
-    ModifiedNotes: No
-  - Id: src_psych
-    Title: '[Placeholder] Isolated Crew Behavioral Health'
-    Organization: NASA JSC CHAPEA / HERA
-    UrlText: https://www.nasa.gov/humans-in-space/chapea/
-    UsedByConstantsAndEvents: LowMoraleThreshold, RationMoraleCost, evt_crew_tension
-    Section: NASA/USGS data and models
-    License: 
-    DateAdded: 2026-11-14
-    WhereUsed: 
-    ModifiedNotes: No
-  - Id: src_comms
-    Title: '[Placeholder] Earth-Mars Light-Time Delay'
-    Organization: NASA Deep Space Network
-    UrlText: https://eyes.nasa.gov/apps/dsn-now/dsn.html
-    UsedByConstantsAndEvents: CommsMaxPower, evt_earth_message
-    Section: NASA/USGS data and models
-    License: 
-    DateAdded: 2026-11-14
-    WhereUsed: 
-    ModifiedNotes: No
-  - Id: src_shield
-    Title: '[Placeholder] Regolith Shielding & Micrometeoroids'
-    Organization: NASA Moon to Mars
-    UrlText: https://www.nasa.gov/humans-in-space/radiation/
-    UsedByConstantsAndEvents: ShieldingMaxReduction, ReinforceShieldingGain, evt_micrometeorite
-    Section: NASA/USGS data and models
-    License: 
-    DateAdded: 2026-11-14
-    WhereUsed: 
-    ModifiedNotes: No
-  - Id: nasa-perseverance-model
-    Title: Mars 2020 Perseverance Rover 3D Model (Placeholder Fact)
-    Organization: NASA / JPL-Caltech
-    UrlText: https://science.nasa.gov/resource/perseverance-rover-3d-model/ (UNVERIFIED
-      - check before submission)
-    UsedByConstantsAndEvents: Exterior Prop_Rover POI near Solar Array
-    Section: NASA/USGS data and models
-    License: 
-    DateAdded: 2026-11-14
-    WhereUsed: 
-    ModifiedNotes: No
+    UsedByConstantsAndEvents: evt_scrubber_clog, fact_co2_scrubber, f_sol, f_cold
+    Section: Scientific & Reference Sources
+    License: UNVERIFIED - check before submission
+    DateAdded: 2026-11-15
+    WhereUsed: evt_scrubber_clog, fact_co2_scrubber, f_sol, f_cold
+    ModifiedNotes: Reference metadata & FactCard adaptation
+    TitleKey: src.nasa-mars-fact-sheet.title
+    OrganizationKey: src.nasa-mars-fact-sheet.org
+    SupportsKey: src.nasa-mars-fact-sheet.supports
+    SupportsNote: 'Supports CO2 scrubber clog (fact_co2_scrubber: ~95% CO2), ambient
+      f_sol (24 h 39 m) & f_cold.'
+    SecondaryUrl: 
+  - Id: space-mars-atmosphere
+    Title: 'Mars'' atmosphere: Facts about composition and climate (MOXIE)'
+    Organization: Space.com
+    UrlText: https://www.space.com/16903-mars-atmosphere-climate-weather.html
+    UsedByConstantsAndEvents: evt_scrubber_clog, fact_co2_scrubber
+    Section: Scientific & Reference Sources
+    License: UNVERIFIED - check before submission
+    DateAdded: 2026-11-15
+    WhereUsed: evt_scrubber_clog, fact_co2_scrubber
+    ModifiedNotes: Reference metadata & FactCard adaptation
+    TitleKey: src.space-mars-atmosphere.title
+    OrganizationKey: src.space-mars-atmosphere.org
+    SupportsKey: src.space-mars-atmosphere.supports
+    SupportsNote: 'Supports CO2 scrubber clog (fact_co2_scrubber): 95% CO2 atmosphere
+      and Perseverance MOXIE oxygen experiment.'
+    SecondaryUrl: 
+  - Id: esa-light-time
+    Title: Spacecraft event time vs. Earth receive time
+    Organization: ESA Mars Express blog
+    UrlText: https://blogs.esa.int/mex/?p=257
+    UsedByConstantsAndEvents: evt_earth_message, fact_earth_message, f_signal
+    Section: Scientific & Reference Sources
+    License: UNVERIFIED - check before submission
+    DateAdded: 2026-11-15
+    WhereUsed: evt_earth_message, fact_earth_message, f_signal
+    ModifiedNotes: Reference metadata & FactCard adaptation
+    TitleKey: src.esa-light-time.title
+    OrganizationKey: src.esa-light-time.org
+    SupportsKey: src.esa-light-time.supports
+    SupportsNote: 'Supports Message from Earth (fact_earth_message) and ambient f_signal:
+      4-24 min one-way light delay.'
+    SecondaryUrl: 
+  - Id: sis-habitat
+    Title: Building a space habitat in the classroom
+    Organization: Science in School
+    UrlText: https://scienceinschool.org/2011/issue19/habitat
+    UsedByConstantsAndEvents: evt_micrometeorite, fact_airlock_dust
+    Section: Scientific & Reference Sources
+    License: UNVERIFIED - check before submission
+    DateAdded: 2026-11-15
+    WhereUsed: evt_micrometeorite, fact_airlock_dust
+    ModifiedNotes: Reference metadata & FactCard adaptation
+    TitleKey: src.sis-habitat.title
+    OrganizationKey: src.sis-habitat.org
+    SupportsKey: src.sis-habitat.supports
+    SupportsNote: 'Supports Airlock dust / impact (fact_airlock_dust): protecting
+      crew from radiation, micrometeorites, dust, vacuum, cold.'
+    SecondaryUrl: 
+  - Id: abc-chapea
+    Title: NASA says 98% of astronauts' urine, sweat can be recycled (also mentions
+      CHAPEA Mars-analog study)
+    Organization: ABC News
+    UrlText: https://abc7ny.com/post/nasa-recycle-urine-sweat/13433546/
+    UsedByConstantsAndEvents: evt_crew_tension, fact_crew_tension
+    Section: Scientific & Reference Sources
+    License: UNVERIFIED - check before submission
+    DateAdded: 2026-11-15
+    WhereUsed: evt_crew_tension, fact_crew_tension
+    ModifiedNotes: Reference metadata & FactCard adaptation
+    TitleKey: src.abc-chapea.title
+    OrganizationKey: src.abc-chapea.org
+    SupportsKey: src.abc-chapea.supports
+    SupportsNote: 'Supports Crew tension (fact_crew_tension): year-long Mars habitat
+      isolation study (primary NASA CHAPEA page found via search).'
+    SecondaryUrl: https://www.nasa.gov/missions/analog-field-testing/chapea/first-mars-crew-completes-yearlong-simulated-red-planet-nasa-mission/
+  - Id: usgs-jezero-dem
+    Title: Mars 2020 Jezero crater landing site products
+    Organization: USGS Astrogeology
+    UrlText: https://astrogeology.usgs.gov/search/map/mars-2020-jezero-crater-landing-site-products
+    UsedByConstantsAndEvents: Exterior Mars Terrain & Environment
+    Section: Scientific & Reference Sources
+    License: UNVERIFIED - check before submission
+    DateAdded: 2026-11-15
+    WhereUsed: Exterior Mars Terrain & Environment
+    ModifiedNotes: Reference metadata & FactCard adaptation
+    TitleKey: src.usgs-jezero-dem.title
+    OrganizationKey: src.usgs-jezero-dem.org
+    SupportsKey: src.usgs-jezero-dem.supports
+    SupportsNote: Supports Mars surface terrain exploration backdrop at Outpost Helios
+      (Jezero Crater).
+    SecondaryUrl: 
+  - Id: nasa-3d-mars
+    Title: 'NASA 3D Resources: Mars texture (Viking, USGS/JPL)'
+    Organization: NASA
+    UrlText: https://science.nasa.gov/3d-resources/mars
+    UsedByConstantsAndEvents: MainMenu Mars orb & Mars.jpg
+    Section: Scientific & Reference Sources
+    License: UNVERIFIED - check before submission
+    DateAdded: 2026-11-15
+    WhereUsed: MainMenu Mars orb & Mars.jpg
+    ModifiedNotes: Reference metadata & FactCard adaptation
+    TitleKey: src.nasa-3d-mars.title
+    OrganizationKey: src.nasa-3d-mars.org
+    SupportsKey: src.nasa-3d-mars.supports
+    SupportsNote: Supports Mars global color texture and orbital backdrop on the
+      Title Screen.
+    SecondaryUrl: 
   AssetCredits:
   - Id: nasa-mars-equirect
     Title: Mars Global Color Map (Assets/Models/Mars.jpg)
@@ -138,6 +318,11 @@ MonoBehaviour:
       MainMenu.unity (kept out of Martian surface sky in Outpost.unity for orbital
       accuracy)
     ModifiedNotes: Imported with Point filter, No Mipmaps, Max Size 2048, Wrap Repeat
+    TitleKey: 
+    OrganizationKey: 
+    SupportsKey: 
+    SupportsNote: 
+    SecondaryUrl: 
   - Id: nasa-perseverance-model
     Title: 25042_Perseverance.glb (Mars 2020 Perseverance Rover)
     Organization: NASA / JPL-Caltech (UNVERIFIED - confirm catalog ID)
@@ -151,6 +336,11 @@ MonoBehaviour:
       surface
     ModifiedNotes: Scaled uniformly to ~3.0m length, PSX Lit material conversion,
       BoxCollider added (199,309 tris; recommend decimation in Blender)
+    TitleKey: 
+    OrganizationKey: 
+    SupportsKey: 
+    SupportsNote: 
+    SecondaryUrl: 
   - Id: usgs-mars-dem
     Title: Mars MOLA / HiRISE Heightmap (Pending RAW Import)
     Organization: NASA / USGS Astrogeology
@@ -161,6 +351,11 @@ MonoBehaviour:
     DateAdded: TO CONFIRM
     WhereUsed: BackdropTerrain (Outpost/Import NASA Heightmap (RAW))
     ModifiedNotes: Pending user RAW export (GDAL gdal_translate -of ENVI)
+    TitleKey: 
+    OrganizationKey: 
+    SupportsKey: 
+    SupportsNote: 
+    SecondaryUrl: 
   - Id: hopefulsham-corridor-kit
     Title: SciFi Corridor PRO LITE (v1.0.0)
     Organization: 'hopefulsham (source PBR textures: Poly Haven)'
@@ -175,6 +370,11 @@ MonoBehaviour:
     ModifiedNotes: Used FBX only (GLB skipped); Point-filtered textures; PSX shader
       conversion preserving emissives; separated DoorLeaf sliding mesh; replaced
       panel_grey/panel_white with clean PSX station plating
+    TitleKey: 
+    OrganizationKey: 
+    SupportsKey: 
+    SupportsNote: 
+    SecondaryUrl: 
   - Id: lowbitlab-station-sample
     Title: PSX Space Station Interior - Free Sample (6 Models + Atlas)
     Organization: Lowbit Lab
@@ -191,6 +391,11 @@ MonoBehaviour:
     ModifiedNotes: Point-filtered 128x128 atlas & PSX Lit vertex-color conversion;
       upright axis alignment (-90 X); sliced tiles for wall/floor/ceiling/hull base
       textures
+    TitleKey: 
+    OrganizationKey: 
+    SupportsKey: 
+    SupportsNote: 
+    SecondaryUrl: 
   - Id: psx-satellite-radio
     Title: PSX Style Satellite Radio
     Organization: Third-party PSX model pack (Assets/Models/psx-style-satellite-radio
@@ -204,6 +409,11 @@ MonoBehaviour:
       desk PF_Radio & Mars surface DSN_FieldRadio)
     ModifiedNotes: Extracted Satellite Radio.fbx from source zip, scaled to ~0.48m
       desk span, converted textures to Point-filtered PSX Lit
+    TitleKey: 
+    OrganizationKey: 
+    SupportsKey: 
+    SupportsNote: 
+    SecondaryUrl: 
   - Id: radiation-sign-glb
     Title: Radiation Hazard Sign (Assets/Models/radiation_sign.glb)
     Organization: Third-party 3D model (confirm author before submission)
@@ -216,6 +426,11 @@ MonoBehaviour:
       + perimeter hazard signs)
     ModifiedNotes: Baked embedded glTF texture to Point-filtered PNG (T_RadiationSign.png),
       scaled to 2.05m, converted to PSX Lit
+    TitleKey: 
+    OrganizationKey: 
+    SupportsKey: 
+    SupportsNote: 
+    SecondaryUrl: 
   - Id: neon-command-ui-kit
     Title: Neon Command UI Kit - Free Sampler (Arctic colorway)
     Organization: gen-xia
@@ -228,6 +443,11 @@ MonoBehaviour:
     WhereUsed: Assets/Art/UI/Icons/ (12 copied 128x128 UI icons) + Terminal HUD &
       Apps via IconLibrary.asset
     ModifiedNotes: Renamed to Icon_* and registered in IconLibrary.asset
+    TitleKey: 
+    OrganizationKey: 
+    SupportsKey: 
+    SupportsNote: 
+    SecondaryUrl: 
   - Id: project-fonts
     Title: Terminal & HUD Typography
     Organization: "TextMeshPro / Unity LegacyRuntime / Google Fonts (if ShareTech/Roboto/Orbitron
@@ -235,10 +455,15 @@ MonoBehaviour:
     UrlText: Check Assets/Fonts or FontTheme assets
     UsedByConstantsAndEvents: 
     Section: Fonts
-    License: SIL OFL 1.1 / Unity Built-in (verify before submission)
+    License: SIL OFL 1.1 / Unity Built-in (UNVERIFIED - check before submission)
     DateAdded: 2026-11-14
     WhereUsed: Assets/Art/UI/TerminalTheme.asset, OutpostFlowCanvas, RoomHudCanvas
     ModifiedNotes: No
+    TitleKey: 
+    OrganizationKey: 
+    SupportsKey: 
+    SupportsNote: 
+    SecondaryUrl: 
   - Id: pkg-gltfast
     Title: glTFast (com.unity.cloud.gltfast 6.10.1)
     Organization: Unity Technologies / Andreas Atteneder
@@ -249,6 +474,11 @@ MonoBehaviour:
     DateAdded: 2026-11-14
     WhereUsed: Packages/manifest.json (imports 25042_Perseverance.glb)
     ModifiedNotes: No
+    TitleKey: 
+    OrganizationKey: 
+    SupportsKey: 
+    SupportsNote: 
+    SecondaryUrl: 
   - Id: pkg-urp
     Title: Universal RP (com.unity.render-pipelines.universal 17.5.0) & Input System
     Organization: Unity Technologies
@@ -259,6 +489,11 @@ MonoBehaviour:
     DateAdded: 2026-11-14
     WhereUsed: Active render pipeline and FPS/terminal input
     ModifiedNotes: No
+    TitleKey: 
+    OrganizationKey: 
+    SupportsKey: 
+    SupportsNote: 
+    SecondaryUrl: 
   - Id: gen-terrain
     Title: Procedural MarsPlayTerrain, BackdropTerrain & 3 Low-Poly Rock Variants
     Organization: In-project script (MarsTerrainGenerator.cs)
@@ -270,6 +505,11 @@ MonoBehaviour:
     WhereUsed: Outpost scene exterior Mars terrain, BackdropTerrain ring, Rock_Small/Medium/Large
       prefabs
     ModifiedNotes: Generated via Outpost/Generate Mars Terrain
+    TitleKey: 
+    OrganizationKey: 
+    SupportsKey: 
+    SupportsNote: 
+    SecondaryUrl: 
   - Id: gen-psx-textures-shaders
     Title: PSX Shaders & 64x64 Procedural Surface/Terrain Textures
     Organization: In-project script (PSXMaterialApplier.cs, Assets/Shaders/*)
@@ -281,6 +521,11 @@ MonoBehaviour:
     WhereUsed: Assets/Shaders/ (PSXLit, PSXUnlit, PSXLit_Cutout, PSXParticle, PSXPost,
       PSXTerrain, PSXSkyGradient) & Assets/Art/PSX/
     ModifiedNotes: Generated procedurally at 64x64 with Point filtering
+    TitleKey: 
+    OrganizationKey: 
+    SupportsKey: 
+    SupportsNote: 
+    SecondaryUrl: 
   - Id: gen-ui-icons
     Title: 8 Matching 128x128 Procedural UI Icons
     Organization: In-project script (TerminalIconAssetBuilder.cs)
@@ -292,6 +537,11 @@ MonoBehaviour:
     WhereUsed: Assets/Art/UI/Icons/ (Icon_Oxygen, Icon_Water, Icon_Food, Icon_Signal,
       Icon_Log, Icon_Sources, Icon_Help, Icon_Goal)
     ModifiedNotes: Generated in matching teal/light-blue/yellow/coral 6px line style
+    TitleKey: 
+    OrganizationKey: 
+    SupportsKey: 
+    SupportsNote: 
+    SecondaryUrl: 
   - Id: sfx-warning-klaxon
     Title: Warning.wav (Facility Hazard Alert Sting)
     Organization: "Project Audio Import (Exact Author/Source URL UNVERIFIED \u2014
@@ -299,26 +549,35 @@ MonoBehaviour:
     UrlText: Assets/Sounds/VOX/Warning.wav (origin URL UNVERIFIED)
     UsedByConstantsAndEvents: 
     Section: Sound effects
-    License: Verify original SFX license before distribution
+    License: UNVERIFIED - check before submission (verify original SFX license)
     DateAdded: 2026-11-15
     WhereUsed: Assets/Sounds/VOX/Warning.wav -> baked lightly via Sting preset to
       Assets/Audio/Announcer/Processed/alert_sting.wav
     ModifiedNotes: Original untouched; baked copy trimmed, lightly reverbed (-1.5
       dBFS mono 22050 Hz)
+    TitleKey: 
+    OrganizationKey: 
+    SupportsKey: 
+    SupportsNote: 
+    SecondaryUrl: 
   - Id: sfx-atmosphere-doors
     Title: Outpost Atmosphere & Door SFX (SpaceShip.mp3, MarsSound.wav, DoorOpen.wav,
-      CloseDoor.wav)
+      CloseDoor.wav, footsteps)
     Organization: "Project Audio Import (Exact Author/Source URL UNVERIFIED \u2014
       update before submission)"
     UrlText: Assets/Sounds/Atmosphere/ (origin URL UNVERIFIED)
     UsedByConstantsAndEvents: 
     Section: Sound effects
-    License: Verify original SFX license before distribution
+    License: UNVERIFIED - check before submission (verify original SFX license)
     DateAdded: 2026-11-15
     WhereUsed: 'AudioManager in Outpost.unity: SpaceShip.mp3 (interior loop), MarsSound.wav
-      (exterior Mars loop), DoorOpen.wav / CloseDoor.wav (facility & airlock doors)'
-    ModifiedNotes: Originals untouched; configured Unity AudioImporter compression/loadType
-      (Streaming/CompressedInMemory/DecompressOnLoad)
+      (exterior Mars loop), DoorOpen.wav / CloseDoor.wav, exterior stone footsteps'
+    ModifiedNotes: Originals untouched; configured Unity AudioImporter Vorbis compression
+    TitleKey: 
+    OrganizationKey: 
+    SupportsKey: 
+    SupportsNote: 
+    SecondaryUrl: 
   - Id: audio-generated-tts
     Title: ElevenLabs Voice Clips & Facility Announcer Lines
     Organization: 'ElevenLabs Speech Synthesis (Voices: Lauren, Jessica) / Project
@@ -326,11 +585,17 @@ MonoBehaviour:
     UrlText: https://elevenlabs.io/ (License/Tier UNVERIFIED)
     UsedByConstantsAndEvents: 
     Section: Generated audio
-    License: Check ElevenLabs plan commercial terms before distribution
+    License: UNVERIFIED - check before submission (check ElevenLabs plan commercial
+      terms)
     DateAdded: 2026-11-15
     WhereUsed: Assets/Sounds/VOX/ (8 ElevenLabs test voice clips + pending 11 canonical
       AnnouncerDatabase lines)
     ModifiedNotes: Originals kept intact and unmodified
+    TitleKey: 
+    OrganizationKey: 
+    SupportsKey: 
+    SupportsNote: 
+    SecondaryUrl: 
   - Id: audio-baked-vox-dsp
     Title: VOX FX Offline DSP Chain & Baked Facility Audio
     Organization: In-project pure-C# DSP (VoxFxDsp.cs / VoxFxBaker.cs)
@@ -344,6 +609,11 @@ MonoBehaviour:
       Schroeder hall reverb, radio squelch'
     ModifiedNotes: Offline idempotent bake with VOX Classic, Heavy Echo, Clean Radio,
       and Sting presets
+    TitleKey: 
+    OrganizationKey: 
+    SupportsKey: 
+    SupportsNote: 
+    SecondaryUrl: 
   - Id: tool-unity
     Title: Unity Editor (6000.x), Unity MCP (com.coplaydev.unity-mcp), Python & Antigravity
       AI Assistant
@@ -355,3 +625,8 @@ MonoBehaviour:
     DateAdded: 2026-11-14
     WhereUsed: Scene assembly, editor automation, shader/UI integration & verification
     ModifiedNotes: AI-assisted implementation and integration scripts
+    TitleKey: 
+    OrganizationKey: 
+    SupportsKey: 
+    SupportsNote: 
+    SecondaryUrl: 

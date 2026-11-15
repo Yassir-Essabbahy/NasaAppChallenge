@@ -11,10 +11,31 @@ namespace Outpost.Runtime.Audio
         public string id;
         public bool alertSting;
         public string subtitleKey;
+        public string sourceId;
+        public List<string> sourceIds = new List<string>();
         public AudioClip originalClip;
         public AudioClip processedClip;
 
         public AudioClip GetPlaybackClip() => processedClip != null ? processedClip : originalClip;
+
+        public IReadOnlyList<string> GetSourceIds()
+        {
+            if (sourceIds != null && sourceIds.Count > 0)
+                return sourceIds;
+            if (!string.IsNullOrWhiteSpace(sourceId))
+            {
+                string[] parts = sourceId.Split(',');
+                var list = new List<string>(parts.Length);
+                for (int i = 0; i < parts.Length; i++)
+                {
+                    string trimmed = parts[i].Trim();
+                    if (!string.IsNullOrEmpty(trimmed))
+                        list.Add(trimmed);
+                }
+                return list;
+            }
+            return Array.Empty<string>();
+        }
     }
 
     public static class AnnouncerLocalization
@@ -37,7 +58,7 @@ namespace Outpost.Runtime.Audio
         public static string GetSubtitle(string lineId, string subtitleKey)
         {
             if (string.Equals(lineId, "vox_welcome", StringComparison.OrdinalIgnoreCase))
-                return "Commander. Outpost is under your control.";
+                return Localization.Get("vox_welcome");
             string key = string.IsNullOrWhiteSpace(subtitleKey) ? ("vox." + lineId) : subtitleKey;
             string simValue = Localization.Get(key);
             if (!string.IsNullOrEmpty(simValue) && !string.Equals(simValue, key, StringComparison.Ordinal))
@@ -65,19 +86,19 @@ namespace Outpost.Runtime.Audio
         [Header("Scheduled & Debug Announcer Lines")]
         public List<AnnouncerLine> lines = new List<AnnouncerLine>();
 
-        public static readonly (string id, bool alertSting, string subtitleKey)[] CanonicalLines =
+        public static readonly (string id, bool alertSting, string subtitleKey, string[] sourceIds)[] CanonicalLines =
         {
-            ("haz_asteroid_c", true, "vox.haz_asteroid_c"),
-            ("haz_meteoroid", true, "vox.haz_meteoroid"),
-            ("haz_seismic", true, "vox.haz_seismic"),
-            ("n_systems", false, "vox.n_systems"),
-            ("n_samples", false, "vox.n_samples"),
-            ("r_suit", false, "vox.r_suit"),
-            ("f_sol", false, "vox.f_sol"),
-            ("f_gravity", false, "vox.f_gravity"),
-            ("f_moons", false, "vox.f_moons"),
-            ("f_cold", false, "vox.f_cold"),
-            ("f_signal", false, "vox.f_signal")
+            ("haz_asteroid_c", true, "vox.haz_asteroid_c", Array.Empty<string>()),
+            ("haz_meteoroid", true, "vox.haz_meteoroid", Array.Empty<string>()),
+            ("haz_seismic", true, "vox.haz_seismic", Array.Empty<string>()),
+            ("n_systems", false, "vox.n_systems", Array.Empty<string>()),
+            ("n_samples", false, "vox.n_samples", Array.Empty<string>()),
+            ("r_suit", false, "vox.r_suit", Array.Empty<string>()),
+            ("f_sol", false, "vox.f_sol", new[] { "nasa-mars-fact-sheet" }),
+            ("f_gravity", false, "vox.f_gravity", new[] { "esa-mars-facts" }),
+            ("f_moons", false, "vox.f_moons", new[] { "esa-mars-facts" }),
+            ("f_cold", false, "vox.f_cold", new[] { "esa-meet-mars", "nasa-mars-fact-sheet" }),
+            ("f_signal", false, "vox.f_signal", new[] { "esa-light-time" })
         };
 
         public AudioClip GetStingPlaybackClip() => alertStingProcessed != null ? alertStingProcessed : alertStingOriginal;
@@ -110,12 +131,14 @@ namespace Outpost.Runtime.Audio
                 var existing = FindLine(entry.id);
                 if (existing == null)
                 {
-                    lines.Add(new AnnouncerLine
+                    var line = new AnnouncerLine
                     {
                         id = entry.id,
                         alertSting = entry.alertSting,
                         subtitleKey = entry.subtitleKey
-                    });
+                    };
+                    ApplyCanonicalSources(line, entry.sourceIds);
+                    lines.Add(line);
                     changed = true;
                 }
                 else
@@ -123,6 +146,45 @@ namespace Outpost.Runtime.Audio
                     if (string.IsNullOrWhiteSpace(existing.subtitleKey))
                     {
                         existing.subtitleKey = entry.subtitleKey;
+                        changed = true;
+                    }
+                    if (ApplyCanonicalSources(existing, entry.sourceIds))
+                        changed = true;
+                }
+            }
+            return changed;
+        }
+
+        private static bool ApplyCanonicalSources(AnnouncerLine line, string[] canonicalIds)
+        {
+            if (line == null || canonicalIds == null) return false;
+            bool changed = false;
+            if (line.sourceIds == null)
+            {
+                line.sourceIds = new List<string>();
+                changed = true;
+            }
+
+            string joined = string.Join(", ", canonicalIds);
+            if (!string.Equals(line.sourceId ?? string.Empty, joined, StringComparison.Ordinal))
+            {
+                line.sourceId = joined;
+                changed = true;
+            }
+
+            if (line.sourceIds.Count != canonicalIds.Length)
+            {
+                line.sourceIds.Clear();
+                line.sourceIds.AddRange(canonicalIds);
+                changed = true;
+            }
+            else
+            {
+                for (int i = 0; i < canonicalIds.Length; i++)
+                {
+                    if (!string.Equals(line.sourceIds[i], canonicalIds[i], StringComparison.Ordinal))
+                    {
+                        line.sourceIds[i] = canonicalIds[i];
                         changed = true;
                     }
                 }

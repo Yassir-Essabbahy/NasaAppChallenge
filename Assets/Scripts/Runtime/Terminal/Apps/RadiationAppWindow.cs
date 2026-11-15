@@ -73,7 +73,7 @@ namespace Outpost.Runtime.Terminal.Apps
             else
             {
                 _flareBannerText.color = Theme.StatusOk;
-                _flareBannerText.text = $"{Localization.Get("status.word.good")} — +{s.ProjectedDoseMsv:0.00} mSv{Localization.Get("mc.per_sol")}";
+                _flareBannerText.text = Localization.ShapeDisplay($"{Localization.GetRaw("status.word.good")} — +{s.ProjectedDoseMsv:0.00} mSv{Localization.GetRaw("mc.per_sol")}");
                 if (_flareStatusIcon != null)
                 {
                     _flareStatusIcon.sprite = TerminalUiArt.GetIcon(TerminalIconId.Shield);
@@ -85,14 +85,14 @@ namespace Outpost.Runtime.Terminal.Apps
             for (int i = 0; i < s.Crew.Count; i++)
             {
                 var c = s.Crew[i];
-                string tag = !c.IsAlive ? Localization.Get("ui.deceased")
-                    : c.DoseMsv > s.DoseHealthThresholdMsv ? Localization.Get("status.word.danger")
-                    : (c.DoseMsv > s.DoseHealthThresholdMsv * 0.7f ? Localization.Get("status.word.low") : Localization.Get("status.word.good"));
-                _sb.AppendLine($"{c.Name}: {c.DoseMsv:0.0} / {s.DoseHealthThresholdMsv:0.0} mSv  [{tag}]");
+                string tag = !c.IsAlive ? Localization.GetRaw("ui.deceased")
+                    : c.DoseMsv > s.DoseHealthThresholdMsv ? Localization.GetRaw("status.word.danger")
+                    : (c.DoseMsv > s.DoseHealthThresholdMsv * 0.7f ? Localization.GetRaw("status.word.low") : Localization.GetRaw("status.word.good"));
+                _sb.AppendLine(Localization.ShapeDisplay($"{c.Name}: {c.DoseMsv:0.0} / {s.DoseHealthThresholdMsv:0.0} mSv  [{tag}]"));
             }
             _crewDosesText.text = _sb.ToString();
 
-            _detailsText.text = $"+{s.ProjectedDoseMsv:0.00} mSv{Localization.Get("mc.per_sol")} | Safe Limit: {s.DoseHealthThresholdMsv:0.0} mSv";
+            _detailsText.text = Localization.Format("rad.safe_limit", s.ProjectedDoseMsv, Localization.GetRaw("mc.per_sol"), s.DoseHealthThresholdMsv);
 
             bool editable = !IsReadOnly && s.Status == MissionStatus.InProgress;
             bool canReinforce = editable && s.ActionPoints > 0 && s.Power >= 8f;

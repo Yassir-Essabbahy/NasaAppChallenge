@@ -30,6 +30,7 @@ namespace Outpost.Runtime.Terminal
             LoginPrompt,
             Gameplay,
             PauseMenu,
+            EndSolBlackCard,
             EndingSequence,
             Debrief,
             Credits
@@ -84,6 +85,9 @@ namespace Outpost.Runtime.Terminal
         private GameObject _titleCredBtnGo;
         private GameObject _howToPlayModal;
         private GameObject _titleSettingsModal;
+        private GameObject _titleMenuGroup;
+        private GameObject _titleAudioUnlockGate;
+        private GameObject _titleMobileNoticeGo;
         private Slider _titleVolumeSlider;
         private TextMeshProUGUI _titleVolumeValText;
         private Slider _titleVoxVolumeSlider;
@@ -125,11 +129,18 @@ namespace Outpost.Runtime.Terminal
 
         // Pause Menu UI
         private GameObject _pausePanel;
+        private bool _pausedByPointerLoss;
+        private bool _lastFullscreenUiState;
+        private TextMeshProUGUI _pausePointerHintText;
+        private TextMeshProUGUI _pauseResumeLabel;
+        private TextMeshProUGUI _pauseFullscreenLabel;
         private Slider _pauseVolumeSlider;
         private TextMeshProUGUI _pauseVolumeValText;
         private Slider _pauseVoxVolumeSlider;
         private TextMeshProUGUI _pauseVoxVolumeValText;
         private TextMeshProUGUI _pauseVoxMuteLabel;
+        private Slider _pauseMouseSensSlider;
+        private TextMeshProUGUI _pauseMouseSensValText;
         private TextMeshProUGUI _pauseLargeTextLabel;
         private TextMeshProUGUI _pauseReduceFlickerLabel;
         private TextMeshProUGUI _pausePsxEnabledLabel;
@@ -147,11 +158,32 @@ namespace Outpost.Runtime.Terminal
         private TextMeshProUGUI _debriefHeaderText;
         private TextMeshProUGUI _debriefSummaryText;
         private TextMeshProUGUI _debriefLeftText;
-        private TextMeshProUGUI _debriefRightText;
+        private RectTransform _debriefRightContent;
 
         // Credits UI
         private GameObject _creditsPanel;
         private TextMeshProUGUI _creditsBodyText;
+
+        // End-Sol Black Card UI (canvas sorted at 80: above WorldView/HUD/Terminal/Subtitles, below Pause 90 & Debug 100)
+        private Canvas _endSolCanvas;
+        private AccessibilityTextScaler _endSolTextScaler;
+        private GameObject _endSolPanel;
+        private CanvasGroup _endSolBackdropGroup;
+        private RectTransform _endSolCardContainer;
+        private CanvasGroup _endSolCardGroup;
+        private RawImage _endSolGrainImage;
+        private RawImage _endSolVignetteImage;
+        private TextMeshProUGUI _endSolTopLineText;
+        private TextMeshProUGUI _endSolBigLineText;
+        private GameObject _endSolRuleGo;
+        private TextMeshProUGUI _endSolSubLineText;
+        private GameObject _endSolSkipContainer;
+        private Image _endSolSkipFill;
+        private TextMeshProUGUI _endSolSkipLabel;
+        private bool _hasPlayedEndSolBlackCardThisSession;
+        private bool _endSolSkipAllowed;
+        private bool _endSolSkipRequested;
+        private float _endSolSkipHoldSeconds;
 
         private readonly StringBuilder _sb = new StringBuilder(1024);
 
@@ -251,6 +283,7 @@ namespace Outpost.Runtime.Terminal
             if (_roomController != null)
             {
                 _roomController.OnPauseRequested += HandlePauseRequested;
+                _roomController.OnPointerLockLostPauseRequested += HandlePointerLockLostPauseRequested;
                 _roomController.OnEnteredTerminal += HandlePlayerEnteredTerminal;
                 _roomController.OnExitedTerminal += HandlePlayerExitedTerminal;
                 _roomController.ExternalLeaveBlockCheck = () => _state != FlowState.Gameplay;
@@ -259,11 +292,16 @@ namespace Outpost.Runtime.Terminal
 
             if (_terminalController != null)
             {
+                _terminalController.OnEndSolBlackCardRequested = HandleEndSolBlackCardRequested;
+                _terminalController.IsExternalBlackCardPlaying = () => _state == FlowState.EndSolBlackCard;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                _terminalController.OnDebugTriggerEndSolBlackCardRequested = DebugPlayEndSolBlackCard;
                 _terminalController.OnDebugSkipIntroRequested = DebugSkipIntro;
                 _terminalController.OnDebugReplayIntroRequested = DebugReplayIntro;
                 _terminalController.OnDebugResetIntroSeenRequested = DebugResetIntroSeen;
                 _terminalController.OnDebugJumpToDebriefRequested = DebugJumpToDebrief;
                 _terminalController.OnDebugTeleportSpawnRequested = DebugTeleportToSpawn;
+#endif
             }
         }
 
@@ -275,10 +313,25 @@ namespace Outpost.Runtime.Terminal
             if (_roomController != null)
             {
                 _roomController.OnPauseRequested -= HandlePauseRequested;
+                _roomController.OnPointerLockLostPauseRequested -= HandlePointerLockLostPauseRequested;
                 _roomController.OnEnteredTerminal -= HandlePlayerEnteredTerminal;
                 _roomController.OnExitedTerminal -= HandlePlayerExitedTerminal;
                 _roomController.ExternalLeaveBlockCheck = null;
                 _roomController.IsPauseMenuOpenCheck = null;
+            }
+
+            if (_terminalController != null)
+            {
+                _terminalController.OnEndSolBlackCardRequested = null;
+                _terminalController.IsExternalBlackCardPlaying = null;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                _terminalController.OnDebugTriggerEndSolBlackCardRequested = null;
+                _terminalController.OnDebugSkipIntroRequested = null;
+                _terminalController.OnDebugReplayIntroRequested = null;
+                _terminalController.OnDebugResetIntroSeenRequested = null;
+                _terminalController.OnDebugJumpToDebriefRequested = null;
+                _terminalController.OnDebugTeleportSpawnRequested = null;
+#endif
             }
         }
 
@@ -317,8 +370,18 @@ namespace Outpost.Runtime.Terminal
                     return;
                 }
 
+                if (_titleAudioUnlockGate != null && _titleAudioUnlockGate.activeSelf)
+                {
+                    if (Time.frameCount > _stateEnteredFrame && WebGLPlatformHelper.HasUnlockGestureThisFrame())
+                    {
+                        UnlockFallbackTitleAudioGate(playClick: true);
+                    }
+                    return;
+                }
+
                 if (Time.frameCount > _stateEnteredFrame && ShouldStartFromTitleKeyboard(kb))
                 {
+                    WebGLPlatformHelper.MarkAudioUnlocked();
                     _audioManager?.PlayUiClick();
                     StartIntroSequence();
                 }
@@ -365,9 +428,44 @@ namespace Outpost.Runtime.Terminal
             }
             else if (_state == FlowState.PauseMenu)
             {
+                if (_pauseFullscreenLabel != null && _lastFullscreenUiState != Screen.fullScreen)
+                {
+                    _lastFullscreenUiState = Screen.fullScreen;
+                    _pauseFullscreenLabel.text = $"{Localization.Get("pause.fullscreen")}: {(_lastFullscreenUiState ? "ON" : "OFF")}";
+                }
                 if (kb != null && Time.frameCount > _stateEnteredFrame && kb.escapeKey.wasPressedThisFrame)
                 {
                     ResumeFromPause();
+                }
+            }
+            else if (_state == FlowState.EndSolBlackCard)
+            {
+                bool reduceFlicker = _accessibility != null && _accessibility.ReduceFlicker;
+                if (_endSolGrainImage != null)
+                    _endSolGrainImage.gameObject.SetActive(!reduceFlicker);
+                if (_endSolVignetteImage != null)
+                    _endSolVignetteImage.gameObject.SetActive(!reduceFlicker);
+                if (_endSolTextScaler != null)
+                    _endSolTextScaler.SetLargerText(_accessibility != null && _accessibility.LargerText);
+
+                if (_endSolSkipAllowed)
+                {
+                    var mouse = Mouse.current;
+                    bool holding = (kb != null && kb.spaceKey.isPressed) || (mouse != null && mouse.leftButton.isPressed);
+                    if (holding && Time.frameCount > _stateEnteredFrame)
+                    {
+                        if (_endSolSkipContainer != null && !_endSolSkipContainer.activeSelf)
+                            _endSolSkipContainer.SetActive(true);
+                        _endSolSkipHoldSeconds += Time.unscaledDeltaTime;
+                        SetEndSolSkipProgress(_endSolSkipHoldSeconds / 0.8f);
+                        if (_endSolSkipHoldSeconds >= 0.8f)
+                            _endSolSkipRequested = true;
+                    }
+                    else
+                    {
+                        _endSolSkipHoldSeconds = Mathf.Max(0f, _endSolSkipHoldSeconds - Time.unscaledDeltaTime * 2.5f);
+                        SetEndSolSkipProgress(_endSolSkipHoldSeconds / 0.8f);
+                    }
                 }
             }
         }
@@ -414,6 +512,7 @@ namespace Outpost.Runtime.Terminal
             if (_debriefPanel != null) _debriefPanel.SetActive(false);
             if (_creditsPanel != null) _creditsPanel.SetActive(false);
             if (_fadeBlackGo != null) _fadeBlackGo.SetActive(false);
+            if (_endSolPanel != null) _endSolPanel.SetActive(false);
         }
 
         // --- STATE TRANSITIONS ---
@@ -438,7 +537,21 @@ namespace Outpost.Runtime.Terminal
             _roomController?.SetFlowLocked(unlockCursor: true);
             EventSystem.current?.SetSelectedGameObject(null);
             RefreshTitleActionRow();
+            ApplyFallbackTitleAudioGateState(WebGLPlatformHelper.AudioUnlocked);
             if (_titlePanel != null) _titlePanel.SetActive(true);
+        }
+
+        private void UnlockFallbackTitleAudioGate(bool playClick)
+        {
+            WebGLPlatformHelper.MarkAudioUnlocked();
+            ApplyFallbackTitleAudioGateState(unlocked: true);
+            if (playClick) _audioManager?.PlayUiClick();
+        }
+
+        private void ApplyFallbackTitleAudioGateState(bool unlocked)
+        {
+            if (_titleAudioUnlockGate != null) _titleAudioUnlockGate.SetActive(!unlocked);
+            if (_titleMenuGroup != null) _titleMenuGroup.SetActive(unlocked);
         }
 
         private void RefreshTitleActionRow()
@@ -579,34 +692,36 @@ namespace Outpost.Runtime.Terminal
             {
                 if (_introBigGroup != null) _introBigGroup.SetActive(true);
                 if (_introUnderlineGo != null) _introUnderlineGo.SetActive(true);
+                bool isAr = Localization.CurrentLanguage == Language.Arabic;
                 string raw = (card.textLineKeys != null && card.textLineKeys.Length > 0)
-                    ? Localization.Get(card.textLineKeys[0]).ToUpperInvariant()
+                    ? (isAr ? Localization.Get(card.textLineKeys[0]) : Localization.Get(card.textLineKeys[0]).ToUpperInvariant())
                     : string.Empty;
                 if (_introBigText != null)
                 {
                     _introBigText.color = Color.white;
-                    _introBigText.text = FormatAccentWord(raw, card.accentWordIndex);
-                    _introBigText.characterSpacing = 40f;
+                    _introBigText.text = isAr ? raw : FormatAccentWord(raw, card.accentWordIndex);
+                    _introBigText.characterSpacing = isAr ? 0f : 40f;
                 }
 
                 yield return AnimateCardEntranceAndHold(_introBigText, card, slamScale: false, applyMeshJitter: !reduceFlicker);
             }
             else if (card.type == IntroCardType.TitleSlam)
             {
+                bool isAr = Localization.CurrentLanguage == Language.Arabic;
                 if (_introSlamGroup != null) _introSlamGroup.SetActive(true);
                 if (_introSlamMainText != null)
                 {
                     _introSlamMainText.text = (card.textLineKeys != null && card.textLineKeys.Length > 0)
-                        ? Localization.Get(card.textLineKeys[0]).ToUpperInvariant()
-                        : "MARS OUTPOST";
-                    _introSlamMainText.characterSpacing = 28f;
+                        ? (isAr ? Localization.Get(card.textLineKeys[0]) : Localization.Get(card.textLineKeys[0]).ToUpperInvariant())
+                        : Localization.Get("title.mars");
+                    _introSlamMainText.characterSpacing = isAr ? 0f : 28f;
                 }
                 if (_introSlamSubText != null)
                 {
                     _introSlamSubText.text = (card.textLineKeys != null && card.textLineKeys.Length > 1)
-                        ? Localization.Get(card.textLineKeys[1]).ToUpperInvariant()
-                        : "LAST SHIFT";
-                    _introSlamSubText.characterSpacing = 36f;
+                        ? (isAr ? Localization.Get(card.textLineKeys[1]) : Localization.Get(card.textLineKeys[1]).ToUpperInvariant())
+                        : Localization.Get("title.last_shift");
+                    _introSlamSubText.characterSpacing = isAr ? 0f : 36f;
                 }
 
                 yield return AnimateCardEntranceAndHold(_introSlamMainText, card, slamScale: true, applyMeshJitter: false);
@@ -674,7 +789,8 @@ namespace Outpost.Runtime.Terminal
 
                 if (text != null)
                 {
-                    text.characterSpacing = Mathf.Lerp(40f, 18f, curved);
+                    bool isAr = Localization.CurrentLanguage == Language.Arabic;
+                    text.characterSpacing = isAr ? 0f : Mathf.Lerp(40f, 18f, curved);
                     if (applyMeshJitter && elapsed < flickerWindow)
                         ApplyPerCharacterSettlementJitter(text, 1f - (elapsed / flickerWindow));
                     else if (applyMeshJitter && elapsed >= flickerWindow)
@@ -896,10 +1012,10 @@ namespace Outpost.Runtime.Terminal
 
             string[] bootLines =
             {
-                Localization.Get("boot.line1"),
-                Localization.Get("boot.line2"),
-                Localization.Get("boot.line3"),
-                Localization.Get("boot.line4")
+                Localization.GetRaw("boot.line1"),
+                Localization.GetRaw("boot.line2"),
+                Localization.GetRaw("boot.line3"),
+                Localization.GetRaw("boot.line4")
             };
 
             _sb.Clear();
@@ -950,9 +1066,14 @@ namespace Outpost.Runtime.Terminal
             _terminalController?.BeginFirstShiftCommandLog();
         }
 
-        private void HandlePauseRequested()
+        private void HandlePauseRequested() => OpenPauseMenu(pointerLockLost: false);
+
+        private void HandlePointerLockLostPauseRequested() => OpenPauseMenu(pointerLockLost: true);
+
+        private void OpenPauseMenu(bool pointerLockLost)
         {
             if (_state != FlowState.Gameplay) return;
+            _pausedByPointerLoss = pointerLockLost;
             _state = FlowState.PauseMenu;
             _stateEnteredFrame = Time.frameCount;
             Time.timeScale = 0f;
@@ -965,6 +1086,7 @@ namespace Outpost.Runtime.Terminal
         public void ResumeFromPause()
         {
             if (_state != FlowState.PauseMenu) return;
+            _pausedByPointerLoss = false;
             _audioManager?.PlayUiClick();
             Time.timeScale = 1f;
             if (_pausePanel != null) _pausePanel.SetActive(false);
@@ -1162,6 +1284,7 @@ namespace Outpost.Runtime.Terminal
 
         // --- PART E DEV TOOLS ---
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
         public void DebugSkipIntro()
         {
             PlayerPrefs.SetInt(IntroSeenPrefsKey, 1);
@@ -1206,6 +1329,7 @@ namespace Outpost.Runtime.Terminal
             _roomController?.TeleportPlayerToSpawn();
             _roomController?.EnterRoomViewImmediateForFlow();
         }
+#endif
 
         // --- DEBRIEF & CREDITS POPULATION ---
 
@@ -1227,11 +1351,12 @@ namespace Outpost.Runtime.Terminal
             if (alive > 0) avgHp /= alive;
 
             _debriefHeaderText.color = won ? _theme.StatusOk : _theme.StatusCrit;
-            _debriefHeaderText.text = $"{Localization.Get("debrief.title")}  |  {(won ? Localization.Get("mission.won.title") : Localization.Get("mission.lost.title"))}  |  GRADE: {s.Grade}";
+            _debriefHeaderText.text = Localization.Format("debrief.header_fmt", Localization.GetRaw("debrief.title"), Localization.GetRaw(won ? "mission.won.title" : "mission.lost.title"), s.Grade);
 
-            _debriefSummaryText.text =
-                $"CMDR. {s.CommanderName}  (SEED {s.Seed})    |    SURVIVORS: {alive}/4    |    AVG HP: {avgHp:0}%    |    SCORE: {s.FinalScore:0.0}\n" +
-                $"REMAINING STOCKS —  PWR: {s.Power:0}%   O2: {s.Oxygen:0}%   H2O: {s.Water:0}%   FOOD: {s.Food:0}%   SHLD: {s.Shielding:0}%";
+            _debriefSummaryText.text = Localization.Format(
+                "debrief.summary_fmt",
+                s.CommanderName, s.Seed, alive, avgHp, s.FinalScore,
+                s.Power, s.Oxygen, s.Water, s.Food, s.Shielding);
 
             // Left column: Crew outcomes + Key Decisions Timeline
             _sb.Clear();
@@ -1239,79 +1364,149 @@ namespace Outpost.Runtime.Terminal
             for (int i = 0; i < s.Crew.Count; i++)
             {
                 var c = s.Crew[i];
-                _sb.AppendLine($"• {c.Name} ({c.Role}) — [{c.StatusTag}]  HP {c.Health:0}%  |  Morale {c.Morale:0}%  |  Dose {c.DoseMsv:0.0} mSv");
+                _sb.AppendLine(Localization.Format("debrief.crew_row_fmt", c.Name, c.Role, c.StatusTag, c.Health, c.Morale, c.DoseMsv));
             }
 
             _sb.AppendLine();
             _sb.AppendLine($"<b><color=#FFB84D>{Localization.Get("debrief.timeline")}</color></b>");
             if (s.DebriefCards.Count == 0)
             {
-                _sb.AppendLine("• No event decisions recorded yet.");
+                _sb.AppendLine(Localization.Get("debrief.no_events"));
             }
             else
             {
                 for (int i = 0; i < s.DebriefCards.Count; i++)
                 {
                     var d = s.DebriefCards[i];
-                    string choiceLabel = !string.IsNullOrEmpty(d.ChoiceLabelKey) ? Localization.Get(d.ChoiceLabelKey) : Localization.Get(d.OutcomeKey);
-                    string outcomeText = Localization.Get(d.OutcomeKey);
-                    _sb.AppendLine($"• SOL {d.Sol} [{Localization.Get(d.TitleKey)}]: {choiceLabel} -> {outcomeText}");
+                    string choiceLabel = !string.IsNullOrEmpty(d.ChoiceLabelKey) ? Localization.GetRaw(d.ChoiceLabelKey) : Localization.GetRaw(d.OutcomeKey);
+                    string outcomeText = Localization.GetRaw(d.OutcomeKey);
+                    _sb.AppendLine(Localization.Format("debrief.timeline_row_fmt", d.Sol, Localization.GetRaw(d.TitleKey), choiceLabel, outcomeText));
                 }
             }
             _debriefLeftText.text = _sb.ToString();
 
-            // Right column: What NASA Knows (FactCards per distinct event)
-            _sb.Clear();
-            _sb.AppendLine($"<b><color=#FFB84D>{Localization.Get("debrief.what_nasa_knows")}</color></b>");
-            var seenEvents = new HashSet<string>();
+            // Right column: What NASA Knows (distinct FactCards with source titles & Open URL buttons)
+            RebuildDebriefFactCards(s);
+        }
+
+        private void RebuildDebriefFactCards(SessionSnapshot s)
+        {
+            if (_debriefRightContent == null) return;
+            for (int i = _debriefRightContent.childCount - 1; i >= 0; i--)
+                Destroy(_debriefRightContent.GetChild(i).gameObject);
+
+            var hdr = TerminalUiBuilder.CreateText("WhatNasaKnowsHdr", _debriefRightContent, _theme, 24f, _theme.TextAmber, TextAlignmentOptions.MidlineLeft, _textScaler);
+            hdr.fontStyle = FontStyles.Bold;
+            hdr.text = Localization.Get("debrief.what_nasa_knows");
+
+            var seenCards = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             int cardCount = 0;
 
-            for (int i = 0; i < s.DebriefCards.Count; i++)
+            if (s != null && s.DebriefCards != null)
             {
-                var d = s.DebriefCards[i];
-                string evId = d.EventId;
-                if (string.IsNullOrEmpty(evId) || !seenEvents.Add(evId)) continue;
+                for (int i = 0; i < s.DebriefCards.Count; i++)
+                {
+                    var d = s.DebriefCards[i];
+                    string evId = d.EventId;
+                    if (string.IsNullOrEmpty(evId)) continue;
 
-                FactCard card = _factDb != null ? _factDb.GetByEventId(evId) : null;
-                AppendFactCardEntry(_sb, card, d.TitleKey, d.FactKey, d.SourceId);
+                    FactCard card = _factDb != null ? _factDb.GetByEventId(evId) : null;
+                    string cardKey = card != null && !string.IsNullOrEmpty(card.id) ? card.id : evId;
+                    if (!seenCards.Add(cardKey)) continue;
+
+                    AddDebriefFactCardItem(card, d.TitleKey, d.FactKey, d.SourceId);
+                    cardCount++;
+                }
+            }
+
+            // Include baseline radiation card once when crew received surface radiation
+            bool hadRadExposure = s != null && s.Crew != null && s.Crew.Exists(c => c.DoseMsv > 0.05f);
+            FactCard radCard = _factDb != null ? _factDb.GetById("fact_radiation_baseline") : null;
+            if (radCard != null && (hadRadExposure || cardCount == 0) && seenCards.Add(radCard.id))
+            {
+                AddDebriefFactCardItem(radCard, radCard.titleKey, radCard.textKey, radCard.sourceId);
                 cardCount++;
             }
 
             if (cardCount == 0 && _factDb != null && _factDb.Cards != null && _factDb.Cards.Count > 0)
             {
-                _sb.AppendLine("(Sample card shown when jumping straight to debrief before events resolve:)");
-                AppendFactCardEntry(_sb, _factDb.Cards[0], null, null, _factDb.Cards[0].sourceId);
+                var sample = _factDb.Cards[0];
+                if (sample != null && seenCards.Add(sample.id ?? "sample"))
+                    AddDebriefFactCardItem(sample, sample.titleKey, sample.textKey, sample.sourceId);
             }
-            _debriefRightText.text = _sb.ToString();
         }
 
-        private void AppendFactCardEntry(StringBuilder sb, FactCard card, string fallbackTitleKey, string fallbackFactKey, string sourceId)
+        private void AddDebriefFactCardItem(FactCard card, string fallbackTitleKey, string fallbackFactKey, string fallbackSourceId)
         {
-            string title = card != null && !string.IsNullOrEmpty(card.title)
-                ? card.title
-                : Localization.Get(fallbackTitleKey);
-            string body = card != null && !string.IsNullOrEmpty(card.text)
-                ? card.text
-                : Localization.Get(fallbackFactKey);
-            string srcId = card != null && !string.IsNullOrEmpty(card.sourceId) ? card.sourceId : sourceId;
+            string title = card != null ? card.ResolveTitle() : Localization.Get(fallbackTitleKey);
+            if (string.IsNullOrEmpty(title)) title = Localization.Get(fallbackTitleKey);
+            string body = card != null ? card.ResolveText() : Localization.Get(fallbackFactKey);
+            if (string.IsNullOrEmpty(body)) body = Localization.Get(fallbackFactKey);
 
-            string srcLabel = srcId;
-            if (_sourcesDb != null && _sourcesDb.Entries != null)
+            var panel = TerminalUiBuilder.CreateFlatPanel("FactCardRow", _debriefRightContent, _theme.DesktopBg, _theme.BorderUnfocused, 2f);
+            var fitter = panel.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+            var inner = TerminalUiBuilder.GetInner(panel);
+            var vlg = inner.gameObject.AddComponent<VerticalLayoutGroup>();
+            vlg.padding = new RectOffset(10, 10, 8, 8);
+            vlg.spacing = 4f;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = true;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+
+            var titleTmp = TerminalUiBuilder.CreateText("CardTitle", inner, _theme, 21f, _theme.TextAmber, TextAlignmentOptions.TopLeft, _textScaler);
+            titleTmp.fontStyle = FontStyles.Bold;
+            titleTmp.textWrappingMode = TextWrappingModes.Normal;
+            titleTmp.text = title;
+
+            var bodyTmp = TerminalUiBuilder.CreateText("CardBody", inner, _theme, 19f, _theme.TextPrimary, TextAlignmentOptions.TopLeft, _textScaler);
+            bodyTmp.textWrappingMode = TextWrappingModes.Normal;
+            bodyTmp.text = body;
+
+            IReadOnlyList<string> srcIds = card != null ? card.GetSourceIds() : null;
+            if ((srcIds == null || srcIds.Count == 0) && !string.IsNullOrWhiteSpace(fallbackSourceId))
+                srcIds = new[] { fallbackSourceId };
+
+            if (srcIds != null)
             {
-                for (int i = 0; i < _sourcesDb.Entries.Count; i++)
+                for (int i = 0; i < srcIds.Count; i++)
                 {
-                    if (_sourcesDb.Entries[i].Id == srcId)
+                    string sid = srcIds[i];
+                    SourceRecord rec = _sourcesDb != null ? _sourcesDb.FindById(sid) : null;
+                    string srcTitle = rec != null ? rec.ResolveTitle() : sid;
+                    string srcOrg = rec != null ? rec.ResolveOrganization() : string.Empty;
+                    string url = rec != null ? rec.UrlText : string.Empty;
+
+                    var srcRow = TerminalUiBuilder.CreateRect($"SrcLink_{i}", inner);
+                    var hlg = srcRow.gameObject.AddComponent<HorizontalLayoutGroup>();
+                    hlg.spacing = 8f;
+                    hlg.childControlWidth = true;
+                    hlg.childControlHeight = true;
+                    hlg.childForceExpandWidth = false;
+                    hlg.childForceExpandHeight = false;
+
+                    var srcTmp = TerminalUiBuilder.CreateText("SrcLabel", srcRow, _theme, 17f, _theme.AccentHelp, TextAlignmentOptions.MidlineLeft, _textScaler);
+                    srcTmp.textWrappingMode = TextWrappingModes.Normal;
+                    string prefix = Localization.GetRaw("debrief.source_prefix");
+                    srcTmp.text = Localization.ShapeDisplay(string.IsNullOrEmpty(srcOrg) ? $"{prefix} {srcTitle}" : $"{prefix} {srcTitle} ({srcOrg})");
+                    var txtLe = srcTmp.gameObject.AddComponent<LayoutElement>();
+                    txtLe.flexibleWidth = 1f;
+
+                    var openBtn = TerminalUiBuilder.CreateButton("OpenSourceBtn", srcRow, Localization.Get("ui.open"), _theme, _theme.ButtonBg, _theme.AccentSources, _theme.TextPrimary, 16f, () =>
                     {
-                        srcLabel = $"{_sourcesDb.Entries[i].Id} ({_sourcesDb.Entries[i].Title})";
-                        break;
-                    }
+                        _audioManager?.PlayUiClick();
+                        SourcesDatabase.OpenSourceUrl(url);
+                    }, _textScaler);
+                    var btnLe = openBtn.gameObject.AddComponent<LayoutElement>();
+                    btnLe.preferredWidth = 86f;
+                    btnLe.minWidth = 78f;
+                    btnLe.preferredHeight = 32f;
+                    openBtn.interactable = !string.IsNullOrWhiteSpace(url);
                 }
             }
-
-            sb.AppendLine();
-            sb.AppendLine($"<b>{title}</b>");
-            sb.AppendLine(body);
-            sb.AppendLine($"<color=#99AABB>Source: {srcLabel}</color>");
         }
 
         private void PopulateCredits()
@@ -1328,7 +1523,7 @@ namespace Outpost.Runtime.Terminal
             sb.AppendLine(Localization.Get("credits.unity"));
             sb.AppendLine(Localization.Get("credits.fonts"));
             sb.AppendLine();
-            sb.AppendLine("<b><color=#45E3D3>--- ASSETS, PACKAGES & TOOLS ---</color></b>");
+            sb.AppendLine($"<b><color=#45E3D3>{Localization.Get("credits.assets_hdr")}</color></b>");
 
             if (sourcesDb != null && sourcesDb.AssetCredits != null)
             {
@@ -1341,22 +1536,24 @@ namespace Outpost.Runtime.Terminal
                         lastSec = a.Section;
                         sb.AppendLine($"<b><color=#7FDFFF>[{lastSec}]</color></b>");
                     }
-                    sb.AppendLine($"• {a.Title} — {a.Organization}");
+                    sb.AppendLine(Localization.ShapeDisplay($"• {a.ResolveTitle()} — {a.ResolveOrganization()}"));
                     if (!string.IsNullOrEmpty(a.License))
-                        sb.AppendLine($"  License: {a.License} | Used: {a.WhereUsed}");
+                        sb.AppendLine(Localization.Format("credits.license_used", a.License, a.WhereUsed));
                 }
             }
 
             sb.AppendLine();
-            sb.AppendLine("<b><color=#F7C948>--- SCIENTIFIC SOURCES DATABASE ---</color></b>");
+            sb.AppendLine($"<b><color=#F7C948>{Localization.Get("credits.sources_hdr")}</color></b>");
 
             if (sourcesDb != null && sourcesDb.Entries != null)
             {
                 for (int i = 0; i < sourcesDb.Entries.Count; i++)
                 {
                     var e = sourcesDb.Entries[i];
-                    sb.AppendLine($"• [{e.Id}] {e.Title} — {e.Organization}");
-                    sb.AppendLine($"  {e.UrlText}");
+                    string lic = string.IsNullOrEmpty(e.License) ? "UNVERIFIED - check before submission" : e.License;
+                    sb.AppendLine($"• [{e.Id}] {e.ResolveTitle()} — {e.ResolveOrganization()}");
+                    sb.AppendLine($"  {e.ResolveSupports()}");
+                    sb.AppendLine($"  URL: {e.UrlText}  |  License: {lic}");
                 }
             }
             return sb.ToString();
@@ -1376,12 +1573,12 @@ namespace Outpost.Runtime.Terminal
             {
                 if (checkSkip && _skipRequested)
                 {
-                    target.text = prefix + line;
+                    target.text = Localization.ShapeDisplay(prefix + line);
                     yield break;
                 }
 
                 char c = line[i - 1];
-                target.text = prefix + line.Substring(0, i);
+                target.text = Localization.ShapeDisplay(prefix + line.Substring(0, i));
                 if (playClick && !char.IsWhiteSpace(c))
                     _audioManager?.PlayTypeClick();
 
@@ -1390,7 +1587,7 @@ namespace Outpost.Runtime.Terminal
                 {
                     if (checkSkip && _skipRequested)
                     {
-                        target.text = prefix + line;
+                        target.text = Localization.ShapeDisplay(prefix + line);
                         yield break;
                     }
                     elapsed += Time.unscaledDeltaTime;
@@ -1441,6 +1638,7 @@ namespace Outpost.Runtime.Terminal
             BuildDebriefPanel(root);
             BuildCreditsPanel(root);
             BuildBlackFadeOverlay(root);
+            BuildEndSolBlackCardCanvas();
         }
 
         private GameObject CreateFullscreenBg(RectTransform parent, string name, Color color)
@@ -1474,13 +1672,18 @@ namespace Outpost.Runtime.Terminal
             }
 
             // Minimal left-aligned menu under the wallpaper's "Mars / Last Shift" title (no borders, no icons/emojis, plain text)
-            _titleStartBtn = CreateSimpleTextMenuButton("PlayGameBtn", root, "Play Game", 0.435f, 0.505f, () =>
+            var menuGroupRect = TerminalUiBuilder.CreateRect("MenuButtonsGroup", root);
+            TerminalUiBuilder.SetStretch(menuGroupRect);
+            _titleMenuGroup = menuGroupRect.gameObject;
+
+            _titleStartBtn = CreateSimpleTextMenuButton("PlayGameBtn", menuGroupRect, "Play Game", 0.435f, 0.505f, () =>
             {
+                WebGLPlatformHelper.MarkAudioUnlocked();
                 _audioManager?.PlayUiClick();
                 StartIntroSequence();
             });
 
-            CreateSimpleTextMenuButton("SettingsBtn", root, "Settings", 0.345f, 0.415f, () =>
+            CreateSimpleTextMenuButton("SettingsBtn", menuGroupRect, "Settings", 0.345f, 0.415f, () =>
             {
                 _audioManager?.PlayUiClick();
                 RefreshPauseLabels();
@@ -1488,18 +1691,49 @@ namespace Outpost.Runtime.Terminal
                     _titleSettingsModal.SetActive(true);
             });
 
-            var credBtn = CreateSimpleTextMenuButton("CreditsBtn", root, "Credits", 0.255f, 0.325f, () =>
+            var credBtn = CreateSimpleTextMenuButton("CreditsBtn", menuGroupRect, "Credits", 0.255f, 0.325f, () =>
             {
                 _audioManager?.PlayUiClick();
                 EnterCreditsState(FlowState.Title);
             });
             _titleCredBtnGo = credBtn.gameObject;
 
-            CreateSimpleTextMenuButton("ExitBtn", root, "Exit", 0.165f, 0.235f, () =>
+            var exitBtn = CreateSimpleTextMenuButton("ExitBtn", menuGroupRect, "Exit", 0.165f, 0.235f, () =>
             {
                 _audioManager?.PlayUiClick();
                 QuitApplication();
             });
+            if (exitBtn != null && WebGLPlatformHelper.IsWebGLPlatform)
+                exitBtn.gameObject.SetActive(false);
+
+            // Browser first-gesture audio unlock prompt overlay
+            var gateRect = TerminalUiBuilder.CreateRect("FallbackAudioUnlockGate", root);
+            TerminalUiBuilder.SetStretch(gateRect);
+            var gateImg = gateRect.gameObject.AddComponent<Image>();
+            gateImg.color = new Color(0f, 0f, 0f, 0f);
+            var gateBtn = gateRect.gameObject.AddComponent<Button>();
+            gateBtn.transition = Selectable.Transition.None;
+            gateBtn.onClick.AddListener(() => UnlockFallbackTitleAudioGate(playClick: true));
+
+            var gatePrompt = TerminalUiBuilder.CreateText("FallbackClickToStartPrompt", gateRect, _theme, 30f, new Color(0.95f, 0.65f, 0.42f, 1f), TextAlignmentOptions.MidlineLeft, _textScaler);
+            gatePrompt.font = _theme.ResolveStampFont();
+            gatePrompt.fontStyle = FontStyles.Bold;
+            gatePrompt.text = Localization.Get("title.click_start");
+            gatePrompt.raycastTarget = false;
+            TerminalUiBuilder.SetAnchors(gatePrompt.rectTransform, 0.088f, 0.38f, 0.72f, 0.47f);
+            _titleAudioUnlockGate = gateRect.gameObject;
+            ApplyFallbackTitleAudioGateState(WebGLPlatformHelper.AudioUnlocked);
+
+            // Touch/mobile advisory notice
+            var mobileRect = TerminalUiBuilder.CreateRect("FallbackMobileNoticeFooter", root);
+            TerminalUiBuilder.SetAnchors(mobileRect, 0.088f, 0.03f, 0.91f, 0.09f);
+            var mobileText = TerminalUiBuilder.CreateText("FallbackMobileNoticeText", mobileRect, _theme, 20f, new Color(0.95f, 0.76f, 0.45f, 0.95f), TextAlignmentOptions.MidlineLeft, _textScaler);
+            mobileText.font = _theme.ResolveStampFont();
+            mobileText.text = Localization.Get("title.mobile_notice");
+            mobileText.raycastTarget = false;
+            TerminalUiBuilder.SetStretch(mobileText.rectTransform);
+            _titleMobileNoticeGo = mobileRect.gameObject;
+            _titleMobileNoticeGo.SetActive(WebGLPlatformHelper.ShouldShowTouchDeviceNotice());
 
             BuildTitleSettingsModal(root);
 
@@ -1577,17 +1811,20 @@ namespace Outpost.Runtime.Terminal
             var title = TerminalUiBuilder.CreateText("SettingsTitle", inner, _theme, 36f, new Color(0.95f, 0.65f, 0.42f, 1f), TextAlignmentOptions.Center, _textScaler);
             title.font = _theme.ResolveTitleFont();
             title.fontStyle = FontStyles.Bold;
-            title.text = "SETTINGS";
+            title.text = Localization.Get("pause.settings_title");
             TerminalUiBuilder.SetAnchors(title.rectTransform, 0f, 0.86f, 1f, 0.97f);
 
             BuildSharedSettingsControls(
                 inner,
                 0.80f,
+                includeSensitivity: false,
                 out _titleVolumeSlider,
                 out _titleVolumeValText,
                 out _titleVoxVolumeSlider,
                 out _titleVoxVolumeValText,
                 out _titleVoxMuteLabel,
+                out _,
+                out _,
                 out _titleLargeTextLabel,
                 out _titleReduceFlickerLabel,
                 out _titlePsxEnabledLabel,
@@ -1851,20 +2088,31 @@ namespace Outpost.Runtime.Terminal
         private void BuildPausePanel(RectTransform parent)
         {
             _pausePanel = CreateFullscreenBg(parent, "PausePanel", new Color(0f, 0f, 0f, 0.78f));
+            var pauseCanvas = _pausePanel.AddComponent<Canvas>();
+            pauseCanvas.overrideSorting = true;
+            pauseCanvas.sortingOrder = 90; // Sorted above everything (including EndSolBlackCard at 80) except DevDebugPanel (100)
+            _pausePanel.AddComponent<GraphicRaycaster>();
             var root = _pausePanel.GetComponent<RectTransform>();
 
             var box = TerminalUiBuilder.CreateFlatPanel("PauseBox", root, _theme.WindowBg, _theme.BorderFocused, 2f);
-            TerminalUiBuilder.SetAnchors(box, 0.26f, 0.09f, 0.74f, 0.91f);
+            TerminalUiBuilder.SetAnchors(box, 0.24f, 0.04f, 0.76f, 0.96f);
             var inner = TerminalUiBuilder.GetInner(box);
 
             var title = TerminalUiBuilder.CreateText("PauseTitle", inner, _theme, 36f, _theme.TextAmber, TextAlignmentOptions.Center, _textScaler);
             title.font = _theme.ResolveTitleFont();
             title.fontStyle = FontStyles.Bold;
             title.text = Localization.Get("pause.title");
-            TerminalUiBuilder.SetAnchors(title.rectTransform, 0f, 0.89f, 1f, 0.98f);
+            TerminalUiBuilder.SetAnchors(title.rectTransform, 0f, 0.915f, 1f, 0.98f);
+
+            _pausePointerHintText = TerminalUiBuilder.CreateText("PointerLostHint", inner, _theme, 18f, UITheme.PaletteLightBlue, TextAlignmentOptions.Center, _textScaler);
+            _pausePointerHintText.fontStyle = FontStyles.Bold;
+            _pausePointerHintText.text = Localization.Get("pause.pointer_lost_hint");
+            TerminalUiBuilder.SetAnchors(_pausePointerHintText.rectTransform, 0.05f, 0.875f, 0.95f, 0.915f);
+            _pausePointerHintText.gameObject.SetActive(false);
 
             var resumeBtn = TerminalUiBuilder.CreateButton("ResumeBtn", inner, Localization.Get("pause.resume"), _theme, _theme.ButtonAccentBg, _theme.BorderFocused, _theme.TextPrimary, 24f, ResumeFromPause, _textScaler);
-            TerminalUiBuilder.SetAnchors(resumeBtn.GetComponent<RectTransform>(), 0.10f, 0.79f, 0.90f, 0.87f);
+            TerminalUiBuilder.SetAnchors(resumeBtn.GetComponent<RectTransform>(), 0.10f, 0.805f, 0.90f, 0.870f);
+            _pauseResumeLabel = resumeBtn.GetComponentInChildren<TextMeshProUGUI>();
 
             var restartBtn = TerminalUiBuilder.CreateButton("RestartBtn", inner, Localization.Get("pause.restart"), _theme, _theme.ButtonBg, _theme.BorderUnfocused, _theme.TextPrimary, 24f, () =>
             {
@@ -1872,27 +2120,41 @@ namespace Outpost.Runtime.Terminal
                 int seed = _session?.CurrentSnapshot != null ? _session.CurrentSnapshot.Seed : 101;
                 RestartMissionRun(seed, runIntro: false);
             }, _textScaler);
-            TerminalUiBuilder.SetAnchors(restartBtn.GetComponent<RectTransform>(), 0.10f, 0.69f, 0.90f, 0.77f);
+            TerminalUiBuilder.SetAnchors(restartBtn.GetComponent<RectTransform>(), 0.10f, 0.730f, 0.90f, 0.792f);
 
             BuildSharedSettingsControls(
                 inner,
-                0.67f,
+                0.715f,
+                includeSensitivity: true,
                 out _pauseVolumeSlider,
                 out _pauseVolumeValText,
                 out _pauseVoxVolumeSlider,
                 out _pauseVoxVolumeValText,
                 out _pauseVoxMuteLabel,
+                out _pauseMouseSensSlider,
+                out _pauseMouseSensValText,
                 out _pauseLargeTextLabel,
                 out _pauseReduceFlickerLabel,
                 out _pausePsxEnabledLabel,
                 out _pausePsxResLabel);
+
+            var fullscreenBtn = TerminalUiBuilder.CreateButton("FullscreenBtn", inner, "", _theme, _theme.ButtonBg, _theme.BorderUnfocused, _theme.TextPrimary, 22f, () =>
+            {
+                _audioManager?.PlayUiClick();
+                bool nextFullscreen = !Screen.fullScreen;
+                Screen.fullScreen = nextFullscreen;
+                _lastFullscreenUiState = nextFullscreen;
+                RefreshPauseLabels();
+            }, _textScaler);
+            TerminalUiBuilder.SetAnchors(fullscreenBtn.GetComponent<RectTransform>(), 0.10f, 0.152f, 0.90f, 0.220f);
+            _pauseFullscreenLabel = fullscreenBtn.GetComponentInChildren<TextMeshProUGUI>();
 
             var quitBtn = TerminalUiBuilder.CreateButton("QuitTitleBtn", inner, Localization.Get("pause.quit_title"), _theme, _theme.ButtonDangerBg, _theme.StatusCrit, Color.white, 24f, () =>
             {
                 _audioManager?.PlayUiClick();
                 QuitToTitle();
             }, _textScaler);
-            TerminalUiBuilder.SetAnchors(quitBtn.GetComponent<RectTransform>(), 0.10f, 0.05f, 0.90f, 0.15f);
+            TerminalUiBuilder.SetAnchors(quitBtn.GetComponent<RectTransform>(), 0.10f, 0.060f, 0.90f, 0.130f);
 
             _pausePanel.SetActive(false);
         }
@@ -1900,29 +2162,39 @@ namespace Outpost.Runtime.Terminal
         private void BuildSharedSettingsControls(
             RectTransform inner,
             float topY,
+            bool includeSensitivity,
             out Slider volumeSlider,
             out TextMeshProUGUI volumeValText,
             out Slider voxVolumeSlider,
             out TextMeshProUGUI voxVolumeValText,
             out TextMeshProUGUI voxMuteLabel,
+            out Slider mouseSensSlider,
+            out TextMeshProUGUI mouseSensValText,
             out TextMeshProUGUI largeTextLabel,
             out TextMeshProUGUI reduceFlickerLabel,
             out TextMeshProUGUI psxEnabledLabel,
             out TextMeshProUGUI psxResLabel)
         {
-            float volLabelMin = topY - 0.05f;
-            float volSliderMin = topY - 0.105f;
-            float volSliderMax = topY - 0.06f;
-            float annLabelMin = topY - 0.165f;
-            float annLabelMax = topY - 0.115f;
-            float annSliderMin = topY - 0.22f;
-            float annSliderMax = topY - 0.175f;
-            float row1Min = topY - 0.32f;
-            float row1Max = topY - 0.24f;
-            float gfxMin = topY - 0.38f;
-            float gfxMax = topY - 0.335f;
-            float row2Min = topY - 0.48f;
-            float row2Max = topY - 0.39f;
+            float volLabelMin = topY - 0.042f;
+            float volSliderMin = topY - 0.088f;
+            float volSliderMax = topY - 0.046f;
+            float annLabelMin = topY - 0.138f;
+            float annLabelMax = topY - 0.096f;
+            float annSliderMin = topY - 0.184f;
+            float annSliderMax = topY - 0.142f;
+            float sensLabelMin = topY - 0.233f;
+            float sensLabelMax = topY - 0.191f;
+            float sensSliderMin = topY - 0.279f;
+            float sensSliderMax = topY - 0.237f;
+            float row1Max = includeSensitivity ? sensSliderMin - 0.014f : topY - 0.205f;
+            float row1Min = row1Max - (includeSensitivity ? 0.062f : 0.075f);
+            float gfxMax = row1Min - 0.012f;
+            float gfxMin = gfxMax - 0.036f;
+            float row2Max = gfxMin - 0.010f;
+            float row2Min = row2Max - (includeSensitivity ? 0.062f : 0.078f);
+
+            mouseSensSlider = null;
+            mouseSensValText = null;
 
             var volLabel = TerminalUiBuilder.CreateText("VolLabel", inner, _theme, 20f, _theme.TextMuted, TextAlignmentOptions.MidlineLeft, _textScaler);
             volLabel.text = Localization.Get("pause.volume");
@@ -1940,7 +2212,7 @@ namespace Outpost.Runtime.Terminal
             });
 
             var annLabel = TerminalUiBuilder.CreateText("VoxVolLabel", inner, _theme, 20f, _theme.TextMuted, TextAlignmentOptions.MidlineLeft, _textScaler);
-            annLabel.text = "ANNOUNCER (VOX)";
+            annLabel.text = Localization.Get("pause.vox_volume");
             TerminalUiBuilder.SetAnchors(annLabel.rectTransform, 0.10f, annLabelMin, 0.65f, annLabelMax);
 
             voxVolumeValText = TerminalUiBuilder.CreateText("VoxVolValue", inner, _theme, 20f, _theme.TextPrimary, TextAlignmentOptions.MidlineRight, _textScaler);
@@ -1980,6 +2252,36 @@ namespace Outpost.Runtime.Terminal
             TerminalUiBuilder.SetAnchors(voxMuteBtn.GetComponent<RectTransform>(), 0.70f, annSliderMin - 0.004f, 0.90f, annSliderMax + 0.004f);
             voxMuteLabel = voxMuteBtn.GetComponentInChildren<TextMeshProUGUI>();
 
+            if (includeSensitivity)
+            {
+                var sensLabel = TerminalUiBuilder.CreateText("MouseSensLabel", inner, _theme, 20f, _theme.TextMuted, TextAlignmentOptions.MidlineLeft, _textScaler);
+                sensLabel.text = Localization.Get("pause.sensitivity");
+                TerminalUiBuilder.SetAnchors(sensLabel.rectTransform, 0.10f, sensLabelMin, 0.65f, sensLabelMax);
+
+                mouseSensValText = TerminalUiBuilder.CreateText("MouseSensValue", inner, _theme, 20f, _theme.TextPrimary, TextAlignmentOptions.MidlineRight, _textScaler);
+                TerminalUiBuilder.SetAnchors(mouseSensValText.rectTransform, 0.65f, sensLabelMin, 0.90f, sensLabelMax);
+
+                mouseSensSlider = CreateFlatSlider("MouseSensSlider", inner);
+                mouseSensSlider.minValue = PlayerGate.MinMouseSensitivity;
+                mouseSensSlider.maxValue = PlayerGate.MaxMouseSensitivity;
+                mouseSensSlider.wholeNumbers = false;
+                TerminalUiBuilder.SetAnchors(mouseSensSlider.GetComponent<RectTransform>(), 0.10f, sensSliderMin, 0.90f, sensSliderMax);
+                mouseSensSlider.onValueChanged.AddListener(v =>
+                {
+                    if (_playerGate != null)
+                    {
+                        _playerGate.SetMouseSensitivity(v);
+                    }
+                    else
+                    {
+                        float clamped = Mathf.Clamp(v, PlayerGate.MinMouseSensitivity, PlayerGate.MaxMouseSensitivity);
+                        PlayerPrefs.SetFloat(PlayerGate.PrefMouseSensitivity, clamped);
+                        PlayerPrefs.Save();
+                    }
+                    RefreshPauseLabels();
+                });
+            }
+
             var largeBtn = TerminalUiBuilder.CreateButton("LargerTextBtn", inner, "", _theme, _theme.ButtonBg, _theme.BorderUnfocused, _theme.TextPrimary, 22f, () =>
             {
                 _audioManager?.PlayUiClick();
@@ -2006,7 +2308,7 @@ namespace Outpost.Runtime.Terminal
 
             var gfxHeader = TerminalUiBuilder.CreateText("GraphicsLabel", inner, _theme, 22f, _theme.TextAmber, TextAlignmentOptions.MidlineLeft, _textScaler);
             gfxHeader.font = _theme.ResolveStampFont();
-            gfxHeader.text = "GRAPHICS";
+            gfxHeader.text = Localization.Get("pause.graphics");
             TerminalUiBuilder.SetAnchors(gfxHeader.rectTransform, 0.10f, gfxMin, 0.90f, gfxMax);
 
             var psxBtn = TerminalUiBuilder.CreateButton("PsxLookBtn", inner, "", _theme, _theme.ButtonBg, _theme.BorderUnfocused, _theme.TextPrimary, 22f, () =>
@@ -2068,9 +2370,22 @@ namespace Outpost.Runtime.Terminal
             bool flickerOn = _accessibility != null && _accessibility.ReduceFlicker;
             bool psxOn = _psxSettings != null && _psxSettings.enabled;
             string resLbl = _psxSettings != null ? _psxSettings.GetPresetLabel() : "MED (480x270)";
+            float mouseSens = _playerGate != null ? _playerGate.GetMouseSensitivity() : PlayerGate.LoadSavedMouseSensitivity();
 
             ApplySettingsValues(vol, voxVol, voxMuted, largeOn, flickerOn, psxOn, resLbl, _pauseVolumeSlider, _pauseVolumeValText, _pauseVoxVolumeSlider, _pauseVoxVolumeValText, _pauseVoxMuteLabel, _pauseLargeTextLabel, _pauseReduceFlickerLabel, _pausePsxEnabledLabel, _pausePsxResLabel);
             ApplySettingsValues(vol, voxVol, voxMuted, largeOn, flickerOn, psxOn, resLbl, _titleVolumeSlider, _titleVolumeValText, _titleVoxVolumeSlider, _titleVoxVolumeValText, _titleVoxMuteLabel, _titleLargeTextLabel, _titleReduceFlickerLabel, _titlePsxEnabledLabel, _titlePsxResLabel);
+
+            if (_pauseMouseSensSlider != null) _pauseMouseSensSlider.SetValueWithoutNotify(mouseSens);
+            if (_pauseMouseSensValText != null) _pauseMouseSensValText.text = $"{mouseSens:0.00}x";
+
+            if (_pausePointerHintText != null)
+                _pausePointerHintText.gameObject.SetActive(_pausedByPointerLoss);
+            if (_pauseResumeLabel != null)
+                _pauseResumeLabel.text = Localization.Get(_pausedByPointerLoss ? "pause.click_to_resume" : "pause.resume");
+            _lastFullscreenUiState = Screen.fullScreen;
+            string onOff = Localization.GetRaw(_lastFullscreenUiState ? "pause.on" : "pause.off");
+            if (_pauseFullscreenLabel != null)
+                _pauseFullscreenLabel.text = Localization.ShapeDisplay($"{Localization.GetRaw("pause.fullscreen")}: {onOff}");
         }
 
         private static void ApplySettingsValues(
@@ -2091,19 +2406,21 @@ namespace Outpost.Runtime.Terminal
             TextMeshProUGUI psxEnabledLabel,
             TextMeshProUGUI psxResLabel)
         {
+            string onWord = Localization.GetRaw("pause.on");
+            string offWord = Localization.GetRaw("pause.off");
             if (volumeSlider != null) volumeSlider.SetValueWithoutNotify(vol);
             if (volumeValText != null) volumeValText.text = $"{Mathf.RoundToInt(vol * 100f)}%";
             if (voxVolumeSlider != null) voxVolumeSlider.SetValueWithoutNotify(voxVol);
-            if (voxVolumeValText != null) voxVolumeValText.text = voxMuted ? "MUTED" : $"{Mathf.RoundToInt(voxVol * 100f)}%";
-            if (voxMuteLabel != null) voxMuteLabel.text = voxMuted ? "UNMUTE" : "MUTE";
+            if (voxVolumeValText != null) voxVolumeValText.text = voxMuted ? Localization.Get("pause.vox_muted") : $"{Mathf.RoundToInt(voxVol * 100f)}%";
+            if (voxMuteLabel != null) voxMuteLabel.text = Localization.Get(voxMuted ? "pause.vox_muted" : "pause.vox_active");
             if (largeTextLabel != null)
-                largeTextLabel.text = $"{Localization.Get("pause.larger_text")}: {(largeOn ? "ON" : "OFF")}";
+                largeTextLabel.text = Localization.ShapeDisplay($"{Localization.GetRaw("pause.larger_text")}: {(largeOn ? onWord : offWord)}");
             if (reduceFlickerLabel != null)
-                reduceFlickerLabel.text = $"{Localization.Get("pause.reduce_flicker")}: {(flickerOn ? "ON" : "OFF")}";
+                reduceFlickerLabel.text = Localization.ShapeDisplay($"{Localization.GetRaw("pause.reduce_flicker")}: {(flickerOn ? onWord : offWord)}");
             if (psxEnabledLabel != null)
-                psxEnabledLabel.text = $"{Localization.Get("pause.psx_look")}: {(psxOn ? "ON" : "OFF")}";
+                psxEnabledLabel.text = Localization.ShapeDisplay($"{Localization.GetRaw("pause.psx_look")}: {(psxOn ? onWord : offWord)}");
             if (psxResLabel != null)
-                psxResLabel.text = $"{Localization.Get("pause.psx_res")}: {resLbl}";
+                psxResLabel.text = Localization.ShapeDisplay($"{Localization.GetRaw("pause.psx_res")}: {resLbl}");
         }
 
         private void BuildEndingPanel(RectTransform parent)
@@ -2155,9 +2472,35 @@ namespace Outpost.Runtime.Terminal
             _debriefLeftText.font = _theme.ResolveFont();
             TerminalUiBuilder.SetAnchors(leftPanel, 0.03f, 0.12f, 0.50f, 0.77f);
 
-            _debriefRightText = TerminalUiBuilder.CreateScrollableText("DebriefRightScroll", root, _theme, 22f, _theme.TextPrimary, _theme.PanelBg, _theme.BorderUnfocused, out var rightPanel, _textScaler);
-            _debriefRightText.font = _theme.ResolveFont();
+            var rightPanel = TerminalUiBuilder.CreateFlatPanel("DebriefRightScroll", root, _theme.PanelBg, _theme.BorderUnfocused, 2f);
             TerminalUiBuilder.SetAnchors(rightPanel, 0.515f, 0.12f, 0.97f, 0.77f);
+            var rightInner = TerminalUiBuilder.GetInner(rightPanel);
+            var rightViewport = TerminalUiBuilder.CreateRect("Viewport", rightInner);
+            TerminalUiBuilder.SetStretch(rightViewport, 6f);
+            rightViewport.gameObject.AddComponent<RectMask2D>();
+            _debriefRightContent = TerminalUiBuilder.CreateRect("Content", rightViewport);
+            _debriefRightContent.anchorMin = new Vector2(0f, 1f);
+            _debriefRightContent.anchorMax = new Vector2(1f, 1f);
+            _debriefRightContent.pivot = new Vector2(0.5f, 1f);
+            _debriefRightContent.offsetMin = Vector2.zero;
+            _debriefRightContent.offsetMax = Vector2.zero;
+            var rightFitter = _debriefRightContent.gameObject.AddComponent<ContentSizeFitter>();
+            rightFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            rightFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            var rightLayout = _debriefRightContent.gameObject.AddComponent<VerticalLayoutGroup>();
+            rightLayout.padding = new RectOffset(8, 8, 8, 8);
+            rightLayout.spacing = 10f;
+            rightLayout.childControlWidth = true;
+            rightLayout.childControlHeight = true;
+            rightLayout.childForceExpandWidth = true;
+            rightLayout.childForceExpandHeight = false;
+            var rightScroll = rightInner.gameObject.AddComponent<ScrollRect>();
+            rightScroll.viewport = rightViewport;
+            rightScroll.content = _debriefRightContent;
+            rightScroll.horizontal = false;
+            rightScroll.vertical = true;
+            rightScroll.movementType = ScrollRect.MovementType.Clamped;
+            rightScroll.scrollSensitivity = 36f;
 
             var playAgainBtn = TerminalUiBuilder.CreateButton("PlayAgainBtn", root, Localization.Get("debrief.play_again"), _theme, _theme.ButtonAccentBg, _theme.BorderFocused, _theme.TextPrimary, 22f, () =>
             {
@@ -2219,6 +2562,424 @@ namespace Outpost.Runtime.Terminal
             _fadeBlackGroup = _fadeBlackGo.AddComponent<CanvasGroup>();
             _fadeBlackGroup.blocksRaycasts = false;
             _fadeBlackGo.SetActive(false);
+        }
+
+        // --- PART 4: END-SOL BLACK CARD SEQUENCE ---
+
+        private void HandleEndSolBlackCardRequested(SessionSnapshot postSolSnap)
+        {
+            if (postSolSnap == null || postSolSnap.Status != MissionStatus.InProgress) return;
+            int completedSol = postSolSnap.LastSolSummary != null
+                ? postSolSnap.LastSolSummary.CompletedSol
+                : Mathf.Max(1, postSolSnap.CurrentSol - 1);
+            StartEndSolBlackCard(completedSol, postSolSnap.TotalSols, postSolSnap, showSummaryAfter: true);
+        }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        public void DebugPlayEndSolBlackCard(int chosenSol)
+        {
+            int clampedSol = Mathf.Clamp(chosenSol, 1, 7);
+            int total = _session?.CurrentSnapshot != null ? _session.CurrentSnapshot.TotalSols : 7;
+            StartEndSolBlackCard(clampedSol, total, postSolSnap: null, showSummaryAfter: false);
+        }
+#endif
+
+        private void StartEndSolBlackCard(int completedSol, int totalSols, SessionSnapshot postSolSnap, bool showSummaryAfter)
+        {
+            if (!_built) return;
+            StopActiveRoutine();
+            Time.timeScale = 1f;
+
+            _state = FlowState.EndSolBlackCard;
+            _stateEnteredFrame = Time.frameCount;
+            _endSolSkipRequested = false;
+            _endSolSkipHoldSeconds = 0f;
+            _endSolSkipAllowed = _hasPlayedEndSolBlackCardThisSession;
+
+            SetEndSolSkipProgress(0f);
+            if (_endSolSkipContainer != null) _endSolSkipContainer.SetActive(_endSolSkipAllowed);
+
+            _playerGate?.EnableControl(false);
+            _terminalController?.CloseAllModalsForBlackCard();
+
+            _activeRoutine = StartCoroutine(RunEndSolBlackCardRoutine(completedSol, totalSols, postSolSnap, showSummaryAfter));
+        }
+
+        private IEnumerator RunEndSolBlackCardRoutine(int completedSol, int totalSols, SessionSnapshot postSolSnap, bool showSummaryAfter)
+        {
+            if (_endSolPanel == null)
+            {
+                _state = FlowState.Gameplay;
+                _activeRoutine = null;
+                yield break;
+            }
+
+            _endSolPanel.SetActive(true);
+            _endSolBackdropGroup.alpha = 0f;
+            _endSolCardGroup.alpha = 1f;
+            if (_endSolCardContainer != null) _endSolCardContainer.localScale = Vector3.one;
+
+            SetBlackCardTexts(completedSol, totalSols);
+            SetTmpAlpha(_endSolTopLineText, 0f);
+            SetTmpAlpha(_endSolBigLineText, 0f);
+            SetTmpAlpha(_endSolSubLineText, 0f);
+            if (_endSolRuleGo != null) _endSolRuleGo.SetActive(false);
+
+            bool reduceFlicker = _accessibility != null && _accessibility.ReduceFlicker;
+            if (_endSolGrainImage != null) _endSolGrainImage.gameObject.SetActive(!reduceFlicker);
+            if (_endSolVignetteImage != null) _endSolVignetteImage.gameObject.SetActive(!reduceFlicker);
+            if (_endSolTextScaler != null) _endSolTextScaler.SetLargerText(_accessibility != null && _accessibility.LargerText);
+
+            // 1. Fade to black over 0.8s while closing terminal & fading ambient audio down
+            _audioManager?.SetAmbientFadeTarget(0f);
+            _roomController?.BeginLeaveTerminal();
+
+            float fadeElapsed = 0f;
+            const float fadeDur = 0.8f;
+            while (fadeElapsed < fadeDur)
+            {
+                fadeElapsed += Time.unscaledDeltaTime;
+                float u = Mathf.Clamp01(fadeElapsed / fadeDur);
+                _endSolBackdropGroup.alpha = u;
+                StepBlackCardGrain();
+                yield return null;
+            }
+            _endSolBackdropGroup.alpha = 1f;
+
+            // 2. While screen is black: teleport to PlayerSpawn facing monitor, auto-remove suit, reset doors/airlock & clock, start drone
+            int nextSol = Mathf.Clamp(completedSol + 1, 1, Mathf.Max(1, totalSols));
+            if (showSummaryAfter && postSolSnap != null)
+                nextSol = postSolSnap.CurrentSol;
+
+            SuitController.Instance?.ForceRemoveSuitImmediate();
+            _roomController?.PrepareRoomForNewSolBlackCard(unlockCursor: true);
+            if (showSummaryAfter && _terminalController != null)
+                _terminalController.ResetClockForSolImmediate(nextSol);
+
+            _audioManager?.StartEndSolDrone();
+
+            yield return WaitBlackCardSeconds(0.15f);
+
+            // 3. Timed cinematic text reveal with slow 1.0 -> 1.06 push-in
+            float pushClock = 0f;
+            const float totalCardSpan = 4.6f;
+
+            // Line 1 (small): SOL {n} COMPLETE
+            yield return RevealBlackCardLineRoutine(
+                _endSolTopLineText,
+                revealDur: 0.40f,
+                startSpacing: 38f,
+                endSpacing: 16f,
+                jitter: true,
+                pushClockRef: () => { pushClock += Time.unscaledDeltaTime; UpdateBlackCardPushScale(pushClock, totalCardSpan); });
+
+            // +1.0s before big headline
+            yield return WaitBlackCardWithPushSeconds(1.0f, () => { pushClock += Time.unscaledDeltaTime; UpdateBlackCardPushScale(pushClock, totalCardSpan); });
+
+            // Line 2 (big): RESCUE IN {k} SOLS / FINAL SOL. RESCUE ARRIVES TODAY. + bass hit
+            if (!_endSolSkipRequested)
+            {
+                _audioManager?.PlayEndSolBassHit();
+                if (_endSolRuleGo != null) _endSolRuleGo.SetActive(true);
+                yield return RevealBlackCardLineRoutine(
+                    _endSolBigLineText,
+                    revealDur: 0.45f,
+                    startSpacing: 40f,
+                    endSpacing: 18f,
+                    jitter: true,
+                    pushClockRef: () => { pushClock += Time.unscaledDeltaTime; UpdateBlackCardPushScale(pushClock, totalCardSpan); });
+            }
+
+            // +1.2s before smaller Mars sol note
+            yield return WaitBlackCardWithPushSeconds(1.2f, () => { pushClock += Time.unscaledDeltaTime; UpdateBlackCardPushScale(pushClock, totalCardSpan); });
+
+            // Line 3 (smaller): A sol is one day on Mars.
+            if (!_endSolSkipRequested)
+            {
+                yield return RevealBlackCardLineRoutine(
+                    _endSolSubLineText,
+                    revealDur: 0.40f,
+                    startSpacing: 28f,
+                    endSpacing: 12f,
+                    jitter: false,
+                    pushClockRef: () => { pushClock += Time.unscaledDeltaTime; UpdateBlackCardPushScale(pushClock, totalCardSpan); });
+            }
+
+            // Hold ~2.0s cleanly
+            yield return WaitBlackCardWithPushSeconds(2.0f, () => { pushClock += Time.unscaledDeltaTime; UpdateBlackCardPushScale(pushClock, totalCardSpan); });
+
+            // Mark session skip availability after first play
+            _hasPlayedEndSolBlackCardThisSession = true;
+
+            // 4. Fade back into room over 0.8s, restore ambient audio, trigger next sol_start announcer line if present
+            _audioManager?.StopEndSolDrone(immediate: false);
+            _audioManager?.SetAmbientFadeTarget(1f);
+
+            if (showSummaryAfter && _announcerSystem != null)
+            {
+                if (!_announcerSystem.PlayLineIfPresent($"sol_{nextSol}_start", bypassSuppression: true))
+                    _announcerSystem.PlayLineIfPresent("sol_start", bypassSuppression: true);
+            }
+
+            float outElapsed = 0f;
+            while (outElapsed < fadeDur)
+            {
+                outElapsed += Time.unscaledDeltaTime;
+                float u = 1f - Mathf.Clamp01(outElapsed / fadeDur);
+                _endSolBackdropGroup.alpha = u;
+                _endSolCardGroup.alpha = u;
+                StepBlackCardGrain();
+                yield return null;
+            }
+
+            _endSolBackdropGroup.alpha = 0f;
+            _endSolPanel.SetActive(false);
+            _state = FlowState.Gameplay;
+            _stateEnteredFrame = Time.frameCount;
+            _activeRoutine = null;
+
+            // 5. Show existing Sol Summary card right after fade-in (or restore room control for debug preview)
+            if (showSummaryAfter && postSolSnap != null)
+            {
+                _roomController?.EnterTerminalImmediateForFlow(null);
+                _terminalController?.ShowSolSummaryImmediateAfterBlackCard(postSolSnap);
+            }
+            else
+            {
+                _roomController?.EnterRoomViewImmediateForFlow();
+            }
+        }
+
+        private void SetBlackCardTexts(int completedSol, int totalSols)
+        {
+            if (_endSolTopLineText != null)
+            {
+                _endSolTopLineText.text = Localization.Format("sol_complete", completedSol).ToUpperInvariant();
+                _endSolTopLineText.characterSpacing = 38f;
+            }
+            if (_endSolBigLineText != null)
+            {
+                _endSolBigLineText.text = Localization.FormatRescueRemaining(completedSol, totalSols).ToUpperInvariant();
+                _endSolBigLineText.characterSpacing = 40f;
+            }
+            if (_endSolSubLineText != null)
+            {
+                _endSolSubLineText.text = Localization.Get("sol_definition");
+                _endSolSubLineText.characterSpacing = 28f;
+            }
+        }
+
+        private void UpdateBlackCardPushScale(float pushClock, float totalSpan)
+        {
+            if (_endSolCardContainer == null) return;
+            bool reduceFlicker = _accessibility != null && _accessibility.ReduceFlicker;
+            if (reduceFlicker)
+            {
+                _endSolCardContainer.localScale = Vector3.one;
+                return;
+            }
+
+            float p = Mathf.Clamp01(pushClock / Mathf.Max(0.1f, totalSpan));
+            float s = Mathf.Lerp(1.00f, 1.06f, p);
+            _endSolCardContainer.localScale = new Vector3(s, s, 1f);
+        }
+
+        private IEnumerator RevealBlackCardLineRoutine(
+            TextMeshProUGUI tmp,
+            float revealDur,
+            float startSpacing,
+            float endSpacing,
+            bool jitter,
+            Action pushClockRef)
+        {
+            if (tmp == null) yield break;
+            float elapsed = 0f;
+            bool reduceFlicker = _accessibility != null && _accessibility.ReduceFlicker;
+
+            while (elapsed < revealDur && !_endSolSkipRequested)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                pushClockRef?.Invoke();
+                StepBlackCardGrain();
+
+                float u = Mathf.Clamp01(elapsed / revealDur);
+                float smooth = Mathf.SmoothStep(0f, 1f, u);
+                float flickerMul = (!reduceFlicker && u < 0.72f)
+                    ? (Mathf.Sin(elapsed * 54f) > -0.25f ? 1f : 0.35f)
+                    : 1f;
+
+                Color c = tmp.color;
+                c.a = smooth * flickerMul;
+                tmp.color = c;
+                tmp.characterSpacing = Mathf.Lerp(startSpacing, endSpacing, smooth);
+
+                if (jitter && !reduceFlicker && u < 0.75f)
+                    ApplyPerCharacterSettlementJitter(tmp, (1f - u) * 0.7f);
+
+                yield return null;
+            }
+
+            Color finalCol = tmp.color;
+            finalCol.a = 1f;
+            tmp.color = finalCol;
+            tmp.characterSpacing = endSpacing;
+            if (jitter) tmp.ForceMeshUpdate();
+        }
+
+        private IEnumerator WaitBlackCardSeconds(float seconds)
+        {
+            float elapsed = 0f;
+            while (elapsed < seconds && !_endSolSkipRequested)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                StepBlackCardGrain();
+                yield return null;
+            }
+        }
+
+        private IEnumerator WaitBlackCardWithPushSeconds(float seconds, Action tickPush)
+        {
+            float elapsed = 0f;
+            while (elapsed < seconds && !_endSolSkipRequested)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                tickPush?.Invoke();
+                StepBlackCardGrain();
+                yield return null;
+            }
+        }
+
+        private void StepBlackCardGrain()
+        {
+            if (_endSolGrainImage != null && _endSolGrainImage.gameObject.activeSelf)
+            {
+                _endSolGrainImage.uvRect = new Rect(
+                    UnityEngine.Random.value,
+                    UnityEngine.Random.value,
+                    6f,
+                    3.5f);
+            }
+        }
+
+        private static void SetTmpAlpha(TextMeshProUGUI tmp, float alpha)
+        {
+            if (tmp == null) return;
+            Color c = tmp.color;
+            c.a = alpha;
+            tmp.color = c;
+        }
+
+        private void BuildEndSolBlackCardCanvas()
+        {
+            var canvasGo = new GameObject("EndSolBlackCardCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            canvasGo.transform.SetParent(transform, false);
+            _endSolCanvas = canvasGo.GetComponent<Canvas>();
+            _endSolCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            _endSolCanvas.overrideSorting = true;
+            _endSolCanvas.sortingOrder = 80; // Above WorldView (-100), HUD (5), Visor (7), Terminal (10), Flow (30), Subtitles (45); below Pause (90)
+
+            var scaler = canvasGo.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
+
+            _endSolTextScaler = canvasGo.AddComponent<AccessibilityTextScaler>();
+
+            var canvasRect = canvasGo.GetComponent<RectTransform>();
+            _endSolPanel = CreateFullscreenBg(canvasRect, "EndSolBlackCardPanel", Color.black);
+            var root = _endSolPanel.GetComponent<RectTransform>();
+            _endSolBackdropGroup = _endSolPanel.AddComponent<CanvasGroup>();
+            _endSolBackdropGroup.blocksRaycasts = true;
+
+            var grainRect = TerminalUiBuilder.CreateRect("BlackCardGrain", root);
+            TerminalUiBuilder.SetStretch(grainRect);
+            _endSolGrainImage = grainRect.gameObject.AddComponent<RawImage>();
+            _endSolGrainImage.texture = _introGrainTex != null ? _introGrainTex : (_introGrainTex = BuildFilmGrainTexture(128));
+            _endSolGrainImage.uvRect = new Rect(0f, 0f, 6f, 3.5f);
+            _endSolGrainImage.color = new Color(1f, 1f, 1f, 0.028f);
+            _endSolGrainImage.raycastTarget = false;
+
+            var vigRect = TerminalUiBuilder.CreateRect("BlackCardVignette", root);
+            TerminalUiBuilder.SetStretch(vigRect);
+            _endSolVignetteImage = vigRect.gameObject.AddComponent<RawImage>();
+            _endSolVignetteImage.texture = _introVignetteTex != null ? _introVignetteTex : (_introVignetteTex = BuildVignetteTexture(64));
+            _endSolVignetteImage.color = Color.white;
+            _endSolVignetteImage.raycastTarget = false;
+
+            _endSolCardContainer = TerminalUiBuilder.CreateRect("BlackCardContainer", root);
+            TerminalUiBuilder.SetStretch(_endSolCardContainer);
+            _endSolCardGroup = _endSolCardContainer.gameObject.AddComponent<CanvasGroup>();
+            _endSolCardGroup.blocksRaycasts = false;
+
+            // Line 1: Small line ("SOL {n} COMPLETE")
+            _endSolTopLineText = TerminalUiBuilder.CreateText("SolCompleteText", _endSolCardContainer, _theme, 32f, _theme.TextAmber, TextAlignmentOptions.Center, _endSolTextScaler);
+            _endSolTopLineText.font = _theme.ResolveTitleFont();
+            _endSolTopLineText.fontStyle = FontStyles.Bold;
+            TerminalUiBuilder.SetAnchors(_endSolTopLineText.rectTransform, 0.08f, 0.59f, 0.92f, 0.67f);
+
+            // Line 2: Big line ("RESCUE IN {k} SOLS" / "FINAL SOL. RESCUE ARRIVES TODAY.")
+            _endSolBigLineText = TerminalUiBuilder.CreateText("RescueBigText", _endSolCardContainer, _theme, 66f, Color.white, TextAlignmentOptions.Center, _endSolTextScaler);
+            _endSolBigLineText.font = _theme.ResolveTitleFont();
+            _endSolBigLineText.fontStyle = FontStyles.Bold;
+            _endSolBigLineText.textWrappingMode = TextWrappingModes.Normal;
+            TerminalUiBuilder.SetAnchors(_endSolBigLineText.rectTransform, 0.08f, 0.40f, 0.92f, 0.58f);
+
+            var ruleRect = TerminalUiBuilder.CreateRect("BlackCardAmberRule", _endSolCardContainer);
+            TerminalUiBuilder.SetAnchors(ruleRect, 0.34f, 0.388f, 0.66f, 0.391f);
+            var ruleImg = ruleRect.gameObject.AddComponent<Image>();
+            ruleImg.color = _theme.TextAmber;
+            ruleImg.raycastTarget = false;
+            _endSolRuleGo = ruleRect.gameObject;
+
+            // Line 3: Smaller line ("A sol is one day on Mars.")
+            _endSolSubLineText = TerminalUiBuilder.CreateText("SolDefText", _endSolCardContainer, _theme, 28f, new Color(0.72f, 0.80f, 0.88f, 1f), TextAlignmentOptions.Center, _endSolTextScaler);
+            _endSolSubLineText.font = _theme.ResolveStampFont();
+            TerminalUiBuilder.SetAnchors(_endSolSubLineText.rectTransform, 0.10f, 0.27f, 0.90f, 0.36f);
+
+            // Letterbox black bars
+            var topBar = CreateFullscreenBg(root, "LetterboxTop", Color.black).GetComponent<RectTransform>();
+            TerminalUiBuilder.SetAnchors(topBar, 0f, 0.92f, 1f, 1f);
+            topBar.GetComponent<Image>().raycastTarget = false;
+
+            var bottomBar = CreateFullscreenBg(root, "LetterboxBottom", Color.black).GetComponent<RectTransform>();
+            TerminalUiBuilder.SetAnchors(bottomBar, 0f, 0f, 1f, 0.08f);
+            bottomBar.GetComponent<Image>().raycastTarget = false;
+
+            // Skip hold bar (shown on 2nd+ black card in a session)
+            var skipRect = TerminalUiBuilder.CreateRect("BlackCardSkip", root);
+            TerminalUiBuilder.SetAnchors(skipRect, 0.70f, 0.105f, 0.95f, 0.155f);
+            _endSolSkipContainer = skipRect.gameObject;
+
+            var trackPanel = TerminalUiBuilder.CreateFlatPanel("SkipTrack", skipRect, new Color(0.06f, 0.08f, 0.12f, 0.85f), _theme.BorderUnfocused, 2f);
+            TerminalUiBuilder.SetAnchors(trackPanel, 0f, 0f, 1f, 0.22f);
+            var fillRect = TerminalUiBuilder.CreateRect("SkipFill", TerminalUiBuilder.GetInner(trackPanel));
+            fillRect.anchorMin = Vector2.zero;
+            fillRect.anchorMax = new Vector2(0f, 1f);
+            fillRect.sizeDelta = Vector2.zero;
+            fillRect.offsetMin = Vector2.zero;
+            fillRect.offsetMax = Vector2.zero;
+            _endSolSkipFill = fillRect.gameObject.AddComponent<Image>();
+            _endSolSkipFill.color = _theme.TextAmber;
+            _endSolSkipFill.raycastTarget = false;
+
+            _endSolSkipLabel = TerminalUiBuilder.CreateText("SkipLabel", skipRect, _theme, 20f, _theme.TextMuted, TextAlignmentOptions.BottomRight, _endSolTextScaler);
+            _endSolSkipLabel.font = _theme.ResolveStampFont();
+            _endSolSkipLabel.text = Localization.Get("end_sol.hold_skip");
+            TerminalUiBuilder.SetAnchors(_endSolSkipLabel.rectTransform, 0f, 0.34f, 1f, 1f);
+
+            _endSolSkipContainer.SetActive(false);
+            _endSolPanel.SetActive(false);
+        }
+
+        private void SetEndSolSkipProgress(float progress01)
+        {
+            if (_endSolSkipFill == null) return;
+            RectTransform rt = _endSolSkipFill.rectTransform;
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = new Vector2(Mathf.Clamp01(progress01), 1f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
         }
     }
 }

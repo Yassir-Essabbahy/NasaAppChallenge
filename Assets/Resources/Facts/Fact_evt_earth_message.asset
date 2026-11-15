@@ -13,9 +13,13 @@ MonoBehaviour:
   m_Name: Fact_evt_earth_message
   m_EditorClassIdentifier: Outpost.Runtime::Outpost.Runtime.Terminal.FactCard
   id: fact_earth_message
-  title: Earth-Mars Light-Time Delay
-  text: '[PLACEHOLDER] Speed-of-light distance delays radio signals between Earth
-    and Mars by minutes, requiring outpost crews to solve crises autonomously.'
-  sourceId: src_comms
+  title: Earth-Mars Radio Light Delay
+  text: Radio messages between Earth and Mars take about 4 to 24 minutes one way,
+    so there are no live chats.
+  sourceId: esa-light-time
+  sourceIds:
+  - esa-light-time
   relatedEventId: evt_earth_message
-  relatedConstantId: CommsMaxPower
+  relatedConstantId: 
+  titleKey: fact.fact_earth_message.title
+  textKey: fact.fact_earth_message.text

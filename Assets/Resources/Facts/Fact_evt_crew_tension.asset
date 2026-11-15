@@ -13,9 +13,13 @@ MonoBehaviour:
   m_Name: Fact_evt_crew_tension
   m_EditorClassIdentifier: Outpost.Runtime::Outpost.Runtime.Terminal.FactCard
   id: fact_crew_tension
-  title: Isolation Behavioral Health
-  text: '[PLACEHOLDER] Extended isolation in confined habitats strains crew cohesion,
-    requiring scheduled rest and communication to maintain mission safety.'
-  sourceId: src_psych
+  title: Year-Long Isolation Studies
+  text: NASA studies long isolation on Earth. In one study, four volunteers were
+    selected to live in a Mars-like habitat for a year.
+  sourceId: abc-chapea
+  sourceIds:
+  - abc-chapea
   relatedEventId: evt_crew_tension
-  relatedConstantId: LowMoraleThreshold
+  relatedConstantId: 
+  titleKey: fact.fact_crew_tension.title
+  textKey: fact.fact_crew_tension.text

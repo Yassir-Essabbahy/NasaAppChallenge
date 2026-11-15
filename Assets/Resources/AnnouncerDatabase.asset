@@ -19,55 +19,83 @@ MonoBehaviour:
   - id: haz_asteroid_c
     alertSting: 1
     subtitleKey: vox.haz_asteroid_c
+    sourceId: 
+    sourceIds: []
     originalClip: {fileID: 8300000, guid: f3e0954f8db186d4db7bad7d13f81de4, type: 3}
     processedClip: {fileID: 8300000, guid: a21ad9dc3804bf64c98c9c9d60b3f6f4, type: 3}
   - id: haz_meteoroid
     alertSting: 1
     subtitleKey: vox.haz_meteoroid
+    sourceId: 
+    sourceIds: []
     originalClip: {fileID: 8300000, guid: 649944199add3b149a0fa6d8088972fe, type: 3}
     processedClip: {fileID: 8300000, guid: 439d27c348f90ef46a2f3161f5ecedeb, type: 3}
   - id: haz_seismic
     alertSting: 1
     subtitleKey: vox.haz_seismic
+    sourceId: 
+    sourceIds: []
     originalClip: {fileID: 8300000, guid: f879484b90976ce4488d19eb73f68466, type: 3}
     processedClip: {fileID: 8300000, guid: 3e024afbc5d4c744e87b869ed6bb6ab9, type: 3}
   - id: n_systems
     alertSting: 0
     subtitleKey: vox.n_systems
+    sourceId: 
+    sourceIds: []
     originalClip: {fileID: 8300000, guid: 5d00db2014774e04c8882a8f121ec59a, type: 3}
     processedClip: {fileID: 8300000, guid: 7ab1095e3bbd42d4e9863cde3b3ec2a8, type: 3}
   - id: n_samples
     alertSting: 0
     subtitleKey: vox.n_samples
+    sourceId: 
+    sourceIds: []
     originalClip: {fileID: 8300000, guid: 3bcd64b3a0dbc1b4b951029377a829bd, type: 3}
     processedClip: {fileID: 8300000, guid: 5b39e05ceb306714e9b325d94771321d, type: 3}
   - id: r_suit
     alertSting: 0
     subtitleKey: vox.r_suit
+    sourceId: 
+    sourceIds: []
     originalClip: {fileID: 8300000, guid: 7dea043cc00bcc3458311cd7169c552e, type: 3}
     processedClip: {fileID: 8300000, guid: 2cbd17317b75e8e41b954a703c087ce8, type: 3}
   - id: f_sol
     alertSting: 0
     subtitleKey: vox.f_sol
+    sourceId: nasa-mars-fact-sheet
+    sourceIds:
+    - nasa-mars-fact-sheet
     originalClip: {fileID: 8300000, guid: db9c178035f2ec44c960e92218efce65, type: 3}
     processedClip: {fileID: 8300000, guid: c5a6864a9b2198142bb9d47213be1d49, type: 3}
   - id: f_gravity
     alertSting: 0
     subtitleKey: vox.f_gravity
+    sourceId: esa-mars-facts
+    sourceIds:
+    - esa-mars-facts
     originalClip: {fileID: 8300000, guid: d08a7ec6d116dbb41a6ac5087daa6e20, type: 3}
     processedClip: {fileID: 8300000, guid: 1debd60f44497a7409a13e22a3a5a406, type: 3}
   - id: f_moons
     alertSting: 0
     subtitleKey: vox.f_moons
+    sourceId: esa-mars-facts
+    sourceIds:
+    - esa-mars-facts
     originalClip: {fileID: 8300000, guid: 59acb5d3d2864844c9d059a1f1bf8c9d, type: 3}
     processedClip: {fileID: 8300000, guid: aba2c2d59cca83440b2b99cbea2a1447, type: 3}
   - id: f_cold
     alertSting: 0
     subtitleKey: vox.f_cold
+    sourceId: esa-meet-mars, nasa-mars-fact-sheet
+    sourceIds:
+    - esa-meet-mars
+    - nasa-mars-fact-sheet
     originalClip: {fileID: 8300000, guid: 5825342953939d249830a7bbc37335ad, type: 3}
     processedClip: {fileID: 8300000, guid: b8caf25458211b04586d437446d89554, type: 3}
   - id: f_signal
     alertSting: 0
     subtitleKey: vox.f_signal
+    sourceId: esa-light-time
+    sourceIds:
+    - esa-light-time
     originalClip: {fileID: 8300000, guid: 4e2c5a64fc449f74ea64b8f5bdb7072a, type: 3}
     processedClip: {fileID: 8300000, guid: 8d08bc22632e7b340889e4e80e68439b, type: 3}

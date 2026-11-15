@@ -27,6 +27,11 @@ namespace Outpost.Runtime.Room
         [SerializeField] private AudioClip[] exteriorFootstepClips;
         [SerializeField] private float footstepInterval = 0.48f;
 
+        public const string PrefMouseSensitivity = "Outpost_MouseSensitivity";
+        public const float MinMouseSensitivity = 0.25f;
+        public const float MaxMouseSensitivity = 5.0f;
+        public const float DefaultMouseSensitivity = 2.0f;
+
         private FieldInfo _fiPlayerCanMove;
         private FieldInfo _fiCameraCanMove;
         private FieldInfo _fiLockCursor;
@@ -34,9 +39,12 @@ namespace Outpost.Runtime.Room
         private FieldInfo _fiIsSprinting;
         private FieldInfo _fiIsZoomed;
         private FieldInfo _fiEnableHeadBob;
+        private FieldInfo _fiMouseSensitivity;
+        private FieldInfo _fiFov;
         private FieldInfo _fiYaw;
         private FieldInfo _fiPitch;
         private bool _fieldsCached;
+        private float _baseFov = 60f;
         private Vector3 _defaultJointLocalPos = new Vector3(0f, 0.75f, 0f);
         private float _stepTimer;
         private Canvas _controllerCanvasComponent;
@@ -50,6 +58,7 @@ namespace Outpost.Runtime.Room
         private void Awake()
         {
             CacheReferencesAndFields();
+            ApplySavedSensitivity();
             HideBuiltInControllerHud();
         }
 
@@ -60,6 +69,7 @@ namespace Outpost.Runtime.Room
             {
                 accessibility.OnSettingsChanged += HandleAccessibilityChanged;
                 ApplyAccessibility();
+                ApplySavedSensitivity();
             }
         }
 
@@ -213,7 +223,7 @@ namespace Outpost.Runtime.Room
             }
         }
 
-        private bool IsStandingOnExteriorSurface()
+        public bool IsStandingOnExteriorSurface()
         {
             Transform p = PlayerTransform;
             if (p != null)
@@ -263,6 +273,56 @@ namespace Outpost.Runtime.Room
             return audioManager != null && audioManager.IsExterior;
         }
 
+        public float BaseFov => _baseFov;
+
+        public float MouseSensitivity
+        {
+            get => GetMouseSensitivity();
+            set => SetMouseSensitivity(value);
+        }
+
+        public static float LoadSavedMouseSensitivity()
+        {
+            if (!PlayerPrefs.HasKey(PrefMouseSensitivity))
+                return DefaultMouseSensitivity;
+            return Mathf.Clamp(PlayerPrefs.GetFloat(PrefMouseSensitivity, DefaultMouseSensitivity), MinMouseSensitivity, MaxMouseSensitivity);
+        }
+
+        public float GetMouseSensitivity()
+        {
+            if (PlayerPrefs.HasKey(PrefMouseSensitivity))
+                return LoadSavedMouseSensitivity();
+            CacheReferencesAndFields();
+            if (_fiMouseSensitivity != null && fpsController != null && _fiMouseSensitivity.GetValue(fpsController) is float val)
+                return Mathf.Clamp(val, MinMouseSensitivity, MaxMouseSensitivity);
+            return DefaultMouseSensitivity;
+        }
+
+        public void SetMouseSensitivity(float value)
+        {
+            float clamped = Mathf.Clamp(value, MinMouseSensitivity, MaxMouseSensitivity);
+            CacheReferencesAndFields();
+            SetField(_fiMouseSensitivity, clamped);
+            PlayerPrefs.SetFloat(PrefMouseSensitivity, clamped);
+            PlayerPrefs.Save();
+        }
+
+        private void ApplySavedSensitivity()
+        {
+            CacheReferencesAndFields();
+            if (PlayerPrefs.HasKey(PrefMouseSensitivity))
+                SetField(_fiMouseSensitivity, LoadSavedMouseSensitivity());
+        }
+
+        public void SetSuitFovDelta(float deltaDegrees)
+        {
+            CacheReferencesAndFields();
+            float targetFov = _baseFov + deltaDegrees;
+            SetField(_fiFov, targetFov);
+            if (playerCamera != null)
+                playerCamera.fieldOfView = targetFov;
+        }
+
         private void HandleAccessibilityChanged()
         {
             ApplyAccessibility();
@@ -309,6 +369,18 @@ namespace Outpost.Runtime.Room
                 _fiIsSprinting = t.GetField("isSprinting", flags);
                 _fiIsZoomed = t.GetField("isZoomed", flags);
                 _fiEnableHeadBob = t.GetField("enableHeadBob", flags);
+                _fiMouseSensitivity = t.GetField("mouseSensitivity", flags);
+                _fiFov = t.GetField("fov", flags);
+                if (_fiFov != null)
+                {
+                    object rawFov = _fiFov.GetValue(fpsController);
+                    if (rawFov is float f && f > 5f)
+                        _baseFov = f;
+                }
+                else if (playerCamera != null && playerCamera.fieldOfView > 5f)
+                {
+                    _baseFov = playerCamera.fieldOfView;
+                }
                 _fiYaw = t.GetField("yaw", flags);
                 _fiPitch = t.GetField("pitch", flags);
             }

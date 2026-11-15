@@ -21,7 +21,9 @@ namespace Outpost.Runtime.Terminal.Apps
         {
             var intro = TerminalUiBuilder.CreateText("Intro", content, Theme, Theme.BodyFontSize, Theme.TextMuted, TextAlignmentOptions.MidlineLeft, Scaler);
             intro.text = Localization.Get("comms.friendly_intro");
-            TerminalUiBuilder.SetAnchors(intro.rectTransform, 0f, 0.91f, 0.56f, 1f);
+            intro.textWrappingMode = TextWrappingModes.NoWrap;
+            intro.overflowMode = TextOverflowModes.Ellipsis;
+            TerminalUiBuilder.SetAnchors(intro.rectTransform, 0f, 0.91f, 0.49f, 1f);
             TerminalUiBuilder.AttachTooltip(intro, "gloss.dsn.term", "gloss.dsn.def");
 
             _scanIcon = TerminalUiBuilder.CreateIcon("ScanIcon", content, TerminalIconId.Scan, Theme.StatusOk);
@@ -112,8 +114,8 @@ namespace Outpost.Runtime.Terminal.Apps
 
                     TerminalUiBuilder.SetBorderColor(_msgPanels[i], isSel ? Theme.AccentComms : Theme.BorderUnfocused);
                     _msgLabels[i].color = m.IsRead ? Theme.TextMuted : Theme.TextAmber;
-                    string tag = m.IsRead ? "" : Localization.Get("ui.new_badge");
-                    _msgLabels[i].text = $"{tag}Sol {m.Sol} ({m.DelayText})";
+                    string tag = m.IsRead ? "" : Localization.GetRaw("ui.new_badge");
+                    _msgLabels[i].text = Localization.Format("comms.msg_fmt", tag, m.Sol, m.DelayText);
                 }
                 else
                 {

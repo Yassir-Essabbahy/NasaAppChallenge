@@ -85,16 +85,17 @@ namespace Outpost.Editor
                 sb.AppendLine();
             }
 
-            sb.AppendLine("## Scientific & Fact Sources (In-Game Sources App & POIs)");
+            sb.AppendLine("## Scientific & Fact Sources (In-Game Sources App & Debrief)");
             sb.AppendLine();
-            sb.AppendLine("| Source ID | Title | Organization | URL | Used By Constants / Events / POIs |");
-            sb.AppendLine("|---|---|---|---|---|");
+            sb.AppendLine("| Source ID | Title | Organization | URL | License | Supports |");
+            sb.AppendLine("|---|---|---|---|---|---|");
             if (db.Entries != null)
             {
                 for (int i = 0; i < db.Entries.Count; i++)
                 {
                     var e = db.Entries[i];
-                    sb.AppendLine($"| `{Esc(e.Id)}` | {Esc(e.Title)} | {Esc(e.Organization)} | {Esc(e.UrlText)} | {Esc(e.UsedByConstantsAndEvents)} |");
+                    string license = string.IsNullOrEmpty(e.License) ? "UNVERIFIED - check before submission" : e.License;
+                    sb.AppendLine($"| `{Esc(e.Id)}` | {Esc(e.ResolveTitle())} | {Esc(e.ResolveOrganization())} | {Esc(e.UrlText)} | {Esc(license)} | {Esc(e.ResolveSupports())} |");
                 }
             }
             sb.AppendLine();

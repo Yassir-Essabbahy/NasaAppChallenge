@@ -7,19 +7,24 @@ using UnityEngine.UI;
 namespace Outpost.Runtime.Terminal
 {
     /// <summary>
-    /// Optional drag handler attached to window title bars, clamped to the desktop bounds.
+    /// Drag handler attached to window title bars, clamped to the desktop/workspace bounds.
     /// </summary>
     public class WindowDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler
     {
         private RectTransform _windowRect;
         private RectTransform _boundsRect;
-        private WindowView _owner;
+        private WindowFrame _owner;
         private Vector2 _pointerOffset;
 
-        public void Init(WindowView owner, RectTransform windowRect, RectTransform boundsRect)
+        public void Init(WindowFrame owner, RectTransform windowRect, RectTransform boundsRect)
         {
             _owner = owner;
             _windowRect = windowRect;
+            _boundsRect = boundsRect;
+        }
+
+        public void SetBoundsRect(RectTransform boundsRect)
+        {
             _boundsRect = boundsRect;
         }
 
@@ -40,6 +45,12 @@ namespace Outpost.Runtime.Terminal
                 return;
 
             Vector2 target = localPointer + _pointerOffset;
+            _windowRect.anchoredPosition = ClampPosition(target);
+        }
+
+        public Vector2 ClampPosition(Vector2 target)
+        {
+            if (_windowRect == null || _boundsRect == null) return target;
             Vector2 boundsSize = _boundsRect.rect.size;
             Vector2 winSize = _windowRect.rect.size;
             float maxX = Mathf.Max(0f, boundsSize.x - winSize.x);
@@ -48,22 +59,23 @@ namespace Outpost.Runtime.Terminal
             // Anchored top-left (0, 1)
             target.x = Mathf.Clamp(target.x, 0f, maxX);
             target.y = Mathf.Clamp(target.y, -maxY, 0f);
-            _windowRect.anchoredPosition = target;
+            return target;
         }
     }
 
     /// <summary>
-    /// Base class for all 8 Terminal OS app windows.
-    /// Rounded 8px frame with soft drop shadow, per-app bright accent header,
-    /// 150ms open/close animation, and read-only wall-tablet awareness.
+    /// Window frame component providing title bar, icon, minimize/close buttons,
+    /// drag handling clamped to workspace bounds, 150ms open/close/minimize animation,
+    /// and click-to-focus z-ordering.
     /// </summary>
-    public abstract class WindowView : MonoBehaviour, IPointerDownHandler
+    public abstract class WindowFrame : MonoBehaviour, IPointerDownHandler
     {
         private const float AnimDuration = 0.15f;
 
         public TerminalAppId AppId { get; protected set; }
         public string TitleKey { get; protected set; }
-        public bool IsOpen => gameObject.activeSelf && !_closing;
+        public bool IsMinimized { get; internal set; }
+        public bool IsOpen => (gameObject.activeSelf || IsMinimized) && !_closing;
 
         protected GameSession Session { get; private set; }
         protected WindowManager Manager { get; private set; }
@@ -72,6 +84,7 @@ namespace Outpost.Runtime.Terminal
         protected bool IsReadOnly => Manager != null && Manager.IsReadOnlyMode;
 
         private RectTransform _rootRect;
+        private WindowDragHandler _dragHandler;
         private Image _frameBorderImg;
         private Image _titleBarInnerImg;
         private Image _accentStripImg;
@@ -81,6 +94,7 @@ namespace Outpost.Runtime.Terminal
 
         private bool _opening;
         private bool _closing;
+        private bool _minimizing;
         private float _animTimer;
 
         public void Initialize(TerminalAppId appId, string titleKey, GameSession session, WindowManager manager, UITheme theme, AccessibilityTextScaler scaler, RectTransform desktopBounds)
@@ -125,7 +139,7 @@ namespace Outpost.Runtime.Terminal
             _frameBorderImg = frameRect.gameObject.AddComponent<Image>();
             _frameBorderImg.sprite = rounded;
             _frameBorderImg.type = Image.Type.Sliced;
-            _frameBorderImg.color = Theme.GetAppAccent(AppId);
+            _frameBorderImg.color = GetAccentColor(AppId);
 
             var inner = TerminalUiBuilder.CreateRect("WindowInner", frameRect);
             var innerImg = inner.gameObject.AddComponent<Image>();
@@ -143,13 +157,13 @@ namespace Outpost.Runtime.Terminal
             titleBarRect.offsetMin = new Vector2(0f, -52f);
             titleBarRect.offsetMax = new Vector2(0f, 0f);
 
-            var drag = titleBarRect.gameObject.AddComponent<WindowDragHandler>();
-            drag.Init(this, _rootRect, desktopBounds);
+            _dragHandler = titleBarRect.gameObject.AddComponent<WindowDragHandler>();
+            _dragHandler.Init(this, _rootRect, desktopBounds);
 
             var titleInner = TerminalUiBuilder.GetInner(titleBarRect);
 
             // Colored accent pill bar on left edge of title bar
-            Color accent = Theme.GetAppAccent(AppId);
+            Color accent = GetAccentColor(AppId);
             var accentPill = TerminalUiBuilder.CreateRect("AccentPill", titleInner);
             _accentStripImg = accentPill.gameObject.AddComponent<Image>();
             _accentStripImg.sprite = rounded;
@@ -166,21 +180,34 @@ namespace Outpost.Runtime.Terminal
 
             _titleText = TerminalUiBuilder.CreateText("TitleText", titleInner, Theme, Theme.HeaderFontSize, Theme.TextPrimary, TextAlignmentOptions.MidlineLeft, Scaler);
             _titleText.fontStyle = FontStyles.Bold;
-            _titleText.text = Localization.Get(TitleKey);
-            TerminalUiBuilder.SetAnchors(_titleText.rectTransform, 0f, 0f, 0.86f, 1f, 64f, 0f, 0f, 0f);
+            _titleText.textWrappingMode = TextWrappingModes.NoWrap;
+            _titleText.overflowMode = TextOverflowModes.Ellipsis;
+            _titleText.text = DesktopLocalization.Get(TitleKey);
+            TerminalUiBuilder.SetAnchors(_titleText.rectTransform, 0f, 0f, 0.80f, 1f, 64f, 0f, 0f, 0f);
 
-            var closeBtn = TerminalUiBuilder.CreateButton("CloseBtn", titleInner, "X", Theme, Theme.ButtonDangerBg, Color.clear, Color.white, Theme.BodyFontSize, () => Manager.CloseWindow(AppId), Scaler);
-            TerminalUiBuilder.SetAnchors(closeBtn.GetComponent<RectTransform>(), 0.91f, 0.12f, 0.99f, 0.88f);
+            var minBtn = TerminalUiBuilder.CreateButton("MinimizeBtn", titleInner, DesktopLocalization.Get("desktop.win.minimize"), Theme, Theme.ButtonBg, Theme.BorderUnfocused, Theme.TextPrimary, Theme.BodyFontSize, () => Manager?.MinimizeWindow(AppId), Scaler);
+            TerminalUiBuilder.SetAnchors(minBtn.GetComponent<RectTransform>(), 0.815f, 0.12f, 0.895f, 0.88f);
+
+            var closeBtn = TerminalUiBuilder.CreateButton("CloseBtn", titleInner, DesktopLocalization.Get("desktop.win.close"), Theme, Theme.ButtonDangerBg, Color.clear, Color.white, Theme.BodyFontSize, () => Manager?.CloseWindow(AppId), Scaler);
+            TerminalUiBuilder.SetAnchors(closeBtn.GetComponent<RectTransform>(), 0.905f, 0.12f, 0.99f, 0.88f);
 
             // Content area below title bar
             ContentRoot = TerminalUiBuilder.CreateRect("Content", inner);
             TerminalUiBuilder.SetAnchors(ContentRoot, 0f, 0f, 1f, 1f, 16f, 14f, 16f, 60f);
         }
 
+        private Color GetAccentColor(TerminalAppId id)
+        {
+            if (id == DesktopLocalization.MissionControlAppId)
+                return UITheme.PaletteTeal;
+            return Theme.GetAppAccent(id);
+        }
+
         private static TerminalIconId AppToIcon(TerminalAppId id)
         {
             switch (id)
             {
+                case DesktopLocalization.MissionControlAppId: return TerminalIconId.Home;
                 case TerminalAppId.PowerGrid: return TerminalIconId.Battery;
                 case TerminalAppId.LifeSupport: return TerminalIconId.Oxygen;
                 case TerminalAppId.Greenhouse: return TerminalIconId.Food;
@@ -193,14 +220,34 @@ namespace Outpost.Runtime.Terminal
             }
         }
 
+        public void SetWorkspace(RectTransform parentAndBounds, Vector2 size)
+        {
+            if (_rootRect == null || parentAndBounds == null) return;
+            if (_rootRect.parent != parentAndBounds)
+                _rootRect.SetParent(parentAndBounds, false);
+
+            Vector2 boundsSize = parentAndBounds.rect.size;
+            if (boundsSize.x > 100f && boundsSize.y > 100f)
+            {
+                size.x = Mathf.Min(size.x, boundsSize.x - 16f);
+                size.y = Mathf.Min(size.y, boundsSize.y - 16f);
+            }
+            _rootRect.sizeDelta = size;
+            _dragHandler?.SetBoundsRect(parentAndBounds);
+            SetAnchoredPosition(_rootRect.anchoredPosition);
+        }
+
         public void SetAnchoredPosition(Vector2 pos)
         {
-            if (_rootRect != null) _rootRect.anchoredPosition = pos;
+            if (_rootRect == null) return;
+            _rootRect.anchoredPosition = _dragHandler != null ? _dragHandler.ClampPosition(pos) : pos;
         }
 
         public void BeginOpenAnimation()
         {
+            IsMinimized = false;
             _closing = false;
+            _minimizing = false;
             _opening = true;
             _animTimer = 0f;
             if (_canvasGroup != null) _canvasGroup.alpha = 0f;
@@ -209,9 +256,24 @@ namespace Outpost.Runtime.Terminal
 
         public void BeginCloseAnimation()
         {
+            if (!gameObject.activeSelf)
+            {
+                IsMinimized = false;
+                return;
+            }
+            _opening = false;
+            _minimizing = false;
+            _closing = true;
+            _animTimer = 0f;
+        }
+
+        public void BeginMinimizeAnimation()
+        {
+            IsMinimized = true;
             if (!gameObject.activeSelf) return;
             _opening = false;
-            _closing = true;
+            _closing = false;
+            _minimizing = true;
             _animTimer = 0f;
         }
 
@@ -236,6 +298,20 @@ namespace Outpost.Runtime.Terminal
                 if (t >= 1f)
                 {
                     _closing = false;
+                    IsMinimized = false;
+                    gameObject.SetActive(false);
+                }
+            }
+            else if (_minimizing)
+            {
+                _animTimer += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(_animTimer / AnimDuration);
+                float ease = 1f - t;
+                if (_canvasGroup != null) _canvasGroup.alpha = ease;
+                if (_rootRect != null) _rootRect.localScale = Vector3.Lerp(Vector3.one * 0.85f, Vector3.one, ease);
+                if (t >= 1f)
+                {
+                    _minimizing = false;
                     gameObject.SetActive(false);
                 }
             }
@@ -243,7 +319,7 @@ namespace Outpost.Runtime.Terminal
 
         public void SetFocusedVisual(bool focused)
         {
-            Color accent = Theme.GetAppAccent(AppId);
+            Color accent = GetAccentColor(AppId);
             if (_frameBorderImg != null)
                 _frameBorderImg.color = focused ? accent : Theme.BorderUnfocused;
             if (_titleBarInnerImg != null)
@@ -269,5 +345,12 @@ namespace Outpost.Runtime.Terminal
 
         protected abstract void BuildContent(RectTransform content);
         public abstract void Refresh(SessionSnapshot snapshot);
+    }
+
+    /// <summary>
+    /// Base class for all Terminal OS app windows, inheriting WindowFrame chrome.
+    /// </summary>
+    public abstract class WindowView : WindowFrame
+    {
     }
 }

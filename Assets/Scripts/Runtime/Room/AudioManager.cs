@@ -26,6 +26,13 @@ namespace Outpost.Runtime.Room
         [SerializeField] private AudioClip[] footstepClips;
         [SerializeField] private AudioClip[] exteriorFootstepClips;
 
+        [Header("EVA Suit & End-Sol Slots (empty clips allowed)")]
+        [SerializeField] private AudioClip suitSealClip;
+        [SerializeField] private AudioClip suitBreathingLoopClip;
+        [Range(0f, 1f)] [SerializeField] private float suitBreathingVolume = 0.20f;
+        [SerializeField] private AudioClip endSolBassHitClip;
+        [SerializeField] private AudioClip endSolDroneClip;
+
         [Header("Volume Settings")]
         [Range(0f, 1f)] [SerializeField] private float masterVolume = 0.75f;
         [SerializeField] private bool muted;
@@ -39,6 +46,7 @@ namespace Outpost.Runtime.Room
         private AudioSource _windSource;
         private AudioSource _alarmSource;
         private AudioSource _introDroneSource;
+        private AudioSource _breathingSource;
         private AudioSource _sfxSource;
         private AudioSource _footstepSource;
         private AudioClip _procFootstepClip;
@@ -51,6 +59,10 @@ namespace Outpost.Runtime.Room
         private float _targetWindVol = 0.04f;
         private float _targetAlarmVol = 0f;
         private float _targetIntroDroneVol = 0f;
+        private float _targetBreathingVol = 0f;
+        private float _suitMuffleMultiplier = 1f;
+        private float _ambientFadeMultiplier = 1f;
+        private float _ambientFadeTarget = 1f;
         private bool _initialized;
 
         public const string PrefMasterVolume = "Outpost_MasterVolume";
@@ -115,15 +127,25 @@ namespace Outpost.Runtime.Room
                     _windSource.Play();
             }
 
-            float mult = muted ? 0f : masterVolume;
+            float baseMult = muted ? 0f : masterVolume;
+            float ambientFadeRate = Time.unscaledDeltaTime * 1.6f; // ~0.6-0.8s smooth black card fade
+            _ambientFadeMultiplier = Mathf.MoveTowards(_ambientFadeMultiplier, _ambientFadeTarget, ambientFadeRate);
+            float mult = baseMult * _suitMuffleMultiplier * _ambientFadeMultiplier;
+
             float dt = Time.unscaledDeltaTime * 3.0f;
             _humSource.volume = Mathf.Lerp(_humSource.volume, _targetHumVol * mult, dt);
             _humSource.pitch = Mathf.Lerp(_humSource.pitch, _targetHumPitch, dt);
             _windSource.volume = Mathf.Lerp(_windSource.volume, _targetWindVol * mult, dt);
             _alarmSource.volume = Mathf.Lerp(_alarmSource.volume, _targetAlarmVol * mult, dt);
+            if (_breathingSource != null)
+            {
+                _breathingSource.volume = Mathf.Lerp(_breathingSource.volume, _targetBreathingVol * baseMult, dt);
+                if (_targetBreathingVol <= 0.001f && _breathingSource.volume <= 0.002f && _breathingSource.isPlaying)
+                    _breathingSource.Stop();
+            }
             if (_introDroneSource != null)
             {
-                _introDroneSource.volume = Mathf.Lerp(_introDroneSource.volume, _targetIntroDroneVol * mult, Time.unscaledDeltaTime * 1.4f);
+                _introDroneSource.volume = Mathf.Lerp(_introDroneSource.volume, _targetIntroDroneVol * baseMult, Time.unscaledDeltaTime * 1.4f);
                 if (_targetIntroDroneVol <= 0.001f && _introDroneSource.volume <= 0.002f && _introDroneSource.isPlaying)
                     _introDroneSource.Stop();
             }
@@ -155,6 +177,7 @@ namespace Outpost.Runtime.Room
             _windSource = CreateAudioSource("Audio_MartianWind", windLoopClip, loop: true);
             _alarmSource = CreateAudioSource("Audio_CriticalAlarm", criticalAlarmLoopClip, loop: true);
             _introDroneSource = CreateAudioSource("Audio_IntroDrone", introDroneClip, loop: true);
+            _breathingSource = CreateAudioSource("Audio_SuitBreathing", suitBreathingLoopClip, loop: true);
             _sfxSource = CreateAudioSource("Audio_SFX", null, loop: false);
             _sfxSource.volume = 1f;
             _footstepSource = CreateAudioSource("Audio_Footsteps", null, loop: false);
@@ -300,6 +323,69 @@ namespace Outpost.Runtime.Room
             }
         }
 
+        public void SetSuitMuffled(bool muffled)
+        {
+            _suitMuffleMultiplier = muffled ? 0.6f : 1.0f;
+        }
+
+        public void SetAmbientFadeTarget(float target01, bool immediate = false)
+        {
+            _ambientFadeTarget = Mathf.Clamp01(target01);
+            if (immediate)
+            {
+                _ambientFadeMultiplier = _ambientFadeTarget;
+                ApplyVolumesImmediate();
+            }
+        }
+
+        public void PlaySuitSeal(AudioClip customClip = null)
+        {
+            EnsureInitialized();
+            AudioClip clip = customClip != null ? customClip : suitSealClip;
+            if (muted || clip == null || _sfxSource == null) return;
+            _sfxSource.PlayOneShot(clip, 0.70f * masterVolume);
+        }
+
+        public void SetSuitBreathingActive(bool active, AudioClip overrideClip = null, float overrideVolume = -1f)
+        {
+            EnsureInitialized();
+            AudioClip clip = overrideClip != null ? overrideClip : suitBreathingLoopClip;
+            float vol = overrideVolume >= 0f ? Mathf.Clamp01(overrideVolume) : suitBreathingVolume;
+            _targetBreathingVol = (active && clip != null) ? vol : 0f;
+            if (_breathingSource == null) return;
+
+            if (active && clip != null)
+            {
+                if (_breathingSource.clip != clip)
+                    _breathingSource.clip = clip;
+                if (!_breathingSource.isPlaying)
+                    _breathingSource.Play();
+            }
+        }
+
+        public void PlayEndSolBassHit(AudioClip customClip = null)
+        {
+            AudioClip clip = customClip != null ? customClip : (endSolBassHitClip != null ? endSolBassHitClip : bassHitClip);
+            PlayBassHit(clip);
+        }
+
+        public void StartEndSolDrone(AudioClip customClip = null)
+        {
+            EnsureInitialized();
+            _targetIntroDroneVol = 0.24f;
+            if (_introDroneSource == null) return;
+            AudioClip clip = customClip != null ? customClip : (endSolDroneClip != null ? endSolDroneClip : introDroneClip);
+            if (clip != null)
+            {
+                _introDroneSource.clip = clip;
+                _introDroneSource.volume = 0f;
+                if (!_introDroneSource.isPlaying)
+                    _introDroneSource.Play();
+            }
+        }
+
+        public void StopEndSolDrone(bool immediate = false) => StopIntroDrone(immediate);
+
         public void PlayFootstep(AudioClip[] overrideClips = null, bool isExterior = false)
         {
             EnsureInitialized();
@@ -366,11 +452,13 @@ namespace Outpost.Runtime.Room
         private void ApplyVolumesImmediate()
         {
             if (!_initialized) return;
-            float mult = muted ? 0f : masterVolume;
+            float baseMult = muted ? 0f : masterVolume;
+            float mult = baseMult * _suitMuffleMultiplier * _ambientFadeMultiplier;
             _humSource.volume = _targetHumVol * mult;
             _humSource.pitch = _targetHumPitch;
             _windSource.volume = _targetWindVol * mult;
             _alarmSource.volume = _targetAlarmVol * mult;
+            if (_breathingSource != null) _breathingSource.volume = _targetBreathingVol * baseMult;
             if (_sfxSource != null) _sfxSource.volume = 1f;
         }
 

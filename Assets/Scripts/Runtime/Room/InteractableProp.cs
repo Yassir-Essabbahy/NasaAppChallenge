@@ -21,7 +21,8 @@ namespace Outpost.Runtime.Room
         SurfaceAntenna,
         SurfaceRadiationPost,
         SurfaceIceMarker,
-        CustomFact
+        CustomFact,
+        SuitRack
     }
 
     /// <summary>
@@ -95,6 +96,11 @@ namespace Outpost.Runtime.Room
                                     snap.PanelDustPct > 5f;
                     return Localization.Get(canClean ? "poi.solar.clean_prompt" : "poi.solar.inspect_prompt");
                 }
+
+                case InteractablePropType.SuitRack:
+                    return SuitController.Instance != null
+                        ? SuitController.Instance.GetRackPromptText()
+                        : Localization.Get("suit_put_on");
 
                 default:
                     return PromptText;

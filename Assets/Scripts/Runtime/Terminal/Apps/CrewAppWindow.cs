@@ -117,14 +117,18 @@ namespace Outpost.Runtime.Terminal.Apps
                 _moodIcons[i].color = col;
 
                 _rowTexts[i].color = !c.IsAlive ? Theme.StatusCrit : Theme.TextPrimary;
-                _rowTexts[i].text = $"{c.Name} ({c.Role}) — HP {c.Health:0} | Mood {c.Morale:0} [{tagWord}]";
+                string rawTag = !c.IsAlive ? Localization.GetRaw("ui.deceased")
+                    : (c.Health < 35f || c.Morale < 25f) ? Localization.GetRaw("status.word.danger")
+                    : (c.Health < 65f || c.Morale < 50f) ? Localization.GetRaw("status.word.low")
+                    : Localization.GetRaw("status.word.good");
+                _rowTexts[i].text = Localization.Format("crew.row_fmt", c.Name, c.Role, c.Health, c.Morale, rawTag);
             }
 
             if (selected != null)
             {
-                string medNote = selected.IsFallenCommander ? $" ({Localization.Get("ui.medbay")})" : "";
-                _hintText.text = $"{selected.Name}{medNote}: {selected.RoleHint}";
-                _detailsText.text = $"{Localization.Get("ui.dose")}: {selected.DoseMsv:0.0} mSv | {Localization.Get("act.treat.desc")}";
+                string medNote = selected.IsFallenCommander ? Localization.GetRaw("crew.medbay_tag") : "";
+                _hintText.text = Localization.ShapeDisplay($"{selected.Name}{medNote}: {selected.RoleHint}");
+                _detailsText.text = Localization.ShapeDisplay($"{Localization.GetRaw("ui.dose")}: {selected.DoseMsv:0.0} mSv | {Localization.GetRaw("act.treat.desc")}");
             }
 
             bool editable = !IsReadOnly && s.Status == MissionStatus.InProgress;

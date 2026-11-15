@@ -105,11 +105,17 @@ namespace Outpost.Runtime.Terminal
             _selectable = GetComponent<Selectable>();
         }
 
-        private void OnDisable()
+        public void ResetScaleImmediate()
         {
             _hovered = false;
             _pressed = false;
+            _targetScale = _baseScale;
             transform.localScale = _baseScale;
+        }
+
+        private void OnDisable()
+        {
+            ResetScaleImmediate();
         }
 
         public void OnPointerEnter(PointerEventData eventData)
@@ -151,6 +157,12 @@ namespace Outpost.Runtime.Terminal
 
         private void Update()
         {
+            if (_selectable != null && !_selectable.IsInteractable() && _targetScale != _baseScale)
+            {
+                _hovered = false;
+                _pressed = false;
+                _targetScale = _baseScale;
+            }
             if (Vector3.SqrMagnitude(transform.localScale - _targetScale) > 0.00001f)
                 transform.localScale = Vector3.Lerp(transform.localScale, _targetScale, Mathf.Clamp01(Time.unscaledDeltaTime * 22f));
         }
@@ -184,8 +196,8 @@ namespace Outpost.Runtime.Terminal
 
         public void OnPointerEnter(PointerEventData eventData)
         {
-            string title = !string.IsNullOrEmpty(TitleKey) ? Localization.Get(TitleKey) : RawTitle;
-            string body = !string.IsNullOrEmpty(BodyKey) ? Localization.Get(BodyKey) : RawBody;
+            string title = !string.IsNullOrEmpty(TitleKey) ? DesktopLocalization.Get(TitleKey) : RawTitle;
+            string body = !string.IsNullOrEmpty(BodyKey) ? DesktopLocalization.Get(BodyKey) : RawBody;
             if (string.IsNullOrEmpty(body) && string.IsNullOrEmpty(title)) return;
             TerminalUiBuilder.RaiseShowTooltip(title, body, eventData.position);
         }
@@ -349,6 +361,7 @@ namespace Outpost.Runtime.Terminal
             var tmp = CreateText("Label", inner, theme, Mathf.Max(24f, fontSize), textColor, TextAlignmentOptions.Center, scaler);
             tmp.text = label;
             tmp.fontStyle = FontStyles.Bold;
+            tmp.raycastTarget = false;
             SetStretch(tmp.rectTransform, 6f);
             return btn;
         }

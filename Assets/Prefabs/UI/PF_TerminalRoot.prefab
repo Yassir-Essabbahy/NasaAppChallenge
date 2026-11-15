@@ -10,6 +10,9 @@ GameObject:
   m_Component:
   - component: {fileID: 4268254039384448199}
   - component: {fileID: 7525948337141330951}
+  - component: {fileID: 8479288290079432947}
+  - component: {fileID: 7861772649216294360}
+  - component: {fileID: 4291651136552024450}
   m_Layer: 0
   m_Name: PF_TerminalRoot
   m_TagString: Untagged
@@ -52,3 +55,42 @@ MonoBehaviour:
   sourcesDatabase: {fileID: 11400000, guid: 045356f9991b7c7409bd4544f1b55754, type: 2}
   glossaryDatabase: {fileID: 11400000, guid: d6ff0faac55718343a2a8783beea7981, type: 2}
   terminalRoot: {fileID: 4268254039384448199}
+  desktopSkin: {fileID: 4291651136552024450}
+--- !u!114 &8479288290079432947
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2715998030887457713}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eca468fd31a678b419d0bdf5ad80a586, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Outpost.Runtime::Outpost.Runtime.Terminal.WindowManager
+--- !u!114 &7861772649216294360
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2715998030887457713}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4b9fc19bef8bd424c81bdf47f71b3f50, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Outpost.Runtime::Outpost.Runtime.Terminal.AccessibilityTextScaler
+  largerTextEnabled: 0
+  largerTextMultiplier: 1.15
+--- !u!114 &4291651136552024450
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2715998030887457713}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a955b30f7b8f70e4ea729a335bdaf88c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Outpost.Runtime::Outpost.Runtime.Terminal.DesktopSkinController

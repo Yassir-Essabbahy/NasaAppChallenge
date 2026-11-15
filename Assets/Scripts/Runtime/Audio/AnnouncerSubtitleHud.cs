@@ -1,5 +1,6 @@
 using Outpost.Runtime.Room;
 using Outpost.Runtime.Terminal;
+using Outpost.Sim;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -59,7 +60,7 @@ namespace Outpost.Runtime.Audio
 
             if (_headerText != null)
             {
-                _headerText.text = isHazardAlert ? "ANNOUNCEMENT // ADVISORY" : "ANNOUNCEMENT";
+                _headerText.text = isHazardAlert ? Localization.Get("announcer.header_advisory") : Localization.Get("announcer.header");
                 if (theme != null)
                     _headerText.color = isHazardAlert ? theme.TextAmber : theme.AccentHelp;
             }
@@ -129,7 +130,7 @@ namespace Outpost.Runtime.Audio
             _headerText = TerminalUiBuilder.CreateText("AnnouncementLabel", inner, theme, 18f, headerColor, TextAlignmentOptions.MidlineLeft, _textScaler);
             _headerText.fontStyle = FontStyles.Bold;
             _headerText.characterSpacing = 6f;
-            _headerText.text = "ANNOUNCEMENT";
+            _headerText.text = Localization.Get("announcer.header");
             TerminalUiBuilder.SetAnchors(_headerText.rectTransform, 0.03f, 0.64f, 0.97f, 0.94f);
 
             _bodyText = TerminalUiBuilder.CreateText("AnnouncementSubtitle", inner, theme, 22f, bodyColor, TextAlignmentOptions.TopLeft, _textScaler);

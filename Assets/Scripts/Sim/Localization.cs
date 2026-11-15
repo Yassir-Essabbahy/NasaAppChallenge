@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Outpost.Sim
@@ -11,17 +12,43 @@ namespace Outpost.Sim
     }
 
     /// <summary>
-    /// Simple key -> string localization table.
-    /// Currently populated in English; structured so French, Arabic, and Darija tables can be added cleanly.
+    /// Key -> string localization table supporting English and Modern Standard Arabic
+    /// (automatically shaped via ArabicShaper for TextMeshPro).
     /// </summary>
     public static class Localization
     {
         private static Language _currentLanguage = Language.English;
 
+        /// <summary>Raised whenever CurrentLanguage changes via SetLanguage.</summary>
+        public static event Action<Language> OnLanguageChanged;
+
         public static Language CurrentLanguage
         {
             get => _currentLanguage;
             set => _currentLanguage = value;
+        }
+
+        /// <summary>Switches active language and notifies subscribed UI controllers.</summary>
+        public static void SetLanguage(Language lang)
+        {
+            if (_currentLanguage == lang) return;
+            _currentLanguage = lang;
+            OnLanguageChanged?.Invoke(_currentLanguage);
+        }
+
+        /// <summary>Forces listeners to refresh with the active language.</summary>
+        public static void NotifyLanguageChanged()
+        {
+            OnLanguageChanged?.Invoke(_currentLanguage);
+        }
+
+        /// <summary>Shapes raw mixed Arabic/LTR text whenever Arabic is active or present in the string.</summary>
+        public static string ShapeDisplay(string raw)
+        {
+            if (string.IsNullOrEmpty(raw)) return string.Empty;
+            if (_currentLanguage == Language.Arabic || ArabicShaper.ContainsArabic(raw))
+                return ArabicShaper.Shape(raw);
+            return raw;
         }
 
         private static readonly Dictionary<string, string> English = new Dictionary<string, string>
@@ -87,7 +114,7 @@ namespace Outpost.Sim
             { "alert.storm", "WEATHER ALERT: DUST STORM CUTS SOLAR OUTPUT TO 40%!" },
             { "alert.scrubber", "EQUIPMENT ALERT: CO2 SCRUBBER DAMAGED — CO2 RISING!" },
 
-            // Intro & Commander's Log (M4 preview keys)
+            // Intro & Commander's Log
             { "intro.line1", "The sun is far away." },
             { "intro.line2", "Here, it is a small, cold light." },
             { "intro.line3", "Every watt is a decision." },
@@ -108,7 +135,7 @@ namespace Outpost.Sim
             { "evt.panel_dust.c2.out", "Pneumatic jets clear part of the dust without an EVA, using reserve battery." },
             { "evt.panel_dust.c3", "Defer Cleaning (+10% Dust)" },
             { "evt.panel_dust.c3.out", "You save AP and power now, but solar efficiency drops further." },
-            { "evt.panel_dust.fact", "NASA's Mars Exploration Rovers Opportunity and Spirit saw solar power drop dramatically as electrostatic dust settled on arrays—until lucky wind gusts ('dust devils') cleaned them off." },
+            { "evt.panel_dust.fact", "Before the 2018 storm hit, Opportunity's team cut the rover's power use to save battery charge." },
 
             { "evt.scrubber_clog.title", "CO2 SCRUBBER CLOG" },
             { "evt.scrubber_clog.desc", "Carbon dioxide levels are ticking upward in the main module. The zeolite scrubber bed is partly clogged with fine regolith dust." },
@@ -118,7 +145,7 @@ namespace Outpost.Sim
             { "evt.scrubber_clog.c2.out", "High-draw blowers force air through the clog, costing heavy battery." },
             { "evt.scrubber_clog.c3", "Ignore for Now (-35% Scrubber Health, -8 O2)" },
             { "evt.scrubber_clog.c3.out", "CO2 builds up and breathable oxygen reserve drops." },
-            { "evt.scrubber_clog.fact", "On spacecraft and the ISS, removing exhaled CO2 is even more urgent than adding oxygen; high CO2 causes headaches, confusion, and loss of consciousness within hours." },
+            { "evt.scrubber_clog.fact", "Mars air is about 95% carbon dioxide. In 2021, an experiment on Perseverance made oxygen from it." },
 
             { "evt.dust_storm.title", "REGIONAL DUST STORM" },
             { "evt.dust_storm.desc", "A wall of rusty dust sweeps across the horizon. Sunlight drops to 40% for 2 sols and heavy grit will coat the panels." },
@@ -128,7 +155,7 @@ namespace Outpost.Sim
             { "evt.dust_storm.c2.out", "Outpost runs normally, leaning hard on battery reserves." },
             { "evt.dust_storm.c3", "Pre-Storm Panel Seal (-1 AP, Halves Storm Dust)" },
             { "evt.dust_storm.c3.out", "Crew angles and seals the outer wings, cutting storm dust accumulation." },
-            { "evt.dust_storm.fact", "Mars dust storms can grow large enough to wrap the entire planet for weeks. In 2018, a global dust storm blocked so much sunlight that NASA's solar-powered Opportunity rover lost power permanently." },
+            { "evt.dust_storm.fact", "In 2018 a planet-wide dust storm cut off sunlight. Opportunity, a solar-powered rover, lost power and fell silent." },
 
             { "evt.solar_flare.title", "SOLAR PARTICLE EVENT (FLARE)" },
             { "evt.solar_flare.desc", "Space weather alert! A massive solar flare is firing high-energy protons toward Mars. Without shielding, radiation dose will spike." },
@@ -138,7 +165,7 @@ namespace Outpost.Sim
             { "evt.solar_flare.c2.out", "Systems keep running smoothly, but the crew absorbs a dangerous radiation spike." },
             { "evt.solar_flare.c3", "Emergency Water-Wall Barricade (-10 Water, 65% Dose Blocked)" },
             { "evt.solar_flare.c3.out", "Crew shifts spare water bladders onto the roof; water absorbs protons well." },
-            { "evt.solar_flare.fact", "Mars lacks a global magnetic field like Earth's. During Solar Particle Events, astronauts must shelter behind dense materials—especially hydrogen-rich water or polyethylene—to block energetic protons." },
+            { "evt.solar_flare.fact", "In a solar particle event, crews shelter in the most shielded part of their spacecraft until radiation drops." },
 
             { "evt.water_recycler.title", "WATER RECYCLER FAULT" },
             { "evt.water_recycler.desc", "Alarms chime in the ECLSS bay: brine buildup has jammed the urine-to-potable water distillation loop." },
@@ -148,7 +175,7 @@ namespace Outpost.Sim
             { "evt.water_recycler.c2.out", "Crew skips hygiene water and cuts drinking portions to hold reserves." },
             { "evt.water_recycler.c3", "Run Bypass Loop (-30% Recycler Health, -6 Water)" },
             { "evt.water_recycler.c3.out", "Contaminated brine is dumped outside, permanently losing water." },
-            { "evt.water_recycler.fact", "The International Space Station recycles about 98% of crew sweat, breath humidity, and urine back into clean drinking water—essential because launching water to Mars is extremely heavy and costly." },
+            { "evt.water_recycler.fact", "On the space station, crews recover about 98% of their water by recycling. Each person uses roughly a gallon a day." },
 
             { "evt.greenhouse_blight.title", "HYDROPONIC BLIGHT" },
             { "evt.greenhouse_blight.desc", "Fungal mold is spreading across Tray 3 in the greenhouse! Left unchecked, it will ruin our fresh food and oxygen output." },
@@ -158,7 +185,7 @@ namespace Outpost.Sim
             { "evt.greenhouse_blight.c2.out", "UV lamps zap the fungus while sparing most of the harvest." },
             { "evt.greenhouse_blight.c3", "Ignore It (-35% Crop Health)" },
             { "evt.greenhouse_blight.c3.out", "Mold blankets the trays, choking plant growth and O2 production." },
-            { "evt.greenhouse_blight.fact", "NASA's Veggie and APH experiments aboard the ISS study how plants grow in enclosed habitats. Closed greenhouses can wipe out crops fast if plant diseases spread in stagnant air." },
+            { "evt.greenhouse_blight.fact", "Astronauts have grown and eaten lettuce on the space station. Fresh plants add food and may lift the crew's mood." },
 
             { "evt.cold_snap.title", "DEEP POLAR COLD SNAP" },
             { "evt.cold_snap.desc", "Surface temperatures plunge below -100 C outside. Thermal losses spike across the habitat hull." },
@@ -168,7 +195,7 @@ namespace Outpost.Sim
             { "evt.cold_snap.c2.out", "Breath fogs inside the quarters as everyone shivers through the night." },
             { "evt.cold_snap.c3", "Divert Greenhouse Warmth (-8 Food, Safe Temps)" },
             { "evt.cold_snap.c3.out", "You vent grow-lamp heat into crew quarters; plants suffer frost damage." },
-            { "evt.cold_snap.fact", "Because Mars' atmosphere is 100 times thinner than Earth's, it holds almost no heat. Nighttime temperatures regularly plunge past -100 C even near the equator." },
+            { "evt.cold_snap.fact", "Mars is cold. Temperatures range from about minus 133°C at the winter pole to plus 27°C in summer." },
 
             { "evt.crew_tension.title", "CABIN FEVER & TENSION" },
             { "evt.crew_tension.desc", "With the previous commander in medbay and alarms chirping nonstop, tempers flare between crew members." },
@@ -178,7 +205,7 @@ namespace Outpost.Sim
             { "evt.crew_tension.c2.out", "Work gets done efficiently, though resentment simmers." },
             { "evt.crew_tension.c3", "Break Out Comfort Rations (-7 Food, +12 Morale)" },
             { "evt.crew_tension.c3.out", "Sharing Earth treats lifts everyone's spirits at the cost of rations." },
-            { "evt.crew_tension.fact", "NASA's Behavioral Health & Performance research (like HERA and CHAPEA Mars analogs) shows that isolation, sleep loss, and conflict can hurt mission safety just as much as hardware failures." },
+            { "evt.crew_tension.fact", "NASA studies long isolation on Earth. In one study, four volunteers were selected to live in a Mars-like habitat for a year." },
 
             { "evt.earth_message.title", "MESSAGE FROM EARTH (14-MIN DELAY)" },
             { "evt.earth_message.desc", "Houston sends a telemetry patch over the Deep Space Network. Due to the 14-minute one-way light delay, it is based on older sensor logs." },
@@ -188,7 +215,7 @@ namespace Outpost.Sim
             { "evt.earth_message.c2.out", "You rely on live local gauges, reinforcing crew autonomy." },
             { "evt.earth_message.c3", "Request Medbay Tele-Consult (-5 Power, +14 Commander HP)" },
             { "evt.earth_message.c3.out", "Flight surgeons beam treatment guidance that stabilizes the fallen commander." },
-            { "evt.earth_message.fact", "Radio signals travel at the speed of light, taking 4 to 24 minutes one-way between Earth and Mars. Mars crews cannot have real-time voice chats with Mission Control and must solve emergencies autonomously." },
+            { "evt.earth_message.fact", "Radio messages between Earth and Mars take about 4 to 24 minutes one way, so there are no live chats." },
 
             { "evt.micrometeorite.title", "AIRLOCK GRIT & MICROMETEORITE" },
             { "evt.micrometeorite.desc", "A tiny hypervelocity grain punctures an outer regolith shield tile near the airlock! Shielding integrity drops by 15%." },
@@ -198,9 +225,9 @@ namespace Outpost.Sim
             { "evt.micrometeorite.c2.out", "Isolating the outer airlock stops further damage while venting trapped air." },
             { "evt.micrometeorite.c3", "Accept Reduced Shielding (-5 Morale)" },
             { "evt.micrometeorite.c3.out", "You leave the dent unpatched; radiation protection stays weakened." },
-            { "evt.micrometeorite.fact", "Mars' thin atmosphere lets small micrometeoroids reach the surface faster than on Earth. Habitats use layered Whipple shields and local Mars soil (regolith) for impact and radiation protection." },
+            { "evt.micrometeorite.fact", "A habitat must protect its crew from radiation, tiny meteorites, dust, vacuum and extreme temperatures." },
 
-            // Sources Metadata
+            // Sources
             { "src.dust.title", "Mars Dust Storms & Opportunity Rover" },
             { "src.dust.agency", "NASA JPL / Mars Exploration" },
             { "src.co2.title", "ECLSS Atmosphere Revitalization (CO2 Scrubbing)" },
@@ -222,7 +249,7 @@ namespace Outpost.Sim
             { "src.shield.title", "Martian Regolith Shielding & Micrometeoroid Protection" },
             { "src.shield.agency", "NASA Artemis / Moon to Mars Architecture" },
 
-            // M2 Status Labels & App Names
+            // Terminal Apps & Status Tags
             { "status.ok", "OK" },
             { "status.low", "LOW" },
             { "status.crit", "CRITICAL" },
@@ -235,7 +262,7 @@ namespace Outpost.Sim
             { "app.log", "Commander's Log" },
             { "app.sources", "Sources" },
 
-            // M2 Taskbar & Alert Priority Strings
+            // Header & Dynamic Alert Priority Strings
             { "ui.rescue_in", "RESCUE IN {0} SOLS" },
             { "ui.rescue_today", "RESCUE LANDS TONIGHT" },
             { "alert.none", "No alerts." },
@@ -244,7 +271,7 @@ namespace Outpost.Sim
             { "alert.stock_low", "LOW: {0} UNDER 20%! ADJUST POWER OR REPAIR!" },
             { "alert.event_pending", "ALERT: INCOMING EVENT REQUIRES YOUR COMMAND!" },
 
-            // M2 Modals & Confirms
+            // Modals
             { "modal.incoming_event", "INCOMING EVENT" },
             { "modal.confirm_endsol.title", "CONFIRM END SOL" },
             { "modal.confirm_endsol.body", "Are you sure? {0} will run out if you end the sol now!" },
@@ -253,7 +280,7 @@ namespace Outpost.Sim
             { "modal.confirm", "END SOL ANYWAY" },
             { "modal.cancel", "GO BACK" },
 
-            // M2 Commander's Log Entries (Progressive Tutorial & Notes)
+            // Commander's Log Entries (Sol 1-7)
             { "log.sol1.alloc.title", "SOL 1 - POWER GRID BASICS" },
             { "log.sol1.alloc.body", "New Commander: Welcome to Ares-4. Open POWER GRID first. Keep Heating at 50% or higher, and watch the projected battery! If battery hits 0%, all systems drop to 20% power." },
             { "log.sol1.ap.title", "SOL 1 - CREW & ACTION POINTS" },
@@ -273,7 +300,7 @@ namespace Outpost.Sim
             { "log.sol7.rescue.title", "SOL 7 - FINAL SHIFT" },
             { "log.sol7.rescue.body", "The rescue ascent craft enters Mars orbit tonight. Keep at least one crew member alive through the end of Sol 7 to bring everyone home!" },
 
-            // M2 Comms Earth Inbox Messages
+            // Earth DSN Comms Inbox (Sol 1-7)
             { "comms.sol1.subject", "DSN PACKET #101: COMMAND TRANSFER" },
             { "comms.sol1.delay", "sent 12 min ago" },
             { "comms.sol1.body", "Ares-4, Houston Flight confirms medical telemetry for Cmdr. Vale. You are cleared for acting command. Rescue lander ETA: 7 sols. Monitor solar dust levels." },
@@ -296,7 +323,7 @@ namespace Outpost.Sim
             { "comms.sol7.delay", "sent 21 min ago" },
             { "comms.sol7.body", "Rescue lander is descending into Gale sector! Keep habitat powered and crew alive until end of Sol 7 for pickup." },
 
-            // M3 Room Prompts, Signs & Labels
+            // M4 First-Person Room & Story Prompts
             { "prompt.monitor", "[E] Use terminal" },
             { "prompt.radio", "[E] Check radio" },
             { "prompt.medbay", "Cmdr. Vale is stable. For now." },
@@ -313,7 +340,7 @@ namespace Outpost.Sim
             { "room.locker.label", "EVA SUIT LOCKER" },
             { "room.crewdoor.label", "CREW QUARTERS" },
 
-            // M4 Title Screen & Intro
+            // Flow Screens: Title, Intro, Login, Pause, Endings, Debrief, Credits
             { "title.subtitle", "JUNIOR ASTRONAUT MISSION TRAINER  |  ARES-4 OUTPOST" },
             { "title.badge", "NASA SPACE APPS CHALLENGE 2026  •  ARES-4 OUTPOST" },
             { "title.goal_hook", "Keep 4 crewmates alive for 7 sols until rescue touches down." },
@@ -324,9 +351,21 @@ namespace Outpost.Sim
             { "title.how_to_play.body", "1. Balance Power, Air, Water, Food, and Shielding for 7 sols until rescue.\n\n2. Move with WASD, look with Mouse, press E to interact, ESC to pause or stand up.\n\n3. Every choice has a real trade-off — keep your crew alive until Touchdown." },
             { "title.credits", "CREDITS" },
             { "title.close", "CLOSE" },
+            { "title.mars", "Mars" },
+            { "title.last_shift", "Last Shift" },
+            { "title.play_game", "Play Game" },
+            { "title.settings", "Settings" },
+            { "title.exit", "Exit" },
+            { "title.language", "Language" },
+            { "lang.select_title", "SELECT LANGUAGE" },
+            { "lang.gate_title", "SELECT LANGUAGE  |  " + "اختر اللغة" },
+            { "lang.gate_controls", "[<- / ->] Switch   |   [ENTER] Continue" },
+            { "lang.slider_label", "LANGUAGE" },
+            { "lang.english", "English" },
+            { "lang.arabic", "Arabic" },
+            { "lang.continue", "CONTINUE" },
             { "intro.skip_hint", "[PRESS ANY KEY TO SKIP INTRO]" },
 
-            // M4 Terminal Boot, Login & Handoff Log
             { "boot.line1", "MARS OUTPOST OS v0.9" },
             { "boot.line2", "CHECKING POWER... LOW" },
             { "boot.line3", "CHECKING CREW... 4 ALIVE / 1 INJURED" },
@@ -339,7 +378,6 @@ namespace Outpost.Sim
             { "log.sol1.vale.title", "SOL 1 - CMDR. VALE HANDOFF" },
             { "log.sol1.vale.body", "I'm exhausted—my vision is blurring and Dr. Lin is ordering me into the medbay. Command of Ares-4 is yours now. Rescue lands in 7 sols. Watch the power first: dust is choking the solar arrays, and if the battery hits zero, life support drops to 20%." },
 
-            // M4 Endings
             { "ending.win.terminal", "Outpost, we see your lights. Touchdown in 3... 2... 1." },
             { "ending.win.line1", "The sun is still far away." },
             { "ending.win.line2", "But you are not alone." },
@@ -347,16 +385,23 @@ namespace Outpost.Sim
             { "ending.lose.terminal", "NO LIFE SIGNS DETECTED" },
             { "ending.lose.line1", "The sun is still far away." },
 
-            // M4 Pause Menu
             { "pause.title", "MISSION PAUSED" },
             { "pause.resume", "RESUME SHIFT" },
             { "pause.restart", "RESTART MISSION" },
             { "pause.volume", "MASTER VOLUME" },
+            { "pause.sensitivity", "LOOK SENSITIVITY" },
             { "pause.larger_text", "LARGER TEXT" },
             { "pause.reduce_motion", "REDUCE MOTION" },
             { "pause.quit_title", "QUIT TO TITLE" },
+            { "pause.vox_volume", "ANNOUNCER (VOX)" },
+            { "pause.graphics", "GRAPHICS" },
+            { "pause.settings_title", "SETTINGS" },
+            { "pause.vox_muted", "VOX: MUTED" },
+            { "pause.vox_active", "VOX: ACTIVE" },
+            { "pause.on", "ON" },
+            { "pause.off", "OFF" },
+            { "psx.res.native", "Native" },
 
-            // M4 Debrief & Credits
             { "debrief.title", "MISSION DEBRIEF" },
             { "debrief.what_nasa_knows", "WHAT NASA KNOWS" },
             { "debrief.timeline", "KEY DECISIONS TIMELINE" },
@@ -365,32 +410,30 @@ namespace Outpost.Sim
             { "debrief.replay_seed", "REPLAY SAME SEED" },
             { "debrief.credits", "CREDITS" },
             { "debrief.back_title", "BACK TO TITLE" },
+            { "debrief.header_fmt", "{0}  |  {1}  |  GRADE: {2}" },
+            { "debrief.source_prefix", "Source:" },
+            { "debrief.summary_fmt", "CMDR. {0}  (SEED {1})    |    SURVIVORS: {2}/4    |    AVG HP: {3:0}%    |    SCORE: {4:0.0}\nREMAINING STOCKS —  PWR: {5:0}%   O2: {6:0}%   H2O: {7:0}%   FOOD: {8:0}%   SHLD: {9:0}%" },
+            { "debrief.crew_row_fmt", "• {0} ({1}) — [{2}]  HP {3:0}%  |  Morale {4:0}%  |  Dose {5:0.0} mSv" },
+            { "debrief.no_events", "• No event decisions recorded yet." },
+            { "debrief.timeline_row_fmt", "• SOL {0} [{1}]: {2} -> {3}" },
             { "credits.title", "CREDITS & NASA SOURCES" },
             { "credits.unity", "Made with Unity" },
             { "credits.challenge", "Built for NASA Space Apps Challenge 2026" },
             { "credits.fonts", "Fonts used: LiberationSans SDF (TextMeshPro)" },
+            { "credits.assets_hdr", "--- ASSETS, PACKAGES & TOOLS ---" },
+            { "credits.sources_hdr", "--- SCIENTIFIC SOURCES DATABASE ---" },
+            { "credits.license_used", "  License: {0} | Used: {1}" },
 
-            // M5 Cinematic Intro Cards & Skip
+            // Intro card sequence (single opening card)
             { "intro.card1.line1", "THE SUN IS FAR AWAY." },
-            { "intro.card2.line1", "MARS - JEZERO CRATER" },
-            { "intro.card2.line2", "OUTPOST HELIOS" },
-            { "intro.card2.line3", "SOL 1 OF 7" },
-            { "intro.card3.line1", "FOUR SURVIVORS." },
-            { "intro.card4.line1", "SEVEN SOLS." },
-            { "intro.card5.line1", "ONE COMMANDER." },
-            { "intro.card6.line1", "COMMANDER VALE IS DOWN." },
-            { "intro.card6.line2", "COMMAND TRANSFERS TO YOU." },
-            { "intro.card7.line1", "Helios, this is Earth. Signal delay: twelve minutes. Hold on." },
-            { "intro.card8.line1", "MARS OUTPOST" },
-            { "intro.card8.line2", "LAST SHIFT" },
             { "intro.hold_space_skip", "HOLD SPACE TO SKIP" },
 
-            // M5 Graphics & Accessibility Toggles
+            // PSX & Accessibility toggles
             { "pause.psx_look", "PSX LOOK" },
             { "pause.psx_res", "RESOLUTION" },
             { "pause.reduce_flicker", "REDUCE FLICKER" },
 
-            // Friendly Terminal Redesign - Statuses & Home
+            // Mission Control & HELIOS Beginner Layer
             { "status.word.good", "GOOD" },
             { "status.word.low", "LOW" },
             { "status.word.danger", "DANGER" },
@@ -411,7 +454,6 @@ namespace Outpost.Sim
             { "mc.status.food", "Food" },
             { "mc.status.shield", "Shield" },
 
-            // HELIOS Assistant & HintEngine (<= 12 words per hint)
             { "helios.name", "HELIOS" },
             { "helios.hints_on", "Hints: On" },
             { "helios.hints_off", "Hints: Off" },
@@ -426,7 +468,6 @@ namespace Outpost.Sim
             { "hint.ap_unused", "You still have Action Points! Spend them on crew tasks." },
             { "hint.idle_ok", "Systems look steady! Check forecast and press End Sol." },
 
-            // Next Step card messages & action buttons
             { "next.crew_danger", "Someone on your crew is hurt or exhausted. Help them recover." },
             { "next.crew_btn", "Open Crew" },
             { "next.event_active", "An urgent outpost situation needs your decision." },
@@ -444,14 +485,12 @@ namespace Outpost.Sim
             { "next.ready", "Outpost looks stable for today. Review the forecast below." },
             { "next.endsol_btn", "Ready for End Sol" },
 
-            // Onboarding 3-Step Checklist (Sol 1)
             { "onboard.title", "First Shift Checklist" },
             { "onboard.step1", "1. Open Power Grid" },
             { "onboard.step2", "2. Move a power slider" },
             { "onboard.step3", "3. Press End Sol" },
             { "onboard.done", "Checklist complete!" },
 
-            // UI Controls, Help, Tooltips & More Details
             { "ui.more_details", "More details" },
             { "ui.less_details", "Hide details" },
             { "ui.help", "Help" },
@@ -463,7 +502,6 @@ namespace Outpost.Sim
             { "help.howto_steps", "1. Balance Power: Open Power Grid and set sliders so Battery stays above 0%.\n2. Keep Air, Water & Food Safe: Repair machines and care for your 4 crewmates using Action Points.\n3. Watch the Forecast: Check what changes tonight, then press End Sol until Rescue on Sol 7!" },
             { "help.glossary_header", "Outpost Glossary (Simple Meanings)" },
 
-            // Glossary Terms & 1-Sentence Definitions
             { "gloss.sol.term", "Sol (Martian Day)" },
             { "gloss.sol.def", "One Mars day lasts 24 hours and 39 minutes—your team needs to survive 7 sols until rescue." },
             { "gloss.power.term", "Battery & Solar Power" },
@@ -485,11 +523,11 @@ namespace Outpost.Sim
             { "gloss.storm.term", "Martian Dust Storm" },
             { "gloss.storm.def", "Giant rusty dust clouds block up to 60% of sunlight on Mars and coat solar panels in fine grit." },
 
-            // Power Grid Presets & Friendly Consequences
             { "pwr.preset.label", "Quick Presets:" },
             { "pwr.preset.safe", "Safe" },
             { "pwr.preset.balanced", "Balanced" },
             { "pwr.preset.save", "Save Power" },
+            { "pwr.alloc_header", "POWER ALLOCATION" },
             { "pwr.ls.name", "Life Support (Air & Water)" },
             { "pwr.gh.name", "Greenhouse (Food Crops)" },
             { "pwr.ht.name", "Heating (Keep Crew Warm)" },
@@ -503,12 +541,17 @@ namespace Outpost.Sim
             { "pwr.clean_btn", "Clean Solar Panels (1 AP) — {0:0}% Dust" },
             { "pwr.no_ap", "Clean Solar Panels (No Action Points Left)" },
 
-            // Friendly App Descriptions & Event / Summary Helpers
             { "ls.friendly_intro", "Keep air clean and water flowing for all 4 astronauts." },
+            { "ls.details_fmt", "O2 {0:+0.0;-0.0;0}{1} | H2O {2:+0.0;-0.0;0}{1} | Crew {3}/4" },
             { "gh.friendly_intro", "Grow fresh food indoors. Healthy plants also help oxygen!" },
             { "rad.friendly_intro", "Mars has no magnetic shield. Watch doses and reinforce walls." },
+            { "rad.safe_limit", "+{0:0.00} mSv{1} | Safe Limit: {2:0.0} mSv" },
             { "crew.friendly_intro", "Spend Action Points (AP) to heal teammates, boost morale, or rest." },
+            { "crew.row_fmt", "{0} ({1}) — HP {2:0} | Mood {3:0} [{4}]" },
+            { "crew.medbay_tag", " [MEDBAY]" },
             { "comms.friendly_intro", "Read delayed radio packets from NASA Flight Control on Earth." },
+            { "comms.msg_fmt", "{0}Sol {1} ({2})" },
+            { "comms.to_commander", "TO: CMDR. {0}" },
             { "log.friendly_intro", "Commander Vale's handoff notes to help guide your shift." },
             { "sources.friendly_intro", "Real NASA missions and research behind everything in this trainer." },
             { "event.choices_hint", "Choose how your crew will respond:" },
@@ -519,7 +562,6 @@ namespace Outpost.Sim
             { "summary.bullet_weather_storm", "Dust storm continues ({0} sol left) — keep battery safe!" },
             { "summary.bullet_crew", "Crew active: {0}/4 | Rescue arrives in {1} sols." },
 
-            // Dock Short App Labels & Misc UI Keys
             { "dock.power", "Power" },
             { "dock.lifesupport", "Air/H2O" },
             { "dock.greenhouse", "Food" },
@@ -537,7 +579,21 @@ namespace Outpost.Sim
             { "sol.summary_bullets_prefix", "" },
             { "ui.new_badge", "[NEW] " },
 
-            // Part 3 - Explorable World Prompts, Signs & NASA Facts
+            // Terminal static chrome & Sim formatted strings
+            { "term.brand_title", "OUTPOST TERMINAL" },
+            { "term.brand_sub", "MARS OUTPOST\nSURVIVAL OPS" },
+            { "term.bezel", "///   MARS OUTPOST - OPS TERM v2.1   ///" },
+            { "term.resources_hdr", "OUTPOST RESOURCES" },
+            { "term.crew_hdr", "CREW STATUS" },
+            { "term.overview", "OVERVIEW" },
+            { "term.goal_hdr", "MISSION GOAL" },
+            { "term.alert_hdr", "OUTPOST ALERT" },
+            { "term.hint_prefix", "Hint:" },
+            { "sim.forecast_summary", "If you end the sol now: Oxygen {0:+0;-0;0}, Water {1:+0;-0;0}, Food {2:+0;-0;0}, Battery {3:+0;-0;0}." },
+            { "sim.gen_dust", "Dust on panels -{0}%" },
+            { "sim.gen_dust_storm", "Dust on panels -{0}%, Dust storm -{1}%" },
+
+            // Doors, Airlock, Tablet, Room POIs (dialogue references removed)
             { "door.open_prompt", "[E] Open {0}" },
             { "door.close_prompt", "[E] Close {0}" },
             { "door.locked_prompt", "Locked: {0}" },
@@ -565,39 +621,1009 @@ namespace Outpost.Sim
             { "sign.storage", "LIFE SUPPORT STORAGE" },
             { "sign.airlock", "EVA AIRLOCK -> MARS SURFACE" },
             { "poi.greenhouse.prompt", "[E] Inspect Hydroponic Crops" },
-            { "poi.greenhouse.fact", "Crops at {0:0}% health ({1:0}% Food): LED grow bays recycle CO2 into oxygen and food [SRC-CROPS]." },
+            { "poi.greenhouse.fact", "Crops at {0:0}% health ({1:0}% Food): LED grow bays recycle CO2 into oxygen and food." },
             { "poi.water.prompt", "[E] Inspect Water Tanks" },
-            { "poi.water.fact", "Water at {0:0}%: Closed-loop distillers reclaim over 90% of cabin humidity and urine [SRC-WATER]." },
+            { "poi.water.fact", "Water at {0:0}%: Closed-loop distillers reclaim over 90% of cabin humidity and urine." },
             { "poi.oxygen.prompt", "[E] Inspect Oxygen Tanks" },
-            { "poi.oxygen.fact", "Oxygen at {0:0}% (Scrubber {1:0}%): Zeolite beds scrub deadly CO2 out of habitat air [SRC-CO2]." },
+            { "poi.oxygen.fact", "Oxygen at {0:0}% (Scrubber {1:0}%): Zeolite beds scrub deadly CO2 out of habitat air." },
             { "poi.vale.prompt", "[E] Check Cmdr. Vale" },
             { "poi.vale.status", "Cmdr. Alex Vale is resting at {0:0}/100 HP. Keep heating warm and treat him in Crew!" },
             { "poi.solar.clean_prompt", "[E] Clean Solar Panels (1 AP)" },
             { "poi.solar.inspect_prompt", "[E] Inspect Solar Array" },
             { "poi.solar.cleaned_toast", "Solar panels brushed clean! Dust reduced ({0:0}% remaining)." },
-            { "poi.solar.fact", "Solar Array: {0:0}% dust, {1:0}W output. Dust storms once ended NASA's Opportunity mission [SRC-DUST]." },
+            { "poi.solar.fact", "Solar Array: {0:0}% dust, {1:0}W output. Dust storms once ended NASA's Opportunity mission." },
             { "poi.rover.prompt", "[E] Inspect Pressurized Rover" },
-            { "poi.rover.fact", "Pressurized Mars Rover: Shields explorers for short EVAs across rugged crater terrain [SRC-SHIELD]." },
+            { "poi.rover.fact", "Pressurized Mars Rover: Shields explorers for short EVAs across rugged crater terrain." },
             { "poi.antenna.prompt", "[E] Inspect High-Gain Antenna" },
-            { "poi.antenna.fact", "DSN Antenna ({0}): Signals to Earth take 4 to 24 minutes at the speed of light [SRC-COMMS]." },
+            { "poi.antenna.fact", "DSN Antenna ({0}): Signals to Earth take 4 to 24 minutes at the speed of light." },
             { "poi.rad.prompt", "[E] Read Radiation Sensor Post" },
-            { "poi.rad.fact", "Surface Sensor: Today's dose is +{0:0.00} mSv/sol. Mars lacks a global magnetic shield [SRC-RAD]." },
+            { "poi.rad.fact", "Surface Sensor: Today's dose is +{0:0.00} mSv/sol. Mars lacks a global magnetic shield." },
             { "poi.ice.prompt", "[E] Read Water-Ice Marker" },
-            { "poi.ice.fact", "Subsurface Water-Ice Vein: Astronauts melt buried Mars ice for drinking water and rocket fuel [SRC-WATER]." }
+            { "poi.ice.fact", "Subsurface Water-Ice Vein: Astronauts melt buried Mars ice for drinking water and rocket fuel." },
+
+            // Suit & End-Sol Black Card
+            { "suit_put_on", "[E] Put on suit" },
+            { "suit_take_off", "[E] Take off suit" },
+            { "suit_required", "Suit required for outside activity." },
+            { "suit_cannot_remove", "You cannot remove your suit outside." },
+            { "suit.hud.ok", "SUIT OK" },
+            { "suit.hud.o2", "O2" },
+            { "suit.hud.batt", "BATT" },
+            { "suit.hud.ext", "EXT" },
+            { "sol_complete", "SOL {0} COMPLETE" },
+            { "rescue_in_sols", "RESCUE IN {0} SOLS" },
+            { "rescue_final_sol", "FINAL SOL. RESCUE ARRIVES TODAY." },
+            { "sol_definition", "A sol is one day on Mars." },
+            { "end_sol.hold_skip", "HOLD SPACE OR CLICK TO SKIP" },
+
+            // Real Sources Database Entries
+            { "src.nasa-jpl-opportunity-recovery.title", "Six Things About Opportunity's Recovery Efforts" },
+            { "src.nasa-jpl-opportunity-recovery.org", "NASA/JPL" },
+            { "src.nasa-jpl-opportunity-recovery.supports", "Supports Dust storm event (fact_dust_storm): why sunlight loss halts solar-powered Mars hardware." },
+
+            { "src.nasa-jpl-opportunity-hunkers.title", "Opportunity Hunkers Down During Dust Storm" },
+            { "src.nasa-jpl-opportunity-hunkers.org", "NASA/JPL" },
+            { "src.nasa-jpl-opportunity-hunkers.supports", "Supports Dust storm event (fact_dust_storm): how Opportunity entered safe mode during planet-wide dust storms." },
+
+            { "src.nasa-ntrs-mer-dust.title", "MER Opportunity dust-storm recovery operations and implications for future Mars surface missions" },
+            { "src.nasa-ntrs-mer-dust.org", "NASA NTRS" },
+            { "src.nasa-ntrs-mer-dust.supports", "Supports Panel dust build-up (fact_panel_dust): cutting rover power loads to preserve battery before storms." },
+
+            { "src.nasa-artemis2-sun.title", "To Protect Artemis II Astronauts, NASA Experts Keep Eyes on Sun" },
+            { "src.nasa-artemis2-sun.org", "NASA" },
+            { "src.nasa-artemis2-sun.supports", "Supports Solar particle event (fact_solar_flare): monitoring solar flares so crews can shelter in time." },
+
+            { "src.nasa-svs-radiation.title", "How NASA Will Protect Astronauts From Space Radiation" },
+            { "src.nasa-svs-radiation.org", "NASA SVS" },
+            { "src.nasa-svs-radiation.supports", "Supports Solar particle event (fact_solar_flare): shielding techniques and crew storm shelters." },
+
+            { "src.hassler-2014-rad.title", "Mars' Surface Radiation Environment Measured with the Mars Science Laboratory's Curiosity Rover (Hassler et al., Science)" },
+            { "src.hassler-2014-rad.org", "Science / SwRI / NASA" },
+            { "src.hassler-2014-rad.supports", "Supports Baseline radiation (fact_radiation_baseline & BaselineSurfaceDoseMsvPerSol): ~0.67 mSv/day measured by Curiosity." },
+
+            { "src.iss-water-98.title", "NASA Achieves Water Recovery Milestone on International Space Station (98% ECLSS)" },
+            { "src.iss-water-98.org", "NASA / ABC News" },
+            { "src.iss-water-98.supports", "Supports Water recycler fault (fact_water_recycler), ~98% ISS recycling & ~1 gal/day water use." },
+
+            { "src.nasa-veggie-lettuce.title", "Astronauts Take First Bites of Lettuce Grown in Space" },
+            { "src.nasa-veggie-lettuce.org", "Scientific American (NASA Veggie)" },
+            { "src.nasa-veggie-lettuce.supports", "Supports Greenhouse blight (fact_greenhouse): growing and harvesting fresh crops aboard the ISS." },
+
+            { "src.npr-veggie-mood.title", "The Salad Frontier: Why Astronauts Need To Grow Lettuce In Space" },
+            { "src.npr-veggie-mood.org", "NPR" },
+            { "src.npr-veggie-mood.supports", "Supports Greenhouse blight (fact_greenhouse): fresh vegetables support astronaut morale in isolated missions." },
+
+            { "src.esa-mars-facts.title", "Facts about Mars" },
+            { "src.esa-mars-facts.org", "ESA" },
+            { "src.esa-mars-facts.supports", "Supports ambient announcer facts f_gravity (~38% Earth gravity) and f_moons (Phobos & Deimos)." },
+
+            { "src.esa-meet-mars.title", "Meet Mars" },
+            { "src.esa-meet-mars.org", "ESA" },
+            { "src.esa-meet-mars.supports", "Supports Cold snap (fact_cold_snap) and ambient f_cold (-133 C winter pole to +27 C summer)." },
+
+            { "src.nasa-mars-fact-sheet.title", "Mars Fact Sheet" },
+            { "src.nasa-mars-fact-sheet.org", "NASA NSSDCA" },
+            { "src.nasa-mars-fact-sheet.supports", "Supports CO2 scrubber clog (fact_co2_scrubber: ~95% CO2), ambient f_sol (24 h 39 m) & f_cold." },
+
+            { "src.space-mars-atmosphere.title", "Mars' atmosphere: Facts about composition and climate (MOXIE)" },
+            { "src.space-mars-atmosphere.org", "Space.com" },
+            { "src.space-mars-atmosphere.supports", "Supports CO2 scrubber clog (fact_co2_scrubber): 95% CO2 atmosphere and Perseverance MOXIE oxygen experiment." },
+
+            { "src.esa-light-time.title", "Spacecraft event time vs. Earth receive time" },
+            { "src.esa-light-time.org", "ESA Mars Express blog" },
+            { "src.esa-light-time.supports", "Supports Message from Earth (fact_earth_message) and ambient f_signal: 4-24 min one-way light delay." },
+
+            { "src.sis-habitat.title", "Building a space habitat in the classroom" },
+            { "src.sis-habitat.org", "Science in School" },
+            { "src.sis-habitat.supports", "Supports Airlock dust / impact (fact_airlock_dust): protecting crew from radiation, micrometeorites, dust, vacuum, cold." },
+
+            { "src.abc-chapea.title", "NASA says 98% of astronauts' urine, sweat can be recycled (also mentions CHAPEA Mars-analog study)" },
+            { "src.abc-chapea.org", "ABC News" },
+            { "src.abc-chapea.supports", "Supports Crew tension (fact_crew_tension): year-long Mars habitat isolation study." },
+
+            { "src.usgs-jezero-dem.title", "Mars 2020 Jezero crater landing site products" },
+            { "src.usgs-jezero-dem.org", "USGS Astrogeology" },
+            { "src.usgs-jezero-dem.supports", "Supports Mars surface terrain exploration backdrop at Outpost Helios (Jezero Crater)." },
+
+            { "src.nasa-3d-mars.title", "NASA 3D Resources: Mars texture (Viking, USGS/JPL)" },
+            { "src.nasa-3d-mars.org", "NASA" },
+            { "src.nasa-3d-mars.supports", "Supports Mars global color texture and orbital backdrop on the Title Screen." },
+
+            // Fact Cards
+            { "fact.fact_dust_storm.title", "Martian Global Dust Storms" },
+            { "fact.fact_dust_storm.text", "In 2018 a planet-wide dust storm cut off sunlight. Opportunity, a solar-powered rover, lost power and fell silent." },
+
+            { "fact.fact_solar_flare.title", "Solar Particle Events" },
+            { "fact.fact_solar_flare.text", "In a solar particle event, crews shelter in the most shielded part of their spacecraft until radiation drops." },
+
+            { "fact.fact_panel_dust.title", "Power Saving Before Storms" },
+            { "fact.fact_panel_dust.text", "Before the 2018 storm hit, Opportunity's team cut the rover's power use to save battery charge." },
+
+            { "fact.fact_water_recycler.title", "ISS Water Recycling (98%)" },
+            { "fact.fact_water_recycler.text", "On the space station, crews recover about 98% of their water by recycling. Each person uses roughly a gallon a day." },
+
+            { "fact.fact_greenhouse.title", "Space Lettuce & Crew Morale" },
+            { "fact.fact_greenhouse.text", "Astronauts have grown and eaten lettuce on the space station. Fresh plants add food and may lift the crew's mood." },
+
+            { "fact.fact_co2_scrubber.title", "Mars CO2 Air & MOXIE" },
+            { "fact.fact_co2_scrubber.text", "Mars air is about 95% carbon dioxide. In 2021, an experiment on Perseverance made oxygen from it." },
+
+            { "fact.fact_cold_snap.title", "Extreme Martian Temperatures" },
+            { "fact.fact_cold_snap.text", "Mars is cold. Temperatures range from about minus 133°C at the winter pole to plus 27°C in summer." },
+
+            { "fact.fact_crew_tension.title", "Year-Long Isolation Studies" },
+            { "fact.fact_crew_tension.text", "NASA studies long isolation on Earth. In one study, four volunteers were selected to live in a Mars-like habitat for a year." },
+
+            { "fact.fact_earth_message.title", "Earth-Mars Radio Light Delay" },
+            { "fact.fact_earth_message.text", "Radio messages between Earth and Mars take about 4 to 24 minutes one way, so there are no live chats." },
+
+            { "fact.fact_airlock_dust.title", "Habitat Shielding Hazards" },
+            { "fact.fact_airlock_dust.text", "A habitat must protect its crew from radiation, tiny meteorites, dust, vacuum and extreme temperatures." },
+
+            { "fact.fact_radiation_baseline.title", "Curiosity Surface Radiation" },
+            { "fact.fact_radiation_baseline.text", "Curiosity measured about 0.67 millisieverts of radiation per day on Mars's surface, similar to levels on the space station." },
+
+            // Sources App & Science Status Page
+            { "ui.supports", "Supports" },
+            { "ui.license", "License" },
+            { "sources.tab.sources", "Sources ({0})" },
+            { "sources.tab.realdata", "Real Data & Constants" },
+            { "sources.realdata.heading", "HOW THIS GAME USES REAL DATA" },
+            { "sources.realdata.line1", "• Resource stocks and rates are simplified game units, not exact NASA flight quantities." },
+            { "sources.realdata.line2", "• Every science card and ambient fact comes directly from the listed NASA, ESA, and USGS sources." },
+            { "sources.realdata.line3", "• Mission events mirror real challenges: Opportunity's 2018 dust storm, ISS 98% water recycling, and Curiosity RAD." },
+            { "sources.realdata.line4", "• The table below tags each number as REAL, ADAPTED, or GAME." },
+            { "sources.col.metric", "CONSTANT / METRIC" },
+            { "sources.col.value", "VALUE" },
+            { "sources.col.status", "STATUS" },
+            { "sources.col.source", "SOURCE ID" },
+            { "sources.const.rad.name", "Baseline Surface Radiation" },
+            { "sources.const.rad.val", "{0:0.00} mSv / sol (per Earth day avg)" },
+            { "sources.const.sol.name", "Mars Sol Length" },
+            { "sources.const.sol.val", "24 h 39 m (1 sol per turn; {0} sols)" },
+            { "sources.const.delay.name", "Earth-Mars Message Delay" },
+            { "sources.const.delay.val", "~12 min Sol 1 (12-21 min in Comms; real 4-24 min)" },
+            { "sources.const.water.name", "Crew Water Use & ISS Recycling" },
+            { "sources.const.water.val", "~1 gal/day & 98% ISS recovery (sim: {0:0.0}% tank/crew/sol)" },
+            { "sources.const.atmo.name", "Mars Atmosphere Composition" },
+            { "sources.const.atmo.val", "~95% CO2 (MOXIE O2 test)" },
+            { "sources.const.game.name", "Stocks, Dust Storm Loss, Shielding & Rates" },
+            { "sources.const.game.val", "Start O2/H2O/Food {0:0}/{1:0}/{2:0}%, Storm {3:0}% solar, Shield max -{4:0}% dose" },
+            { "sources.open_url", "Open URL" },
+            { "sources.open_nasa", "Open NASA" },
+            { "sources.open_news", "Open News" },
+            { "sources.open_ref", "Open Ref" },
+
+            // Announcer HUD
+            { "announcer.header", "ANNOUNCEMENT" },
+            { "announcer.header_advisory", "ANNOUNCEMENT // ADVISORY" },
+            { "vox_welcome", "Commander. Outpost is under your control." },
+            { "vox.haz_asteroid_c", "Warning. Asteroid debris detected, sector C. No impact expected." },
+            { "vox.haz_meteoroid", "Caution. Meteoroid activity near the outpost. No action required." },
+            { "vox.haz_seismic", "Warning. Minor marsquake detected. Structural check in progress." },
+            { "vox.n_systems", "Notice. All systems operating within normal limits." },
+            { "vox.n_samples", "Notice. Sample analysis complete. Results sent to Earth." },
+            { "vox.r_suit", "Reminder. Check your suit seals before every outside activity." },
+            { "vox.f_sol", "Fact. A day on Mars is called a sol." },
+            { "vox.f_gravity", "Fact. Gravity on Mars is about thirty-eight percent of gravity on Earth." },
+            { "vox.f_moons", "Fact. Mars has two small moons, Phobos and Deimos." },
+            { "vox.f_cold", "Fact. Mars is very cold. The average surface temperature is about minus sixty degrees Celsius." },
+            { "vox.f_signal", "Fact. Messages from Earth take minutes to reach Mars." },
+
+            // WebGL Title Gate, Pause Fullscreen & Pointer Lock
+            { "title.click_start", "CLICK OR PRESS ANY KEY TO START" },
+            { "title.mobile_notice", "Best played on a desktop computer with keyboard and mouse" },
+            { "pause.fullscreen", "FULLSCREEN" },
+            { "pause.click_to_resume", "Click to resume" },
+            { "pause.pointer_lost_hint", "Mouse unlocked — Click to resume and re-lock cursor" }
         };
+
+        private static readonly Dictionary<string, string> Arabic = new Dictionary<string, string>
+        {
+            // General UI & Titles
+            { "game.title", "قاعدة المريخ: المناوبة الأخيرة" },
+            { "ui.sol", "يوم مريخي" },
+            { "ui.ap", "نقاط العمل" },
+            { "ui.power", "الطاقة" },
+            { "ui.oxygen", "الأكسجين" },
+            { "ui.water", "الماء" },
+            { "ui.food", "الطعام" },
+            { "ui.shielding", "التدريع" },
+            { "ui.dust", "غبار الألواح" },
+            { "ui.solar_gen", "توليد الطاقة" },
+            { "ui.demand", "الاستهلاك" },
+            { "ui.scrubber", "منقي ثاني أكسيد الكربون" },
+            { "ui.recycler", "مكرر المياه" },
+            { "ui.crops", "صحة المحاصيل" },
+            { "ui.end_sol", "إنهاء اليوم" },
+            { "ui.new_mission", "مهمة جديدة" },
+            { "ui.medbay", "العيادة" },
+            { "ui.deceased", "مفقود" },
+            { "ui.alive", "نشط" },
+            { "ui.health", "الصحة" },
+            { "ui.morale", "المعنويات" },
+            { "ui.dose", "الجرعة" },
+
+            // Crew Names & Role Bonuses
+            { "crew.medic.name", "د. مايا لين" },
+            { "crew.engineer.name", "سمير باتيل" },
+            { "crew.pilot.name", "القائد أليكس فيل" },
+            { "crew.scientist.name", "د. إيلينا روستوفا" },
+            { "role.Medic", "طبيبة (+10 علاج الصحة)" },
+            { "role.Engineer", "مهندس (+15% إصلاح، -3 واط)" },
+            { "role.Pilot", "طيار (+2 معنويات/يوم)" },
+            { "role.Scientist", "عالمة (+15% محاصيل)" },
+
+            // Actions
+            { "act.clean_panels", "تنظيف الألواح الشمسية (سير فضائي)" },
+            { "act.clean_panels.desc", "1 نقطة | -40% غبار | +0.55 ملي سيفرت إشعاع" },
+            { "act.repair", "إصلاح النظام المتضرر" },
+            { "act.repair.desc", "1 نقطة | يرمم النظام الأقل كفاءة" },
+            { "act.reinforce", "تعزيز التدريع" },
+            { "act.reinforce.desc", "1 نقطة | -8 طاقة | +14% تدريع" },
+            { "act.rest", "راحة ووجبة ساخنة" },
+            { "act.rest.desc", "1 نقطة | +15 معنويات و+4 صحة للطاقم" },
+            { "act.treat", "علاج فرد من الطاقم" },
+            { "act.treat.desc", "1 نقطة | يعالج الأقل صحة (+مكافأة الطبيبة)" },
+            { "act.ration", "ترشيد الإمدادات" },
+            { "act.ration.desc", "1 نقطة | -25% استهلاك الطعام والماء، -8 معنويات" },
+
+            // Urgent Alerts
+            { "alert.nominal", "جميع الأنظمة مستقرة — راقب المخزون والتوقعات." },
+            { "alert.blackout", "تحذير حرج: ستنفد البطارية الليلة! ستنخفض الأنظمة إلى 20%!" },
+            { "alert.o2_zero", "تحذير حرج: نفد الأكسجين! الطاقم يعاني نقص الأكسجة!" },
+            { "alert.o2_low", "تحذير: الأكسجين منخفض! ارفع دعم الحياة أو أصلح المنقي!" },
+            { "alert.water_zero", "تحذير حرج: نفد الماء! الطاقم يعاني الجفاف!" },
+            { "alert.water_low", "تحذير: مخزون الماء منخفض! افحص مكرر المياه!" },
+            { "alert.food_zero", "تحذير حرج: نفد الطعام! الطاقم يتضور جوعاً!" },
+            { "alert.cold", "تحذير: التدفئة أقل من 50%! الطاقم يتجمد وخطر الأعطال مرتفع!" },
+            { "alert.flare", "إنذار إشعاعي: توهج شمسي نشط! احتموا داخل المأوى!" },
+            { "alert.storm", "إنذار جوي: عاصفة غبارية تخفض الطاقة الشمسية إلى 40%!" },
+            { "alert.scrubber", "تنبيه معدات: منقي الكربون تالف — الغاز يرتفع!" },
+
+            // Intro & Commander's Log
+            { "intro.line1", "الشمس بعيدة جداً." },
+            { "intro.line2", "هنا تبدو ضوءاً صغيراً وبارداً." },
+            { "intro.line3", "كل واط هو قرار مصيري." },
+            { "intro.line4", "كل نفس هو قرار مصيري." },
+            { "end.line", "لا تزال الشمس بعيدة." },
+            { "log.entry1", "اليوم 0 - القائد فيل: غبار الألواح يتراكم بسرعة وعازل المنقي الاحتياطي متآكل. إن سقطت مريضاً، أبقِ التدفئة 50% أو أكثر ولا تدع البطارية تصل للصفر. مركبة الإنقاذ تصل خلال 7 أيام." },
+
+            // Outcomes
+            { "mission.won.title", "هبطت مركبة الإنقاذ — نجحت المهمة" },
+            { "mission.lost.title", "صمتت القاعدة — فشلت المهمة" },
+
+            // Events
+            { "evt.panel_dust.title", "تراكم الغبار على الألواح الشمسية" },
+            { "evt.panel_dust.desc", "غطى غبار المريخ الكهروستاتيكي الألواح الشمسية ليلاً مما قلل الإنتاج. هل تنظفها الآن أم تخاطر باستنزاف البطارية؟" },
+            { "evt.panel_dust.c1", "تنظيف فوري بالخارج (-1 نقطة، +0.55 ملي سيفرت، -35% غبار)" },
+            { "evt.panel_dust.c1.out", "ارتدى الطاقم البدلات ونظف الألواح. ارتفع توليد الطاقة فوراً." },
+            { "evt.panel_dust.c2", "نفث هواء مضغوط (-6 طاقة، -20% غبار)" },
+            { "evt.panel_dust.c2.out", "أزالت الفوهات جزءاً من الغبار دون خروج باستخدام البطارية." },
+            { "evt.panel_dust.c3", "تأجيل التنظيف (+10% غبار)" },
+            { "evt.panel_dust.c3.out", "وفرت الطاقة ونقاط العمل الآن، لكن الكفاءة الشمسية تتراجع أكثر." },
+            { "evt.panel_dust.fact", "قبل عاصفة 2018، خفض فريق أوبورتيونيتي استهلاك الطاقة للحفاظ على شحن البطارية." },
+
+            { "evt.scrubber_clog.title", "انسداد منقي ثاني أكسيد الكربون" },
+            { "evt.scrubber_clog.desc", "يرتفع ثاني أكسيد الكربون في الوحدة الرئيسية بسبب انسداد مرشح الزيوليت بغبار التربة الدقيقة." },
+            { "evt.scrubber_clog.c1", "استبدال وحدة التنقية (-1 نقطة، +25% صحة المنقي)" },
+            { "evt.scrubber_clog.c1.out", "استبدل الطاقم الخرطوشة المسدودة ونظف مجاري الهواء." },
+            { "evt.scrubber_clog.c2", "تشغيل المراوح بأقصى قوة (-10 طاقة، يثبت الأكسجين)" },
+            { "evt.scrubber_clog.c2.out", "دفعت المراوح الهواء عبر الانسداد باستهلاك كبير للبطارية." },
+            { "evt.scrubber_clog.c3", "تجاهل الأمر حالياً (-35% صحة المنقي، -8 أكسجين)" },
+            { "evt.scrubber_clog.c3.out", "تراكم الغاز السام وانخفض احتياطي الأكسجين القابل للتنفس." },
+            { "evt.scrubber_clog.fact", "يتكون هواء المريخ من نحو 95% ثاني أكسيد الكربون. في 2021 أنتجت تجربة على برسيفيرنس أكسجيناً منه." },
+
+            { "evt.dust_storm.title", "عاصفة غبارية إقليمية" },
+            { "evt.dust_storm.desc", "جدار من الغبار الصدئ يجتاح الأفق. ينخفض ضوء الشمس إلى 40% ليومين وتتغطى الألواح بغبار كثيف." },
+            { "evt.dust_storm.c1", "توفير الطاقة (-6 معنويات، +8 طاقة محفوظة)" },
+            { "evt.dust_storm.c1.out", "أُطفئت المختبرات والأنوار غير الضرورية لإطالة عمر البطارية خلال العاصفة." },
+            { "evt.dust_storm.c2", "الاستمرار على البطارية (تشغيل عادي، العاصفة ليومين)" },
+            { "evt.dust_storm.c2.out", "تعمل القاعدة كالمعتاد مع الاعتماد الكثيف على البطارية." },
+            { "evt.dust_storm.c3", "إغلاق الألواح قبل العاصفة (-1 نقطة، نصف غبار العاصفة)" },
+            { "evt.dust_storm.c3.out", "أمال الطاقم الأجنحة وأحكم إغلاقها مما قلل تراكم الغبار." },
+            { "evt.dust_storm.fact", "في 2018 حجبت عاصفة عالمية الشمس على المريخ فتوقف المسبار أوبورتيونيتي عن العمل." },
+
+            { "evt.solar_flare.title", "توهج شمسي (حدث جسيمات)" },
+            { "evt.solar_flare.desc", "إنذار طقس فضائي! توهج شمسي ضخم يطلق بروتونات عالية الطاقة نحو المريخ. بلا تدريع سترتفع الجرعة الإشعاعية." },
+            { "evt.solar_flare.c1", "احتماء كامل الطاقم (-8 معنويات، توقف الدفيئة، حجب 90%)" },
+            { "evt.solar_flare.c1.out", "احتمى الجميع داخل قلب المأوى المبطن بالماء حتى مرت العاصفة." },
+            { "evt.solar_flare.c2", "مواصلة العمل أثناء التوهج (+12 ملي سيفرت جرعة حادة!)" },
+            { "evt.solar_flare.c2.out", "استمرت الأنظمة بالعمل، لكن الطاقم تلقى جرعة إشعاعية خطيرة." },
+            { "evt.solar_flare.c3", "حاجز أكياس ماء طارئ (-10 ماء، حجب 65% من الجرعة)" },
+            { "evt.solar_flare.c3.out", "نقل الطاقم خزانات ماء احتياطية للسقف لامتصاص البروتونات." },
+            { "evt.solar_flare.fact", "خلال التوهجات الشمسية يحتمي الرواد في أكثر أجزاء المركبة تدريعا حتى ينخفض الإشعاع." },
+
+            { "evt.water_recycler.title", "عطل في مكرر المياه" },
+            { "evt.water_recycler.desc", "تطلق أجهزة دعم الحياة إنذاراً: تراكم الأملاح سد حلقة تقطير المياه الصالحة للشرب." },
+            { "evt.water_recycler.c1", "غسل وإعادة بناء المكرر (-1 نقطة، +30% صحة المكرر)" },
+            { "evt.water_recycler.c1.out", "تقطير نظيف! عادت نسبة استعادة المياه إلى طاقتها الكاملة." },
+            { "evt.water_recycler.c2", "ترشيد طارئ للمياه (-6 معنويات، حفظ 6 ماء)" },
+            { "evt.water_recycler.c2.out", "قلل الطاقم ماء النظافة والشرب للحفاظ على المخزون." },
+            { "evt.water_recycler.c3", "تشغيل مسار جانبي (-30% صحة المكرر، -6 ماء)" },
+            { "evt.water_recycler.c3.out", "تم تصريف الماء الملوث للخارج مما أفقد القاعدة كمية ماء دائمة." },
+            { "evt.water_recycler.fact", "في محطة الفضاء الدولية يستعيد الرواد نحو 98% من مياههم بالتدوير." },
+
+            { "evt.greenhouse_blight.title", "عفن في الدفيئة الزراعية" },
+            { "evt.greenhouse_blight.desc", "ينتشر عفن فطري في الحوض 3 بالدفيئة! إن تُرك دون علاج سيدمر غذاءنا الطازج وإنتاج الأكسجين." },
+            { "evt.greenhouse_blight.c1", "التضحية بالحوض المصاب (-10 طعام، +25% صحة المحاصيل)" },
+            { "evt.greenhouse_blight.c1.out", "تخلصت من النباتات المصابة قبل انتشار الأبواغ لباقي الأحواض." },
+            { "evt.greenhouse_blight.c2", "تعقيم بالأشعة فوق البنفسجية (-10 طاقة، +15% صحة)" },
+            { "evt.greenhouse_blight.c2.out", "قضت المصابيح على الفطريات مع إنقاذ معظم المحصول." },
+            { "evt.greenhouse_blight.c3", "تجاهل الأمر (-35% صحة المحاصيل)" },
+            { "evt.greenhouse_blight.c3.out", "غطى العفن الأحواض وأضعف نمو النباتات وإنتاج الأكسجين." },
+            { "evt.greenhouse_blight.fact", "زرع الرواد وأكلوا الخس في محطة الفضاء؛ النباتات الطازجة تضيف غذاء وتدعم المعنويات." },
+
+            { "evt.cold_snap.title", "موجة صقيع قطبية حادة" },
+            { "evt.cold_snap.desc", "تهبط الحرارة في الخارج تحت -100 درجة مئوية، ويتضاعف فقدان الحرارة عبر هيكل القاعدة." },
+            { "evt.cold_snap.c1", "تعزيز السخانات الإضافية (-10 طاقة، +4 معنويات)" },
+            { "evt.cold_snap.c1.out", "تعمل المشعات بدفء وبقي الطاقم مرتاحاً رغم التجمد." },
+            { "evt.cold_snap.c2", "الاحتماء بالملابس الحرارية (-8 معنويات، -5 صحة الطاقم)" },
+            { "evt.cold_snap.c2.out", "تكثف البخار داخل المهاجع وارتجف الجميع طوال الليل." },
+            { "evt.cold_snap.c3", "تحويل دفء الدفيئة للداخل (-8 طعام، حرارة آمنة)" },
+            { "evt.cold_snap.c3.out", "نُقلت حرارة مصابيح النمو للمهاجع فتضررت النباتات من الصقيع." },
+            { "evt.cold_snap.fact", "المريخ بارد جداً؛ تتراوح حرارته بين نحو -133 درجة عند القطب الشتوي و+27 صيفاً." },
+
+            { "evt.crew_tension.title", "توتر العزلة وضغط العمل" },
+            { "evt.crew_tension.desc", "مع وجود القائد السابق في العيادة وتواصل الإنذارات، تتصاعد حدة التوتر بين أفراد الطاقم." },
+            { "evt.crew_tension.c1", "جلسة مصارحة وراحة (-1 نقطة، +14 معنويات)" },
+            { "evt.crew_tension.c1.out", "تحدث الجميع بصراحة حول كوب شاي فعادت الثقة والتركيز." },
+            { "evt.crew_tension.c2", "فرض مناوبات عمل صارمة (-10 معنويات، +6 طاقة محفوظة)" },
+            { "evt.crew_tension.c2.out", "أُنجز العمل بكفاءة لكن التوتر الصامت ما زال قائماً." },
+            { "evt.crew_tension.c3", "توزيع حصص مريحة خاصة (-7 طعام، +12 معنويات)" },
+            { "evt.crew_tension.c3.out", "مشاركة أطعمة الأرض رفعت معنويات الجميع على حساب المخزون." },
+            { "evt.crew_tension.fact", "تدرس ناسا العزلة الطويلة على الأرض؛ عاش 4 متطوعين عاماً كاملاً في محاكاة لموطن مريخي." },
+
+            { "evt.earth_message.title", "رسالة من الأرض (تأخير 14 دقيقة)" },
+            { "evt.earth_message.desc", "ترسل هيوستن تحديث قياس عبر شبكة الفضاء العميق، لكنه يعتمد على قراءات قديمة بسبب تأخير الإشارة 14 دقيقة." },
+            { "evt.earth_message.c1", "تطبيق تحديث هيوستن (-5 طاقة، معايرة محفوفة)" },
+            { "evt.earth_message.c1.out", "نُفذ التحديث؛ وتغير خرج الطاقة حسب اختلاف الظروف خلال التأخير." },
+            { "evt.earth_message.c2", "الاعتماد على حساسات القاعدة (+4 معنويات)" },
+            { "evt.earth_message.c2.out", "اعتمدت على القراءات الفورية المحلية مما عزز استقلالية الطاقم." },
+            { "evt.earth_message.c3", "طلب استشارة طبية للعيادة (-5 طاقة، +14 صحة القائد)" },
+            { "evt.earth_message.c3.out", "أرسل أطباء الرحلة إرشادات علاجية استقرت معها حالة القائد." },
+            { "evt.earth_message.fact", "تستغرق إشارات الراديو بين الأرض والمريخ 4 إلى 24 دقيقة بالاتجاه الواحد." },
+
+            { "evt.micrometeorite.title", "حبيبات نيزكية قرب غرفة الضغط" },
+            { "evt.micrometeorite.desc", "تخترق حبيبة فائقة السرعة بلاطة تدريع خارجية قرب غرفة الضغط، وينخفض التدريع بنسبة 15%." },
+            { "evt.micrometeorite.c1", "ترقيع الهيكل فوراً (-1 نقطة، -5 طاقة، +15% تدريع)" },
+            { "evt.micrometeorite.c1.out", "لحم الطاقم لوحاً مركباً ورص تربة مريخية جديدة فوق الضرر." },
+            { "evt.micrometeorite.c2", "عزل وإغلاق الباب الخارجي (-6 أكسجين، +8% تدريع)" },
+            { "evt.micrometeorite.c2.out", "أوقف عزل غرفة الضغط الضرر مع تسرب هواء محبوس." },
+            { "evt.micrometeorite.c3", "قبول التدريع المنخفض (-5 معنويات)" },
+            { "evt.micrometeorite.c3.out", "تُرك الأثر دون إصلاح وبقيت الحماية الإشعاعية أضعف." },
+            { "evt.micrometeorite.fact", "يجب أن يحمي الموطن الفضائي طاقمه من الإشعاع والنيازك الدقيقة والغبار والفراغ والبرد." },
+
+            // Sources UI headers
+            { "src.dust.title", "العواصف الغبارية على المريخ ومسبار أوبورتيونيتي" },
+            { "src.dust.agency", "ناسا JPL / استكشاف المريخ" },
+            { "src.co2.title", "تنقية الهواء وإزالة ثاني أكسيد الكربون" },
+            { "src.co2.agency", "رحلات الفضاء البشرية / ناسا" },
+            { "src.storm.title", "العواصف الغبارية الكوكبية على المريخ" },
+            { "src.storm.agency", "علوم ناسا — برنامج استكشاف المريخ" },
+            { "src.rad.title", "قياسات الإشعاع على سطح المريخ (RAD)" },
+            { "src.rad.agency", "ناسا / SwRI (هاسلر وآخرون، ساينس 2014)" },
+            { "src.water.title", "نظام تدوير المياه في محطة الفضاء الدولية" },
+            { "src.water.agency", "مركز مارشال لرحلات الفضاء / ناسا" },
+            { "src.crops.title", "نظام Veggie وزراعة المحاصيل في الفضاء" },
+            { "src.crops.agency", "مركز كينيدي للفضاء / ناسا" },
+            { "src.cold.title", "بطاقة حقائق المريخ — الغلاف الجوي والحرارة" },
+            { "src.cold.agency", "مركز غودارد لرحلات الفضاء / ناسا" },
+            { "src.psych.title", "دراسات العزلة النفسية CHAPEA و HERA" },
+            { "src.psych.agency", "مركز جونسون للفضاء / ناسا" },
+            { "src.comms.title", "تأخير الإشارة الضوئية وشبكة الفضاء العميق" },
+            { "src.comms.agency", "شبكة الفضاء العميق / ناسا" },
+            { "src.shield.title", "التدريع بتربة المريخ والحماية من النيازك" },
+            { "src.shield.agency", "برنامج أرتيمس / ناسا" },
+
+            // Terminal Apps & Status Tags
+            { "status.ok", "جيد" },
+            { "status.low", "منخفض" },
+            { "status.crit", "حرج" },
+            { "app.power", "شبكة الطاقة" },
+            { "app.lifesupport", "دعم الحياة" },
+            { "app.greenhouse", "الدفيئة" },
+            { "app.radiation", "الإشعاع" },
+            { "app.crew", "الطاقم" },
+            { "app.comms", "الاتصالات" },
+            { "app.log", "سجل القائد" },
+            { "app.sources", "المصادر" },
+
+            // Header & Dynamic Alert Priority Strings
+            { "ui.rescue_in", "الإنقاذ خلال {0} أيام" },
+            { "ui.rescue_today", "الإنقاذ يهبط الليلة" },
+            { "alert.none", "لا توجد تنبيهات." },
+            { "alert.crew_dying", "حرج: {0} في خطر شديد ({1:0} صحة)! عالجه في تطبيق الطاقم!" },
+            { "alert.stock_zero", "حرج: {0} عند 0%! الطاقم يتعرض لضرر شديد!" },
+            { "alert.stock_low", "منخفض: {0} تحت 20%! عدل الطاقة أو أصلح الأعطال!" },
+            { "alert.event_pending", "تنبيه: حدث طارئ يتطلب قرارك الفوري!" },
+
+            // Modals
+            { "modal.incoming_event", "حدث طارئ" },
+            { "modal.confirm_endsol.title", "تأكيد إنهاء اليوم" },
+            { "modal.confirm_endsol.body", "هل أنت متأكد؟ سينفد {0} إذا أنهيت اليوم الآن!" },
+            { "modal.sol_summary.title", "اكتمل اليوم {0}" },
+            { "modal.continue", "متابعة" },
+            { "modal.confirm", "إنهاء اليوم على أي حال" },
+            { "modal.cancel", "تراجع" },
+
+            // Commander's Log Entries (Sol 1-7)
+            { "log.sol1.alloc.title", "اليوم 1 - أساسيات شبكة الطاقة" },
+            { "log.sol1.alloc.body", "أهلاً بالقائد الجديد في أريس-4. افتح شبكة الطاقة أولاً، وأبقِ التدفئة 50% أو أعلى وراقب توقع البطارية؛ إن وصلت للصفر تنخفض كل الأنظمة إلى 20%." },
+            { "log.sol1.ap.title", "اليوم 1 - الطاقم ونقاط العمل" },
+            { "log.sol1.ap.body", "لديك 3 نقاط عمل في كل يوم مريخي. افتح الطاقم لمتابعة د. لين وسمير وإيلينا وأنا في العيادة، ونظف الألواح أو عالج المصابين قبل إنهاء اليوم." },
+            { "log.sol1.endsol.title", "اليوم 1 - إنهاء اليوم" },
+            { "log.sol1.endsol.body", "قبل الضغط على إنهاء اليوم راجع سطر التوقعات وتأكد من أمان الأكسجين والماء والطعام وحسم أي حدث طارئ أولاً." },
+            { "log.sol2.maint.title", "اليوم 2 - تآكل دعم الحياة" },
+            { "log.sol2.maint.body", "يسد غبار المريخ منقيات الكربون وأنابيب الماء بسرعة. تفقد دعم الحياة وأصلح الأعطال قبل هبوط الخزانات دون 20%." },
+            { "log.sol3.storms.title", "اليوم 3 - العواصف الغبارية" },
+            { "log.sol3.storms.body", "تحجب العواصف 60% من الضوء ليومين! خفف طاقة الدفيئة والاتصالات مؤقتاً لتنجو البطارية حتى تصفو السماء." },
+            { "log.sol4.rad.title", "اليوم 4 - تنبيهات الجسيمات الشمسية" },
+            { "log.sol4.rad.body", "لا يملك المريخ درعاً مغناطيسياً. افتح الإشعاع لمتابعة الجرعة، واحمِ الطاقم أو عزز التدريع عند حدوث توهج." },
+            { "log.sol5.morale.title", "اليوم 5 - المعنويات والحصص" },
+            { "log.sol5.morale.body", "المناوبات الطويلة ترهق الجميع. استخدم ترشيد الدفيئة للضرورة فقط، وامنح الطاقم راحة ووجبة ساخنة عند هبوط المعنويات." },
+            { "log.sol6.comms.title", "اليوم 6 - تأخير الأرض" },
+            { "log.sol6.comms.body", "خصص بعض الطاقة للاتصالات لاستقبال رسائل الأرض. تذكر أن الإشارات تستغرق 4 إلى 24 دقيقة، فالحساسات المحلية أدق." },
+            { "log.sol7.rescue.title", "اليوم 7 - المناوبة الأخيرة" },
+            { "log.sol7.rescue.body", "تدخل مركبة الإنقاذ مدار المريخ الليلة. حافظ على حياة فرد واحد على الأقل حتى نهاية اليوم السابع!" },
+
+            // Earth DSN Comms Inbox (Sol 1-7)
+            { "comms.sol1.subject", "حزمة DSN #101: نقل القيادة" },
+            { "comms.sol1.delay", "أُرسلت قبل 12 دقيقة" },
+            { "comms.sol1.body", "أريس-4، يؤكد مركز هيوستن الحالة الطبية للقائد فيل. تم اعتمادك قائداً بالإنابة. وصول الإنقاذ خلال 7 أيام. راقب غبار الألواح." },
+            { "comms.sol2.subject", "حزمة DSN #102: تنبيه دعم الحياة" },
+            { "comms.sol2.delay", "أُرسلت قبل 14 دقيقة" },
+            { "comms.sol2.body", "أريس-4، يوصي مهندسو الأرض بإبقاء صحة منقي الكربون فوق 45% وتفقد مخزون دعم الحياة باستمرار." },
+            { "comms.sol3.subject", "حزمة DSN #103: طقس مداري" },
+            { "comms.sol3.delay", "أُرسلت قبل 15 دقيقة" },
+            { "comms.sol3.body", "رصَد المسبار المداري سحب غبار تتشكل قرب قطاعكم. اشحنوا البطاريات وخففوا الأحمال الثانوية." },
+            { "comms.sol4.subject", "حزمة DSN #104: مراقبة شمسية" },
+            { "comms.sol4.delay", "أُرسلت قبل 17 دقيقة" },
+            { "comms.sol4.body", "رصدت المراصد نشاطاً لتوهجات شمسية. حافظوا على تعزيز التدريع واستعدوا لإيواء الطاقم." },
+            { "comms.sol5.subject", "حزمة DSN #105: ملاحظة الطبيب" },
+            { "comms.sol5.delay", "أُرسلت قبل 18 دقيقة" },
+            { "comms.sol5.body", "أرسلت عائلات الطاقم تحيات صوتية. يُنصح بإبقاء المعنويات فوق 20 وعلاج الإصابات فوراً." },
+            { "comms.sol6.subject", "حزمة DSN #106: نافذة الاستعادة" },
+            { "comms.sol6.delay", "أُرسلت قبل 20 دقيقة" },
+            { "comms.sol6.body", "تأكد اشتعال محرك مركبة الإنقاذ بالموعد. تبقى يوم واحد بعد اليوم — حافظوا على الأكسجين والماء والبطارية." },
+            { "comms.sol7.subject", "حزمة DSN #107: التقاط منارة الهبوط" },
+            { "comms.sol7.delay", "أُرسلت قبل 21 دقيقة" },
+            { "comms.sol7.body", "مركبة الإنقاذ تهبط نحو قطاعكم! أبقوا القاعدة مزودة بالطاقة والطاقم على قيد الحياة حتى نهاية اليوم." },
+
+            // M4 First-Person Room & Story Prompts
+            { "prompt.monitor", "[E] استخدام المحطة" },
+            { "prompt.radio", "[E] فحص الراديو" },
+            { "prompt.medbay", "القائد فيل مستقر حالياً." },
+            { "prompt.window", "[E] النظر للخارج" },
+            { "room.window.fact", "الشمس بعيدة جداً: يتلقى المريخ أقل من نصف ضوء الأرض، ويشتت الغبار الحديدي السماء بلون كهرماني باهت." },
+            { "room.medbay.sign", "العيادة - القائد فيل" },
+            { "ui.leave_terminal", "مغادرة المحطة [ESC]" },
+            { "alert.resolve_event_first", "احسم الحدث الطارئ أولاً" },
+            { "light.power", "طاقة" },
+            { "light.oxygen", "أكسجين" },
+            { "light.water", "ماء" },
+            { "light.food", "طعام" },
+            { "light.shielding", "تدريع" },
+            { "room.locker.label", "خزانة بدلة الفضاء" },
+            { "room.crewdoor.label", "مهاجع الطاقم" },
+
+            // Flow Screens
+            { "title.subtitle", "مدرب مهمة رائد الفضاء الناشئ  |  قاعدة أريس-4" },
+            { "title.badge", "تحدي تطبيقات الفضاء ناسا 2026  •  قاعدة أريس-4" },
+            { "title.goal_hook", "حافظ على حياة 4 رواد لسبعة أيام مريخية حتى هبوط الإنقاذ." },
+            { "title.press_any_key", "بدء المناوبة" },
+            { "title.quick_start", "تخطي المقدمة" },
+            { "title.prompt_hint", "اضغط بدء المناوبة أو ENTER / SPACE" },
+            { "title.how_to_play", "طريقة اللعب" },
+            { "title.how_to_play.body", "1. وازن الطاقة والهواء والماء والطعام والتدريع لـ 7 أيام حتى الإنقاذ.\n\n2. تحرك بـ WASD، انظر بالماوس، اضغط E للتفاعل، و ESC للإيقاف المؤقت أو القيام.\n\n3. كل خيار له ثمن — حافظ على بقاء طاقمك حتى لحظة الهبوط." },
+            { "title.credits", "الاعتمادات" },
+            { "title.close", "إغلاق" },
+            { "title.mars", "المريخ" },
+            { "title.last_shift", "المناوبة الأخيرة" },
+            { "title.play_game", "ابدأ اللعب" },
+            { "title.settings", "الإعدادات" },
+            { "title.exit", "خروج" },
+            { "title.language", "اللغة" },
+            { "lang.select_title", "اختر اللغة" },
+            { "lang.gate_title", "SELECT LANGUAGE  |  اختر اللغة" },
+            { "lang.gate_controls", "[<- / ->] للتبديل   |   [ENTER] متابعة" },
+            { "lang.slider_label", "اللغة" },
+            { "lang.english", "English" },
+            { "lang.arabic", "العربية" },
+            { "lang.continue", "متابعة" },
+            { "intro.skip_hint", "[اضغط أي زر لتخطي المقدمة]" },
+
+            { "boot.line1", "نظام قاعدة المريخ v0.9" },
+            { "boot.line2", "فحص الطاقة... منخفضة" },
+            { "boot.line3", "فحص الطاقم... 4 أحياء / 1 مصاب" },
+            { "boot.line4", "حالة القائد: غير متاح" },
+            { "login.prompt", "أيها القائد الجديد، أدخل اسمك:" },
+            { "login.default", "القائد" },
+            { "login.confirm", "تأكيد [ENTER]" },
+            { "hint.press_esc_stand", "اضغط ESC للوقوف واستكشاف القاعدة" },
+            { "log.header", "سجلات تسليم القائد فيل  |  غير مقروء: {0}" },
+            { "log.sol1.vale.title", "اليوم 1 - تسليم القيادة" },
+            { "log.sol1.vale.body", "أنا منهك — رؤيتي تتشوش ود. لين ألزمتني بالعيادة. قيادة أريس-4 أصبحت لك. الإنقاذ يهبط خلال 7 أيام. راقب الطاقة أولاً لأن الغبار يخنق الألواح الشمسية." },
+
+            { "ending.win.terminal", "أيها الموقع، نرى أضواءكم. الهبوط خلال 3... 2... 1." },
+            { "ending.win.line1", "لا تزال الشمس بعيدة." },
+            { "ending.win.line2", "لكنك لست وحدك." },
+            { "ending.win.barely", "لقد نجوت. بالكاد." },
+            { "ending.lose.terminal", "لم يُرصد أي نبض حيوي" },
+            { "ending.lose.line1", "لا تزال الشمس بعيدة." },
+
+            { "pause.title", "المهمة متوقفة مؤقتاً" },
+            { "pause.resume", "استئناف المناوبة" },
+            { "pause.restart", "إعادة المهمة" },
+            { "pause.volume", "مستوى الصوت العام" },
+            { "pause.sensitivity", "حساسية الكاميرا" },
+            { "pause.larger_text", "خط أكبر" },
+            { "pause.reduce_motion", "تقليل الحركة" },
+            { "pause.quit_title", "العودة للقائمة" },
+            { "pause.vox_volume", "المذيع الآلي" },
+            { "pause.graphics", "الرسوميات" },
+            { "pause.settings_title", "الإعدادات" },
+            { "pause.vox_muted", "المذيع: مكتوم" },
+            { "pause.vox_active", "المذيع: مفعل" },
+            { "pause.on", "تشغيل" },
+            { "pause.off", "إيقاف" },
+            { "psx.res.native", "أصلية" },
+
+            { "debrief.title", "ملخص المهمة" },
+            { "debrief.what_nasa_knows", "ما تعرفه ناسا" },
+            { "debrief.timeline", "الجدول الزمني للقرارات" },
+            { "debrief.crew", "نتائج الطاقم" },
+            { "debrief.play_again", "العب مجدداً (بذرة جديدة)" },
+            { "debrief.replay_seed", "إعادة نفس المهمة" },
+            { "debrief.credits", "الاعتمادات" },
+            { "debrief.back_title", "العودة للقائمة الرئيسية" },
+            { "debrief.header_fmt", "{0}  |  {1}  |  التقدير: {2}" },
+            { "debrief.source_prefix", "المصدر:" },
+            { "debrief.summary_fmt", "القائد {0}  (البذرة {1})    |    الناجون: {2}/4    |    متوسط الصحة: {3:0}%    |    النقاط: {4:0.0}\nالمخزون المتبقي —  الطاقة: {5:0}%   O2: {6:0}%   H2O: {7:0}%   الغذاء: {8:0}%   الدرع: {9:0}%" },
+            { "debrief.crew_row_fmt", "• {0} ({1}) — [{2}]  الصحة {3:0}%  |  المعنويات {4:0}%  |  الإشعاع {5:0.0} mSv" },
+            { "debrief.no_events", "• لم تُسجّل قرارات أحداث بعد." },
+            { "debrief.timeline_row_fmt", "• سول {0} [{1}]: {2} -> {3}" },
+            { "credits.title", "الاعتمادات والمصادر العلمية" },
+            { "credits.unity", "صُنع بمحرك Unity" },
+            { "credits.challenge", "طُوّر لتحدي تطبيقات الفضاء ناسا 2026" },
+            { "credits.fonts", "الخطوط المستخدمة: LiberationSans SDF و TahomaArabic SDF" },
+            { "credits.assets_hdr", "--- الأصول والحزم والأدوات ---" },
+            { "credits.sources_hdr", "--- قاعدة المصادر العلمية ---" },
+            { "credits.license_used", "  الترخيص: {0} | الاستخدام: {1}" },
+
+            // Intro card sequence (single card only)
+            { "intro.card1.line1", "الشمس بعيدة جداً." },
+            { "intro.hold_space_skip", "اضغط مطولاً على SPACE للتخطي" },
+
+            // PSX & Accessibility toggles
+            { "pause.psx_look", "مظهر PSX" },
+            { "pause.psx_res", "الدقة" },
+            { "pause.reduce_flicker", "تقليل الوميض" },
+
+            // Mission Control & HELIOS Beginner Layer
+            { "status.word.good", "جيد" },
+            { "status.word.low", "منخفض" },
+            { "status.word.danger", "خطر" },
+            { "mc.goal_header", "هدف المهمة: الصمود حتى الإنقاذ — باقي {0} أيام" },
+            { "mc.goal_last_sol", "هدف المهمة: اليوم الأخير — الإنقاذ يهبط الليلة!" },
+            { "mc.sol_progress", "اليوم {0} من {1}" },
+            { "mc.systems_header", "إمدادات القاعدة" },
+            { "mc.apps_header", "تطبيقات المهمة" },
+            { "mc.crew_header", "حالة الطاقم" },
+            { "mc.next_step_title", "الخطوة التالية" },
+            { "mc.forecast_prefix", "عند إنهاء اليوم الآن: " },
+            { "mc.per_sol", "/يوم" },
+            { "mc.steady", "مستقر" },
+            { "mc.readonly_banner", "جهاز لوحي للقراءة فقط — عد لمكتب القيادة لتعديل الإعدادات أو إنهاء اليوم" },
+            { "mc.status.power", "البطارية" },
+            { "mc.status.oxygen", "الأكسجين" },
+            { "mc.status.water", "الماء" },
+            { "mc.status.food", "الطعام" },
+            { "mc.status.shield", "الدرع" },
+
+            { "helios.name", "هيليوس" },
+            { "helios.hints_on", "التلميحات: مفعلة" },
+            { "helios.hints_off", "التلميحات: متوقفة" },
+            { "hint.crew_danger", "أحد أفراد الطاقم يحتاج مساعدة! افتح الطاقم وعالجه فوراً." },
+            { "hint.power_crit", "قد تفرغ البطارية! افتح شبكة الطاقة وخفف الاستهلاك." },
+            { "hint.o2_crit", "الأكسجين يتناقص! ارفع دعم الحياة أو أصلح المنقي." },
+            { "hint.water_crit", "مخزون الماء يهبط! افحص دعم الحياة أو مكرر المياه." },
+            { "hint.food_crit", "الطعام منخفض! عزز الدفيئة أو رشد المحاصيل." },
+            { "hint.shield_crit", "درع الإشعاع ضعيف! عززه من نافذة الإشعاع." },
+            { "hint.event_active", "وصل تنبيه عاجل! اختر استجابة الآن." },
+            { "hint.cold_warn", "القاعدة تتجمد! أبقِ التدفئة 50% أو أعلى." },
+            { "hint.ap_unused", "لا تزال لديك نقاط عمل! أنفقها على مهام الطاقم." },
+            { "hint.idle_ok", "الأنظمة مستقرة! راجع التوقعات واضغط إنهاء اليوم." },
+
+            { "next.crew_danger", "أحد أفراد طاقمك مصاب أو مرهق. ساعده على التعافي." },
+            { "next.crew_btn", "افتح الطاقم" },
+            { "next.event_active", "وضع طارئ بالقاعدة يتطلب قرارك." },
+            { "next.event_btn", "عرض التنبيه" },
+            { "next.power_crit", "ستفرغ البطارية الليلة! خفض منزلقات الطاقة المرتفعة." },
+            { "next.power_btn", "افتح شبكة الطاقة" },
+            { "next.o2_crit", "الأكسجين القابل للتنفس يتناقص. ارفع دعم الحياة." },
+            { "next.water_crit", "خزانات الماء النظيف تنخفض. تفقد دعم الحياة." },
+            { "next.ls_btn", "افتح دعم الحياة" },
+            { "next.food_crit", "محاصيل الغذاء تحتاج عناية. تفقد الدفيئة." },
+            { "next.gh_btn", "افتح الدفيئة" },
+            { "next.shield_crit", "الحماية الإشعاعية ضعيفة. عزز تدريع القاعدة." },
+            { "next.rad_btn", "افتح الإشعاع" },
+            { "next.ap_unused", "استخدم نقاط العمل المتبقية للتنظيف أو الإصلاح أو الراحة." },
+            { "next.ready", "القاعدة تبدو مستقرة لليوم. راجع التوقعات أدناه." },
+            { "next.endsol_btn", "جاهز لإنهاء اليوم" },
+
+            { "onboard.title", "قائمة المناوبة الأولى" },
+            { "onboard.step1", "1. افتح شبكة الطاقة" },
+            { "onboard.step2", "2. حرك منزلق طاقة" },
+            { "onboard.step3", "3. اضغط إنهاء اليوم" },
+            { "onboard.done", "اكتملت القائمة!" },
+
+            { "ui.more_details", "تفاصيل أكثر" },
+            { "ui.less_details", "إخفاء التفاصيل" },
+            { "ui.help", "مساعدة" },
+            { "ui.ap_count", "نقاط العمل: {0} / {1}" },
+            { "ui.close", "إغلاق" },
+            { "ui.open", "فتح" },
+            { "help.title", "المساعدة ومعجم المريخ" },
+            { "help.howto_header", "كيف تدير أريس-4 في 3 خطوات" },
+            { "help.howto_steps", "1. وازن الطاقة: افتح شبكة الطاقة واجعل البطارية فوق 0%.\n2. حافظ على الهواء والماء والطعام: أصلح الأجهزة واعتنِ بالطاقم بنقاط العمل.\n3. راقب التوقعات واضغط إنهاء اليوم حتى الإنقاذ في اليوم 7!" },
+            { "help.glossary_header", "معجم القاعدة (معانٍ مبسطة)" },
+
+            { "gloss.sol.term", "سول (اليوم المريخي)" },
+            { "gloss.sol.def", "يدوم اليوم المريخي 24 ساعة و39 دقيقة — عليك الصمود 7 أيام حتى الإنقاذ." },
+            { "gloss.power.term", "البطارية والطاقة الشمسية" },
+            { "gloss.power.def", "تنتج الألواح كهرباء نهاراً وتحفظ البطارية حياة القاعدة في الليل المتجمد." },
+            { "gloss.o2.term", "الأكسجين ومنقي الكربون" },
+            { "gloss.o2.def", "يزيل المنقي ثاني أكسيد الكربون السام ليتنفس الطاقم بأمان." },
+            { "gloss.water.term", "الماء ومكرر المياه" },
+            { "gloss.water.def", "مثل محطة الفضاء، ينقي المكرر أكثر من 90% من المياه والرطوبة للشرب." },
+            { "gloss.food.term", "الدفيئة والمحاصيل" },
+            { "gloss.food.def", "تنتج غرف النمو بإضاءة LED خضروات طازجة وأكسجيناً إضافياً." },
+            { "gloss.rad.term", "الإشعاع وجرعة ملي سيفرت" },
+            { "gloss.rad.def", "يقيس الملي سيفرت الإشعاع الفضائي غير المرئي — الجرعات العالية تضر بالصحة." },
+            { "gloss.shield.term", "التدريع والتربة المريخية" },
+            { "gloss.shield.def", "تحجب الجدران المحشوة بتربة المريخ والماء إشعاع التوهجات الشمسية." },
+            { "gloss.ap.term", "نقاط العمل" },
+            { "gloss.ap.def", "يملك طاقمك 3 نقاط عمل يومياً لتنظيف الغبار أو إصلاح الأجهزة." },
+            { "gloss.dsn.term", "تأخير الاتصال مع الأرض" },
+            { "gloss.dsn.def", "تقطع موجات الراديو المسافة بين الأرض والمريخ خلال 4 إلى 24 دقيقة." },
+            { "gloss.storm.term", "العاصفة الغبارية المريخية" },
+            { "gloss.storm.def", "تحجب سحب الغبار حتى 60% من ضوء الشمس وتغطي الألواح الشمسية." },
+
+            { "pwr.preset.label", "أوضاع سريعة:" },
+            { "pwr.preset.safe", "آمن" },
+            { "pwr.preset.balanced", "متوازن" },
+            { "pwr.preset.save", "توفير الطاقة" },
+            { "pwr.alloc_header", "توزيع الطاقة" },
+            { "pwr.ls.name", "دعم الحياة (الهواء والماء)" },
+            { "pwr.gh.name", "الدفيئة (المحاصيل الغذائية)" },
+            { "pwr.ht.name", "التدفئة (حماية الطاقم)" },
+            { "pwr.cm.name", "الاتصالات (راديو الأرض)" },
+            { "pwr.conseq.ls", "دعم الحياة عند {0}%: ينتج {1:+0.0;-0.0;0} أكسجين و {2:+0.0;-0.0;0} ماء يومياً." },
+            { "pwr.conseq.gh", "الدفيئة عند {0}%: معدل إنتاج الطعام {1:+0.0;-0.0;0} يومياً." },
+            { "pwr.conseq.ht_ok", "التدفئة عند {0}%: القاعدة دافئة وآمنة (>= 50%)." },
+            { "pwr.conseq.ht_cold", "التدفئة عند {0}%: تحذير! أقل من 50% يعرض الطاقم للتجمد!" },
+            { "pwr.conseq.cm_on", "الاتصالات عند {0}%: يمكن استقبال رسائل الأرض اليوم." },
+            { "pwr.conseq.cm_off", "الاتصالات عند 0%: راديو الأرض متوقف لتوفير البطارية." },
+            { "pwr.clean_btn", "تنظيف الألواح الشمسية (1 نقطة) — {0:0}% غبار" },
+            { "pwr.no_ap", "تنظيف الألواح (لا توجد نقاط عمل)" },
+
+            { "ls.friendly_intro", "حافظ على نقاء الهواء وتدفق الماء لجميع الرواد الأربعة." },
+            { "ls.details_fmt", "الأكسجين {0:+0.0;-0.0;0}{1} | الماء {2:+0.0;-0.0;0}{1} | الطاقم {3}/4" },
+            { "gh.friendly_intro", "ازرع غذاءً طازجاً بالداخل؛ النباتات السليمة تدعم الأكسجين أيضاً." },
+            { "rad.friendly_intro", "لا يملك المريخ درعاً مغناطيسياً. راقب الجرعات وعزز الجدران." },
+            { "rad.safe_limit", "+{0:0.00} ملي سيفرت{1} | الحد الآمن: {2:0.0} ملي سيفرت" },
+            { "crew.friendly_intro", "استخدم نقاط العمل لعلاج زملائك أو رفع معنوياتهم أو إراحتهم." },
+            { "crew.row_fmt", "{0} ({1}) — الصحة {2:0} | المعنويات {3:0} [{4}]" },
+            { "crew.medbay_tag", " [العيادة]" },
+            { "comms.friendly_intro", "اقرأ رسائل الراديو المتأخرة من مركز تحكم ناسا على الأرض." },
+            { "comms.msg_fmt", "{0}يوم {1} ({2})" },
+            { "comms.to_commander", "إلى: القائد {0}" },
+            { "log.friendly_intro", "ملاحظات القائد فيل لمساعدتك في إدارة مناوبتك." },
+            { "sources.friendly_intro", "مهام ناسا والأبحاث الحقيقية التي يستند إليها هذا التدريب." },
+            { "event.choices_hint", "اختر كيف يستجيب طاقمك:" },
+            { "event.fact_heading", "حقيقة علمية من ناسا" },
+            { "summary.headline", "اكتمل اليوم {0} — تقرير القاعدة" },
+            { "summary.bullet_supplies", "التغيرات: الطاقة {0:+0;-0;0}%، الأكسجين {1:+0;-0;0}%، الماء {2:+0;-0;0}%، الطعام {3:+0;-0;0}%" },
+            { "summary.bullet_weather_clear", "السماء صافية غداً ({0:0}% غبار على الألواح)." },
+            { "summary.bullet_weather_storm", "العاصفة مستمرة (باقي {0} يوم) — حافظ على البطارية!" },
+            { "summary.bullet_crew", "الطاقم النشط: {0}/4 | الإنقاذ يصل خلال {1} أيام." },
+
+            { "dock.power", "طاقة" },
+            { "dock.lifesupport", "هواء/ماء" },
+            { "dock.greenhouse", "طعام" },
+            { "dock.radiation", "درع" },
+            { "dock.crew", "طاقم" },
+            { "dock.comms", "اتصال" },
+            { "dock.log", "سجل" },
+            { "dock.sources", "مصادر" },
+            { "ui.sol_pip", "يوم {0}" },
+            { "ui.sol_pip_last", "يوم {0}*" },
+            { "event.need_ap", "يتطلب {0} نقطة" },
+            { "log.unread_summary", "{0} ({1} غير مقروء)" },
+            { "mission.end.score_line", "النقاط: {0:0} (التقدير {1})  |  الأحياء: {2}/4" },
+            { "sources.detail_fmt", "المعرف: {0}\n\nالرابط:\n{1}\n\nالاستخدام في المهمة:\n{2}" },
+            { "sol.summary_bullets_prefix", "" },
+            { "ui.new_badge", "[جديد] " },
+
+            // Terminal static chrome & Sim formatted strings
+            { "term.brand_title", "محطة القاعدة" },
+            { "term.brand_sub", "قاعدة المريخ\nعمليات البقاء" },
+            { "term.bezel", "///   قاعدة المريخ - محطة التشغيل v2.1   ///" },
+            { "term.resources_hdr", "موارد القاعدة" },
+            { "term.crew_hdr", "حالة الطاقم" },
+            { "term.overview", "نظرة عامة" },
+            { "term.goal_hdr", "هدف المهمة" },
+            { "term.alert_hdr", "تنبيه القاعدة" },
+            { "term.hint_prefix", "تلميح:" },
+            { "sim.forecast_summary", "عند إنهاء اليوم الآن: الأكسجين {0:+0;-0;0}، الماء {1:+0;-0;0}، الطعام {2:+0;-0;0}، البطارية {3:+0;-0;0}." },
+            { "sim.gen_dust", "غبار الألواح -{0}%" },
+            { "sim.gen_dust_storm", "غبار الألواح -{0}%، عاصفة غبار -{1}%" },
+
+            // Doors, Airlock, Tablet, Room POIs (dialogue references removed)
+            { "door.open_prompt", "[E] فتح {0}" },
+            { "door.close_prompt", "[E] إغلاق {0}" },
+            { "door.locked_prompt", "مغلق: {0}" },
+            { "door.name.corridor", "باب الممر" },
+            { "door.name.medbay", "باب العيادة" },
+            { "door.name.greenhouse", "باب الدفيئة" },
+            { "door.name.storage", "باب المخزن" },
+            { "door.name.airlock_in", "باب غرفة الضغط الداخلي" },
+            { "door.name.airlock_out", "البوابة الخارجية للمريخ" },
+            { "airlock.cycle_out_prompt", "[E] تفريغ الضغط والخروج للمريخ" },
+            { "airlock.cycle_in_prompt", "[E] إعادة الضغط والدخول للقاعدة" },
+            { "airlock.cycling_busy", "جاري معادلة ضغط الغرفة..." },
+            { "airlock.depressurizing", "جاري تفريغ ضغط الغرفة... انتظر" },
+            { "airlock.repressurizing", "جاري إعادة ضغط القاعدة..." },
+            { "airlock.unsafe_flare", "الخروج غير آمن: توهج شمسي نشط" },
+            { "airlock.unsafe_storm", "الخروج غير آمن: عاصفة غبارية" },
+            { "airlock.hatch_locked", "استخدم لوحة تحكم غرفة الضغط لمعادلة الضغط أولاً." },
+            { "airlock.ready_out", "تم تفريغ الضغط. البوابة الخارجية مفتوحة — اخرج إلى سطح المريخ بحذر!" },
+            { "airlock.ready_in", "تمت إعادة الضغط. الباب الداخلي مفتوح — أهلاً بعودتك." },
+            { "tablet.prompt", "[E] فحص اللوح (للقراءة فقط)" },
+            { "tablet.closed_toast", "تم إغلاق لوح الجدار. استخدم محطة القيادة لإصدار الأوامر." },
+            { "sign.command", "وحدة القيادة" },
+            { "sign.corridor", "الممر المركزي" },
+            { "sign.greenhouse", "قسم الدفيئة" },
+            { "sign.storage", "مخزن دعم الحياة" },
+            { "sign.airlock", "غرفة الضغط -> سطح المريخ" },
+            { "poi.greenhouse.prompt", "[E] فحص المحاصيل المائية" },
+            { "poi.greenhouse.fact", "صحة المحاصيل {0:0}% (الطعام {1:0}%): تحول أحواض النمو ثاني أكسيد الكربون إلى أكسجين وغذاء." },
+            { "poi.water.prompt", "[E] فحص خزانات المياه" },
+            { "poi.water.fact", "الماء عند {0:0}%: تستعيد المقطرات المغلقة أكثر من 90% من الرطوبة والمياه." },
+            { "poi.oxygen.prompt", "[E] فحص خزانات الأكسجين" },
+            { "poi.oxygen.fact", "الأكسجين {0:0}% (المنقي {1:0}%): تنقي مرشحات الزيوليت هواء القاعدة من الغاز السام." },
+            { "poi.vale.prompt", "[E] الاطمئنان على القائد فيل" },
+            { "poi.vale.status", "القائد أليكس فيل يستريح بصحة {0:0}/100. حافظ على التدفئة وعالجه من نافذة الطاقم!" },
+            { "poi.solar.clean_prompt", "[E] تنظيف الألواح الشمسية (1 نقطة)" },
+            { "poi.solar.inspect_prompt", "[E] فحص المصفوفة الشمسية" },
+            { "poi.solar.cleaned_toast", "تم تنظيف الألواح الشمسية! انخفض الغبار إلى {0:0}%." },
+            { "poi.solar.fact", "الألواح الشمسية: الغبار {0:0}%، التوليد {1:0} واط. تسببت العواصف بإنهاء مهمة أوبورتيونيتي." },
+            { "poi.rover.prompt", "[E] فحص العربة المضغوطة" },
+            { "poi.rover.fact", "عربة المريخ المضغوطة: تحمي الرواد في الجولات القصيرة عبر تضاريس الفوهة." },
+            { "poi.antenna.prompt", "[E] فحص الهوائي عالي الكسب" },
+            { "poi.antenna.fact", "هوائي الفضاء العميق ({0}): تستغرق الإشارات للأرض 4 إلى 24 دقيقة بسرعة الضوء." },
+            { "poi.rad.prompt", "[E] قراءة حساس الإشعاع" },
+            { "poi.rad.fact", "حساس السطح: جرعة اليوم +{0:0.00} ملي سيفرت. يفتقر المريخ لمجال مغناطيسي شامل." },
+            { "poi.ice.prompt", "[E] قراءة مؤشر الجليد المائي" },
+            { "poi.ice.fact", "عرق جليد مائي تحت السطح: يذيب الرواد جليد المريخ للشرب وصنع الوقود." },
+
+            // Suit & End-Sol Black Card
+            { "suit_put_on", "[E] ارتداء البدلة الفضائية" },
+            { "suit_take_off", "[E] خلع البدلة الفضائية" },
+            { "suit_required", "يلزم ارتداء البدلة للخروج إلى السطح." },
+            { "suit_cannot_remove", "لا يمكنك خلع البدلة في الخارج." },
+            { "suit.hud.ok", "البدلة سليمة" },
+            { "suit.hud.o2", "أكسجين" },
+            { "suit.hud.batt", "بطارية" },
+            { "suit.hud.ext", "خارجي" },
+            { "sol_complete", "اكتمل اليوم {0}" },
+            { "rescue_in_sols", "الإنقاذ خلال {0} أيام" },
+            { "rescue_final_sol", "اليوم الأخير. الإنقاذ يصل اليوم." },
+            { "sol_definition", "السول هو يوم واحد على كوكب المريخ." },
+            { "end_sol.hold_skip", "اضغط مطولاً على SPACE أو انقر للتخطي" },
+
+            // Real Sources Database Entries
+            { "src.nasa-jpl-opportunity-recovery.title", "ست حقائق حول جهود استعادة المسبار أوبورتيونيتي" },
+            { "src.nasa-jpl-opportunity-recovery.org", "ناسا / JPL" },
+            { "src.nasa-jpl-opportunity-recovery.supports", "يدعم حدث العاصفة الغبارية: لماذا يوقف فقدان ضوء الشمس المركبات الشمسية على المريخ." },
+
+            { "src.nasa-jpl-opportunity-hunkers.title", "أوبورتيونيتي يدخل وضع السكون خلال العاصفة الغبارية" },
+            { "src.nasa-jpl-opportunity-hunkers.org", "ناسا / JPL" },
+            { "src.nasa-jpl-opportunity-hunkers.supports", "يدعم حدث العاصفة الغبارية: كيف دخل المسبار وضع الأمان خلال العواصف الشاملة." },
+
+            { "src.nasa-ntrs-mer-dust.title", "عمليات التعافي من العاصفة الغبارية لمهمات المريخ المستقبلية" },
+            { "src.nasa-ntrs-mer-dust.org", "مستودع ناسا NTRS" },
+            { "src.nasa-ntrs-mer-dust.supports", "يدعم تراكم غبار الألواح: خفض الأحمال الكهربائية لحماية البطارية قبل العواصف." },
+
+            { "src.nasa-artemis2-sun.title", "لحماية رواد أرتيمس 2، يراقب خبراء ناسا الشمس" },
+            { "src.nasa-artemis2-sun.org", "ناسا" },
+            { "src.nasa-artemis2-sun.supports", "يدعم التوهج الشمسي: مراقبة التوهجات الشمسية ليحتمي الرواد بالوقت المناسب." },
+
+            { "src.nasa-svs-radiation.title", "كيف ستحمي ناسا الرواد من الإشعاع الفضائي" },
+            { "src.nasa-svs-radiation.org", "استوديو التصوير العلمي ناسا" },
+            { "src.nasa-svs-radiation.supports", "يدعم التوهج الشمسي: تقنيات التدريع وملاجئ الحماية من العواصف الإشعاعية." },
+
+            { "src.hassler-2014-rad.title", "قياس بيئة الإشعاع على سطح المريخ بواسطة كوريوسيتي (هاسلر 2014)" },
+            { "src.hassler-2014-rad.org", "ساينس / SwRI / ناسا" },
+            { "src.hassler-2014-rad.supports", "يدعم الإشعاع الأساسي: نحو 0.67 ملي سيفرت يومياً مقاسة على سطح المريخ." },
+
+            { "src.iss-water-98.title", "ناسا تحقق استعادة 98% من المياه في محطة الفضاء الدولية" },
+            { "src.iss-water-98.org", "ناسا / ABC News" },
+            { "src.iss-water-98.supports", "يدعم مكرر المياه: إعادة تدوير 98% من الماء واستهلاك نحو غالون يومياً للفرد." },
+
+            { "src.nasa-veggie-lettuce.title", "رواد الفضاء يتذوقون أول خس مزروع في الفضاء" },
+            { "src.nasa-veggie-lettuce.org", "ساينتفك أمريكان (نظام Veggie)" },
+            { "src.nasa-veggie-lettuce.supports", "يدعم الدفيئة: زراعة وحصاد محاصيل طازجة على متن محطة الفضاء." },
+
+            { "src.npr-veggie-mood.title", "حدود السلطة: لماذا يحتاج الرواد لزراعة الخس في الفضاء" },
+            { "src.npr-veggie-mood.org", "NPR" },
+            { "src.npr-veggie-mood.supports", "يدعم الدفيئة: الخضروات الطازجة تحسن الحالة النفسية للرواد في العزلة." },
+
+            { "src.esa-mars-facts.title", "حقائق عن كوكب المريخ" },
+            { "src.esa-mars-facts.org", "وكالة الفضاء الأوروبية ESA" },
+            { "src.esa-mars-facts.supports", "يدعم حقائق الجاذبية (نحو 38% من الأرض) وقمري فوبوس وديموس." },
+
+            { "src.esa-meet-mars.title", "تعرف على المريخ" },
+            { "src.esa-meet-mars.org", "وكالة الفضاء الأوروبية ESA" },
+            { "src.esa-meet-mars.supports", "يدعم موجة الصقيع وتغيرات الحرارة الشديدة (-133 إلى +27 درجة مئوية)." },
+
+            { "src.nasa-mars-fact-sheet.title", "بطاقة حقائق المريخ" },
+            { "src.nasa-mars-fact-sheet.org", "ناسا NSSDCA" },
+            { "src.nasa-mars-fact-sheet.supports", "يدعم تركيبة الغلاف الجوي (95% ثاني أكسيد الكربون) وطول اليوم المريخي (24س 39د)." },
+
+            { "src.space-mars-atmosphere.title", "غلاف المريخ الجوي وتجربة أكسجين MOXIE" },
+            { "src.space-mars-atmosphere.org", "Space.com" },
+            { "src.space-mars-atmosphere.supports", "يدعم منقي الكربون: الغلاف الجوي 95% CO2 وإنتاج الأكسجين على برسيفيرنس." },
+
+            { "src.esa-light-time.title", "زمن حدث المركبة مقابل زمن الاستلام على الأرض" },
+            { "src.esa-light-time.org", "مدونة مارس إكسبريس ESA" },
+            { "src.esa-light-time.supports", "يدعم رسالة الأرض وتأخير الضوء (4 إلى 24 دقيقة بالاتجاه الواحد)." },
+
+            { "src.sis-habitat.title", "بناء موطن فضائي في الصف الدراسي" },
+            { "src.sis-habitat.org", "Science in School" },
+            { "src.sis-habitat.supports", "يدعم تدريع الموطن ضد الإشعاع والنيازك الدقيقة والغبار والفراغ والبرد." },
+
+            { "src.abc-chapea.title", "تدوير المياه وتجربة العزلة المريخية CHAPEA" },
+            { "src.abc-chapea.org", "ABC News / ناسا" },
+            { "src.abc-chapea.supports", "يدعم دراسة العزلة النفسية لمدة عام كامل في بيئة تحاكي المريخ." },
+
+            { "src.usgs-jezero-dem.title", "بيانات تضاريس فوهة جيزيرو على المريخ 2020" },
+            { "src.usgs-jezero-dem.org", "المسح الجيولوجي الأمريكي USGS" },
+            { "src.usgs-jezero-dem.supports", "يدعم تضاريس سطح المريخ المحيطة بقاعدة هيليوس في فوهة جيزيرو." },
+
+            { "src.nasa-3d-mars.title", "موارد ناسا ثلاثية الأبعاد: خريطة كوكب المريخ" },
+            { "src.nasa-3d-mars.org", "ناسا" },
+            { "src.nasa-3d-mars.supports", "يدعم خامة كوكب المريخ وخلفية الشاشة الرئيسية." },
+
+            // Fact Cards
+            { "fact.fact_dust_storm.title", "العواصف الغبارية الشاملة" },
+            { "fact.fact_dust_storm.text", "في 2018 حجبت عاصفة كوكبية ضوء الشمس، ففقد المسبار أوبورتيونيتي طاقته وصمت." },
+
+            { "fact.fact_solar_flare.title", "أحداث الجسيمات الشمسية" },
+            { "fact.fact_solar_flare.text", "أثناء التوهجات الشمسية يحتمي الرواد في أكثر أجزاء المركبة تدريعا حتى ينحسر الإشعاع." },
+
+            { "fact.fact_panel_dust.title", "توفير الطاقة قبل العواصف" },
+            { "fact.fact_panel_dust.text", "قبل عاصفة 2018، خفض فريق أوبورتيونيتي استهلاك الطاقة لحفظ شحن البطارية." },
+
+            { "fact.fact_water_recycler.title", "تدوير المياه في محطة الفضاء (98%)" },
+            { "fact.fact_water_recycler.text", "في محطة الفضاء يستعيد الرواد نحو 98% من المياه بالتدوير، ويستهلك الفرد نحو غالون يومياً." },
+
+            { "fact.fact_greenhouse.title", "الخس الفضائي ومعنويات الطاقم" },
+            { "fact.fact_greenhouse.text", "زرع الرواد وأكلوا الخس في الفضاء؛ النباتات الطازجة تضيف غذاء وتدعم المعنويات." },
+
+            { "fact.fact_co2_scrubber.title", "ثاني أكسيد الكربون وتجربة MOXIE" },
+            { "fact.fact_co2_scrubber.text", "هواء المريخ 95% ثاني أكسيد الكربون، وفي 2021 صنعت تجربة على برسيفيرنس أكسجيناً منه." },
+
+            { "fact.fact_cold_snap.title", "درجات حرارة المريخ القاسية" },
+            { "fact.fact_cold_snap.text", "المريخ بارد جداً وتصل الحرارة من -133 درجة بالقطب شتاءً إلى +27 صيفاً." },
+
+            { "fact.fact_crew_tension.title", "دراسات العزلة لمدة عام" },
+            { "fact.fact_crew_tension.text", "تدرس ناسا العزلة الطويلة؛ عاش أربعة متطوعين عاماً كاملاً في موطن يحاكي المريخ." },
+
+            { "fact.fact_earth_message.title", "تأخير الإشارة بين الأرض والمريخ" },
+            { "fact.fact_earth_message.text", "تستغرق رسائل الراديو 4 إلى 24 دقيقة بالاتجاه الواحد لذا لا توجد محادثات فورية." },
+
+            { "fact.fact_airlock_dust.title", "مخاطر البيئة وتدريع الموطن" },
+            { "fact.fact_airlock_dust.text", "يجب أن يحمي الموطن الطاقم من الإشعاع والنيازك الدقيقة والغبار والفراغ والبرد." },
+
+            { "fact.fact_radiation_baseline.title", "قياسات إشعاع سطح المريخ" },
+            { "fact.fact_radiation_baseline.text", "قاس مسبار كوريوسيتي نحو 0.67 ملي سيفرت يومياً على سطح المريخ." },
+
+            // Sources App & Science Status Page
+            { "ui.supports", "يدعم" },
+            { "ui.license", "الترخيص" },
+            { "sources.tab.sources", "المصادر ({0})" },
+            { "sources.tab.realdata", "البيانات والثوابت الحقيقية" },
+            { "sources.realdata.heading", "كيف تستخدم اللعبة البيانات الحقيقية" },
+            { "sources.realdata.line1", "• معدلات الموارد وحدات لعب مبسطة وليست قياسات طيران حرفية." },
+            { "sources.realdata.line2", "• كل بطاقة علمية وحقيقة مأخوذة مباشرة من مصادر ناسا وESA وUSGS." },
+            { "sources.realdata.line3", "• أحداث المهمة تحاكي تحديات حقيقية: عاصفة 2018 وتدوير 98% وRAD." },
+            { "sources.realdata.line4", "• يوضح الجدول تصنيف كل رقم: حقيقي أو مكيّف أو للعبة." },
+            { "sources.col.metric", "الثابت / المؤشر" },
+            { "sources.col.value", "القيمة" },
+            { "sources.col.status", "التصنيف" },
+            { "sources.col.source", "معرف المصدر" },
+            { "sources.const.rad.name", "الإشعاع السطحي الأساسي" },
+            { "sources.const.rad.val", "{0:0.00} ملي سيفرت / يوم" },
+            { "sources.const.sol.name", "طول اليوم المريخي (سول)" },
+            { "sources.const.sol.val", "24 س 39 د (يوم واحد لكل دور؛ {0} أيام)" },
+            { "sources.const.delay.name", "تأخير رسائل الأرض والمريخ" },
+            { "sources.const.delay.val", "~12 د باليوم 1 (12-21 د باللعبة؛ حقيقياً 4-24 د)" },
+            { "sources.const.water.name", "استهلاك الماء وتدوير المحطة" },
+            { "sources.const.water.val", "~1 غالون/يوم واسترداد 98% (محاكاة: {0:0.0}%/فرد)" },
+            { "sources.const.atmo.name", "تركيبة الغلاف الجوي المريخي" },
+            { "sources.const.atmo.val", "~95% ثاني أكسيد الكربون (تجربة MOXIE)" },
+            { "sources.const.game.name", "المخزون وخسائر العواصف والتدريع" },
+            { "sources.const.game.val", "البداية {0:0}/{1:0}/{2:0}%، عاصفة {3:0}% شمس، درع -{4:0}% جرعة" },
+            { "sources.open_url", "فتح الرابط" },
+            { "sources.open_nasa", "فتح ناسا" },
+            { "sources.open_news", "فتح الخبر" },
+            { "sources.open_ref", "فتح المرجع" },
+
+            // Announcer HUD
+            { "announcer.header", "إعلان" },
+            { "announcer.header_advisory", "إعلان // تحذير" },
+            { "vox_welcome", "أيها القائد، القاعدة الآن تحت سيطرتك." },
+            { "vox.haz_asteroid_c", "تحذير. رُصد حطام كويكبي في القطاع C. لا يتوقع أي اصطدام." },
+            { "vox.haz_meteoroid", "تنبيه. نشاط نيزكي قرب القاعدة. لا يلزم أي إجراء." },
+            { "vox.haz_seismic", "تحذير. رُصدت هزة مريخية خفيفة. جاري فحص الهيكل." },
+            { "vox.n_systems", "إشعار. جميع الأنظمة تعمل ضمن الحدود الطبيعية." },
+            { "vox.n_samples", "إشعار. اكتمل تحليل العينات وأُرسلت النتائج إلى الأرض." },
+            { "vox.r_suit", "تذكير. افحص أختام بدلتك الفضائية قبل أي خروج." },
+            { "vox.f_sol", "حقيقة. يُسمى اليوم الواحد على كوكب المريخ سول." },
+            { "vox.f_gravity", "حقيقة. الجاذبية على المريخ تساوي نحو ثمانية وثلاثين بالمئة من الأرض." },
+            { "vox.f_moons", "حقيقة. للمريخ قمران صغيران هما فوبوس وديموس." },
+            { "vox.f_cold", "حقيقة. المريخ شديد البرودة؛ متوسط حرارة السطح نحو ستين تحت الصفر." },
+            { "vox.f_signal", "حقيقة. تستغرق الرسائل من الأرض دقائق للوصول إلى المريخ." },
+
+            // WebGL Title Gate, Pause Fullscreen & Pointer Lock
+            { "title.click_start", "انقر أو اضغط أي مفتاح للبدء" },
+            { "title.mobile_notice", "يفضل اللعب على حاسوب مكتبي بلوحة المفاتيح والفأرة" },
+            { "pause.fullscreen", "ملء الشاشة" },
+            { "pause.click_to_resume", "انقر للاستئناف" },
+            { "pause.pointer_lost_hint", "تحرر المؤشر — انقر للاستئناف وإعادة القفل" }
+        };
+
+        /// <summary>Returns the unshaped localized template string for the active language.</summary>
+        public static string GetRaw(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return string.Empty;
+            if (_currentLanguage == Language.Arabic && Arabic.TryGetValue(key, out string ar))
+                return ar;
+            if (English.TryGetValue(key, out string en))
+                return en;
+            return key;
+        }
 
         public static string Get(string key)
         {
             if (string.IsNullOrEmpty(key)) return string.Empty;
-            // Currently English is active; switch table here when French/Arabic/Darija dictionaries are added.
-            if (English.TryGetValue(key, out string value))
-                return value;
-            return key;
+            return ShapeDisplay(GetRaw(key));
         }
 
         public static string Format(string key, params object[] args)
         {
-            return string.Format(Get(key), args);
+            if (string.IsNullOrEmpty(key)) return string.Empty;
+            return ShapeDisplay(string.Format(GetRaw(key), args));
+        }
+
+        /// <summary>Returns all registered localization keys in English.</summary>
+        public static IEnumerable<string> GetAllEnglishKeys() => English.Keys;
+
+        /// <summary>Returns true if both English and Arabic contain <paramref name="key"/>.</summary>
+        public static bool HasArabicTranslation(string key) => !string.IsNullOrEmpty(key) && Arabic.ContainsKey(key);
+
+        /// <summary>
+        /// Formats the remaining-sols headline after completing <paramref name="completedSol"/> out of <paramref name="totalSols"/>.
+        /// Never emits pluralized "1 SOLS"; returns the dedicated Final Sol string when 1 sol remains.
+        /// </summary>
+        public static string FormatRescueRemaining(int completedSol, int totalSols = 7)
+        {
+            int remaining = totalSols - completedSol;
+            if (remaining <= 1)
+                return Get("rescue_final_sol");
+            return Format("rescue_in_sols", remaining);
         }
     }
 }

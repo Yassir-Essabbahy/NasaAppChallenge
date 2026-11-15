@@ -80,9 +80,19 @@ namespace Outpost.Runtime.Room
         public Func<bool> IsPauseMenuOpenCheck { get; set; }
 
         public event Action OnPauseRequested;
+        public event Action OnPointerLockLostPauseRequested;
         public event Action OnEnteredTerminal;
         public event Action OnExitedTerminal;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
         public event Action OnFlowLockDebugRequested;
+#endif
+
+        private bool _wasCursorLockedInRoom;
+        public event Action<InteractablePropType> OnPropInteracted;
+
+        private GameObject _dutyHudPanel;
+        private UnityEngine.UI.Image _dutyHudBg;
+        private TextMeshProUGUI _dutyHudText;
 
         private void OnDestroy()
         {
@@ -97,6 +107,7 @@ namespace Outpost.Runtime.Room
             if (terminalController != null)
             {
                 terminalController.OnLeaveTerminalRequested += HandleLeaveTerminalRequested;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
                 terminalController.OnDebugTeleportLeanRequested += TeleportLeanState;
                 terminalController.OnUiSoundRequested += HandleUiSound;
                 terminalController.OnDebugUnlockAllDoorsRequested += HandleDebugUnlockAllDoors;
@@ -104,6 +115,10 @@ namespace Outpost.Runtime.Room
                 terminalController.OnDebugTeleportCorridorRequested += HandleDebugTeleportCorridor;
                 terminalController.OnDebugTeleportAirlockRequested += HandleDebugTeleportAirlock;
                 terminalController.OnDebugTeleportSurfaceRequested += HandleDebugTeleportSurface;
+                terminalController.OnDebugTeleportSuitRackRequested += HandleDebugTeleportSuitRack;
+#else
+                terminalController.OnUiSoundRequested += HandleUiSound;
+#endif
             }
 
             if (airlockController != null)
@@ -158,6 +173,7 @@ namespace Outpost.Runtime.Room
             if (terminalController != null)
             {
                 terminalController.OnLeaveTerminalRequested -= HandleLeaveTerminalRequested;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
                 terminalController.OnDebugTeleportLeanRequested -= TeleportLeanState;
                 terminalController.OnUiSoundRequested -= HandleUiSound;
                 terminalController.OnDebugUnlockAllDoorsRequested -= HandleDebugUnlockAllDoors;
@@ -165,6 +181,10 @@ namespace Outpost.Runtime.Room
                 terminalController.OnDebugTeleportCorridorRequested -= HandleDebugTeleportCorridor;
                 terminalController.OnDebugTeleportAirlockRequested -= HandleDebugTeleportAirlock;
                 terminalController.OnDebugTeleportSurfaceRequested -= HandleDebugTeleportSurface;
+                terminalController.OnDebugTeleportSuitRackRequested -= HandleDebugTeleportSuitRack;
+#else
+                terminalController.OnUiSoundRequested -= HandleUiSound;
+#endif
             }
         }
 
@@ -247,10 +267,12 @@ namespace Outpost.Runtime.Room
 
         private void Update()
         {
-            // Backquote debug panel shortcut works across all active game states
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            // Backquote debug panel shortcut works across all active game states in Editor / Development builds
             var kb = Keyboard.current;
             if (kb != null && kb.backquoteKey.wasPressedThisFrame)
             {
+                _wasCursorLockedInRoom = false;
                 if (terminalController != null)
                     terminalController.ToggleDebugPanel();
                 if (Cursor.lockState == CursorLockMode.Locked)
@@ -260,8 +282,12 @@ namespace Outpost.Runtime.Room
                 }
                 OnFlowLockDebugRequested?.Invoke();
             }
+#endif
 
             UpdateFactBannerTimer();
+
+            if (_state != ViewState.RoomView)
+                _wasCursorLockedInRoom = false;
 
             switch (_state)
             {
@@ -283,13 +309,38 @@ namespace Outpost.Runtime.Room
         private void UpdateRoomView()
         {
             if (IsPauseMenuOpenCheck != null && IsPauseMenuOpenCheck())
+            {
+                _wasCursorLockedInRoom = false;
                 return;
+            }
 
             var kb = Keyboard.current;
             if (kb != null && kb.escapeKey.wasPressedThisFrame)
             {
+                _wasCursorLockedInRoom = false;
                 audioManager?.PlayUiClick();
                 OnPauseRequested?.Invoke();
+                return;
+            }
+
+            bool controlReady = playerGate != null && playerGate.IsControlEnabled;
+            bool debugOpen = terminalController != null && terminalController.IsDebugPanelVisible;
+            if (!controlReady || debugOpen)
+            {
+                _wasCursorLockedInRoom = false;
+            }
+            else if (Cursor.lockState == CursorLockMode.Locked)
+            {
+                _wasCursorLockedInRoom = true;
+            }
+            else if (_wasCursorLockedInRoom && Cursor.lockState != CursorLockMode.Locked)
+            {
+                _wasCursorLockedInRoom = false;
+                audioManager?.PlayUiClick();
+                if (OnPointerLockLostPauseRequested != null)
+                    OnPointerLockLostPauseRequested.Invoke();
+                else
+                    OnPauseRequested?.Invoke();
                 return;
             }
 
@@ -328,7 +379,9 @@ namespace Outpost.Runtime.Room
                 }
                 if (promptLockIcon != null)
                 {
-                    bool locked = hovered != null && ((hovered.DoorTarget != null && hovered.DoorTarget.IsLocked) || newPrompt.IndexOf("LOCK", System.StringComparison.OrdinalIgnoreCase) >= 0);
+                    bool locked = hovered != null && ((hovered.DoorTarget != null && hovered.DoorTarget.IsLocked)
+                        || newPrompt.IndexOf("LOCK", System.StringComparison.OrdinalIgnoreCase) >= 0
+                        || newPrompt.IndexOf("مغلق", System.StringComparison.Ordinal) >= 0);
                     var lockSpr = Outpost.Runtime.Terminal.TerminalUiArt.GetIcon("Icon_Lock");
                     promptLockIcon.gameObject.SetActive(locked && lockSpr != null);
                     if (lockSpr != null) promptLockIcon.sprite = lockSpr;
@@ -336,7 +389,8 @@ namespace Outpost.Runtime.Room
                 }
             }
 
-            if (kb != null && kb.eKey.wasPressedThisFrame && hovered != null)
+            bool suitBusy = SuitController.Instance != null && SuitController.Instance.IsTransitioning;
+            if (!suitBusy && kb != null && kb.eKey.wasPressedThisFrame && hovered != null)
                 InteractWithProp(hovered);
         }
 
@@ -437,7 +491,11 @@ namespace Outpost.Runtime.Room
                     audioManager?.PlayUiClick();
                     ShowFactBanner(Localization.Get("poi.ice.fact"), 5.2f);
                     break;
+                case InteractablePropType.SuitRack:
+                    SuitController.Instance?.TryToggleSuit(viaRack: true);
+                    break;
             }
+            OnPropInteracted?.Invoke(prop.PropType);
         }
 
         private void HandleSolarArrayInteraction(SessionSnapshot snap)
@@ -612,6 +670,7 @@ namespace Outpost.Runtime.Room
             }
         }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
         public void TeleportLeanState(bool focusTerminal)
         {
             if (focusTerminal)
@@ -640,6 +699,91 @@ namespace Outpost.Runtime.Room
         private void HandleDebugTeleportAirlock() => TeleportToAnchor(airlockSpawnPoint, depressurizeAirlock: false);
         private void HandleDebugTeleportSurface() => TeleportToAnchor(surfaceSpawnPoint, depressurizeAirlock: true);
 
+        private void HandleDebugTeleportSuitRack()
+        {
+            var rackObj = GameObject.Find("SuitRack");
+            if (rackObj == null || playerGate == null)
+            {
+                HandleDebugTeleportSpawn();
+                return;
+            }
+
+            _openedAsReadOnlyTablet = false;
+            if (terminalController != null)
+            {
+                terminalController.SetReadOnlyMode(false);
+                terminalController.SetTerminalVisible(false);
+            }
+
+            if (airlockController != null)
+                airlockController.SetDepressurizedImmediateForTeleport(false);
+
+            Vector3 rackPos = rackObj.transform.position;
+            Vector3 flatFwd = rackObj.transform.forward;
+            flatFwd.y = 0f;
+            if (flatFwd.sqrMagnitude < 0.001f) flatFwd = Vector3.back;
+            flatFwd.Normalize();
+
+            // Place player ~1.35m in front of the rack facing the suit cleanly
+            Vector3 standPos = new Vector3(rackPos.x + flatFwd.x * 1.35f, 1.0f, rackPos.z + flatFwd.z * 1.35f);
+            Quaternion lookAtRack = Quaternion.LookRotation(-flatFwd, Vector3.up);
+
+            playerGate.TeleportTo(standPos, lookAtRack);
+            CaptureReturnPose();
+
+            _state = ViewState.RoomView;
+            SetRoomHudVisible(true);
+            bool debugVisible = terminalController != null && terminalController.IsDebugPanelVisible;
+            playerGate.EnableControl(!debugVisible);
+            if (debugVisible)
+            {
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+            }
+        }
+#endif
+
+        /// <summary>
+        /// Resets interior airlock/doors cleanly and returns player to PlayerSpawn facing the desk monitor while screen is black.
+        /// </summary>
+        public void PrepareRoomForNewSolBlackCard(bool unlockCursor = true)
+        {
+            _openedAsReadOnlyTablet = false;
+            if (terminalController != null)
+            {
+                terminalController.SetReadOnlyMode(false);
+                terminalController.SetTerminalVisible(false);
+            }
+
+            if (airlockController != null)
+                airlockController.SetDepressurizedImmediateForTeleport(false);
+
+            if (sceneDoors != null)
+            {
+                for (int i = 0; i < sceneDoors.Length; i++)
+                {
+                    if (sceneDoors[i] == null) continue;
+                    // Airlock outer door must remain closed & locked by SetDepressurizedImmediateForTeleport(false)
+                    if (airlockController != null && sceneDoors[i].name == "Door_AirlockOuter")
+                        continue;
+                    sceneDoors[i].SetLocked(false);
+                    sceneDoors[i].SetOpenImmediate(false);
+                }
+            }
+
+            audioManager?.SetExteriorState(false);
+
+            if (playerGate != null && playerSpawnPoint != null)
+            {
+                RestoreReturnPose();
+                playerGate.TeleportTo(playerSpawnPoint.position, playerSpawnPoint.rotation);
+                CaptureReturnPose();
+            }
+
+            SetFlowLocked(unlockCursor);
+        }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
         private void TeleportToAnchor(Transform anchor, bool depressurizeAirlock)
         {
             if (anchor == null || playerGate == null) return;
@@ -668,6 +812,7 @@ namespace Outpost.Runtime.Room
                 Cursor.visible = true;
             }
         }
+#endif
 
         private void CaptureReturnPose()
         {
@@ -741,6 +886,60 @@ namespace Outpost.Runtime.Room
             factBannerText.text = message;
             factBannerRoot.SetActive(true);
             _factBannerTimer = duration;
+        }
+
+        public void ShowRoomToast(string message, float duration = 4.5f) => ShowFactBanner(message, duration);
+
+        public void SetDailyDutyHint(string message, bool complete)
+        {
+            if (roomHudRoot == null) return;
+            EnsureDutyHud();
+            if (_dutyHudPanel == null || _dutyHudText == null) return;
+
+            bool hasMsg = !string.IsNullOrEmpty(message);
+            _dutyHudPanel.SetActive(hasMsg);
+            if (!hasMsg) return;
+
+            _dutyHudText.text = message;
+            _dutyHudText.color = complete ? new Color(0.27f, 0.90f, 0.82f, 1f) : new Color(0.97f, 0.79f, 0.28f, 1f);
+            if (_dutyHudBg != null)
+                _dutyHudBg.color = complete ? new Color(0.03f, 0.14f, 0.16f, 0.78f) : new Color(0.14f, 0.10f, 0.03f, 0.80f);
+        }
+
+        private void EnsureDutyHud()
+        {
+            if (_dutyHudPanel != null || roomHudRoot == null) return;
+            var go = new GameObject("DailyDutyHud", typeof(RectTransform));
+            go.transform.SetParent(roomHudRoot.transform, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.02f, 0.91f);
+            rt.anchorMax = new Vector2(0.58f, 0.975f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+
+            var bg = go.AddComponent<UnityEngine.UI.Image>();
+            bg.color = new Color(0.14f, 0.10f, 0.03f, 0.80f);
+            bg.raycastTarget = false;
+            _dutyHudBg = bg;
+
+            var txtGo = new GameObject("Text", typeof(RectTransform));
+            txtGo.transform.SetParent(go.transform, false);
+            var txtRt = txtGo.GetComponent<RectTransform>();
+            txtRt.anchorMin = Vector2.zero;
+            txtRt.anchorMax = Vector2.one;
+            txtRt.offsetMin = new Vector2(12f, 2f);
+            txtRt.offsetMax = new Vector2(-12f, -2f);
+
+            var tmp = txtGo.AddComponent<TextMeshProUGUI>();
+            if (promptText != null && promptText.font != null) tmp.font = promptText.font;
+            tmp.fontSize = 22f;
+            tmp.fontStyle = FontStyles.Bold;
+            tmp.alignment = TextAlignmentOptions.MidlineLeft;
+            tmp.textWrappingMode = TextWrappingModes.NoWrap;
+            tmp.overflowMode = TextOverflowModes.Ellipsis;
+            tmp.raycastTarget = false;
+            _dutyHudText = tmp;
+            _dutyHudPanel = go;
         }
 
         private void ClearFactBanner()

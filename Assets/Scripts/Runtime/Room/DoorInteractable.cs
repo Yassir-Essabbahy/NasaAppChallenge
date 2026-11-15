@@ -178,12 +178,14 @@ namespace Outpost.Runtime.Room
             RefreshIndicatorColor();
         }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
         public void DebugUnlock()
         {
             isLocked = false;
             lockedReasonKey = string.Empty;
             RefreshIndicatorColor();
         }
+#endif
 
         private void CaptureClosedPose()
         {

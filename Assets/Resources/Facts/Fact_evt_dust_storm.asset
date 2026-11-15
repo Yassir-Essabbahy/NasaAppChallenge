@@ -14,8 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Outpost.Runtime::Outpost.Runtime.Terminal.FactCard
   id: fact_dust_storm
   title: Martian Global Dust Storms
-  text: '[PLACEHOLDER] Global Martian dust storms block sunlight for weeks, severely
-    reducing solar power output and forcing strict energy conservation.'
-  sourceId: src_storm
+  text: In 2018 a planet-wide dust storm cut off sunlight. Opportunity, a solar-powered
+    rover, lost power and fell silent.
+  sourceId: nasa-jpl-opportunity-recovery, nasa-jpl-opportunity-hunkers
+  sourceIds:
+  - nasa-jpl-opportunity-recovery
+  - nasa-jpl-opportunity-hunkers
   relatedEventId: evt_dust_storm
   relatedConstantId: StormSolarFactor
+  titleKey: fact.fact_dust_storm.title
+  textKey: fact.fact_dust_storm.text

@@ -13,9 +13,13 @@ MonoBehaviour:
   m_Name: Fact_evt_panel_dust
   m_EditorClassIdentifier: Outpost.Runtime::Outpost.Runtime.Terminal.FactCard
   id: fact_panel_dust
-  title: Solar Panel Dust Accumulation
-  text: '[PLACEHOLDER] Martian electrostatic dust coats solar arrays over time, cutting
-    power generation just as experienced on NASA''s Spirit and Opportunity rovers.'
-  sourceId: src_dust
+  title: Power Saving Before Storms
+  text: Before the 2018 storm hit, Opportunity's team cut the rover's power use to
+    save battery charge.
+  sourceId: nasa-ntrs-mer-dust
+  sourceIds:
+  - nasa-ntrs-mer-dust
   relatedEventId: evt_panel_dust
-  relatedConstantId: DustAccumulationPerSol
+  relatedConstantId: PanelMaintenanceGain
+  titleKey: fact.fact_panel_dust.title
+  textKey: fact.fact_panel_dust.text

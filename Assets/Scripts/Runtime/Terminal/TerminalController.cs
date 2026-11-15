@@ -27,9 +27,14 @@ namespace Outpost.Runtime.Terminal
         [SerializeField] private SourcesDatabase sourcesDatabase;
         [SerializeField] private GlossaryDatabase glossaryDatabase;
         [SerializeField] private RectTransform terminalRoot;
+        [SerializeField] private DesktopSkinController desktopSkin;
 
         public bool IsTerminalVisible => terminalRoot != null && terminalRoot.gameObject.activeSelf;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
         public bool IsDebugPanelVisible => _debugPanel != null && _debugPanel.activeSelf;
+#else
+        public bool IsDebugPanelVisible => false;
+#endif
         public bool IsReadOnlyMode { get; private set; }
         public bool IsModalBlockingLeanBack =>
             (_eventModal != null && _eventModal.activeSelf) ||
@@ -40,20 +45,28 @@ namespace Outpost.Runtime.Terminal
         public bool UseExternalEndingFlow { get; set; }
 
         public event Action OnLeaveTerminalRequested;
-        public event Action<bool> OnDebugTeleportLeanRequested;
         public event Action OnUiSoundRequested;
+        public Action<SessionSnapshot> OnEndSolBlackCardRequested;
+        public Func<bool> IsExternalBlackCardPlaying { get; set; }
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        public event Action<bool> OnDebugTeleportLeanRequested;
         public Action OnDebugSkipIntroRequested;
         public Action OnDebugReplayIntroRequested;
         public Action OnDebugResetIntroSeenRequested;
         public Action OnDebugJumpToDebriefRequested;
         public Action OnDebugTeleportSpawnRequested;
+        public Action OnDebugTeleportSuitRackRequested;
+        public Action<int> OnDebugTriggerEndSolBlackCardRequested;
         public Action OnDebugUnlockAllDoorsRequested;
         public Action OnDebugTeleportCorridorRequested;
         public Action OnDebugTeleportAirlockRequested;
         public Action OnDebugTeleportSurfaceRequested;
+#endif
 
         private GameSession _session;
         private WindowManager _windowManager;
+        private readonly DailyDutyTracker _dailyDuties = new DailyDutyTracker();
+        private FirstPersonRoomController _roomController;
         private AccessibilityTextScaler _textScaler;
         private AccessibilitySettings _accessibility;
         private PSXSettings _psxSettings;
@@ -61,12 +74,33 @@ namespace Outpost.Runtime.Terminal
         private bool _showLeaveButton;
         private bool _deferInitialEvent;
         private bool _waitingFirstLogCloseHint;
+        private bool _suppressTransitionForBlackCard;
+        private SessionSnapshot _pendingBlackCardSummary;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
         private int _lastDebugToggleFrame = -1;
+        private int _debugBlackCardSol = 1;
+        private TextMeshProUGUI _debugBlackCardSolLabel;
+#endif
+
+        public DailyDutyTracker DailyDuties => _dailyDuties;
 
         // Top Bar
+        private TextMeshProUGUI _brandTitleText;
         private TextMeshProUGUI _solBadgeText;
         private TextMeshProUGUI _solClockText;
         private TextMeshProUGUI _apHeaderText;
+        private Button _modeToggleBtn;
+        private TextMeshProUGUI _modeToggleLabel;
+
+        // Classic vs Desktop Layer Containers
+        private GameObject _classicWallpaper;
+        private RectTransform _classicSidebar;
+        private RectTransform _classicContentArea;
+        private RectTransform _classicWindowLayer;
+        private GameObject _classicFooterLine;
+        private GameObject _classicTaskbar;
+        private Apps.MissionControlAppWindow _missionControlWindow;
+        private bool _isDesktopMode = true;
 
         // Read-Only Banner
         private GameObject _readOnlyBanner;
@@ -141,10 +175,6 @@ namespace Outpost.Runtime.Terminal
         private Image _bottomCardIcon;
         private TextMeshProUGUI _bottomCardTitle;
         private GameObject _checklistGroup;
-        private bool _onboardingDone;
-        private bool _onboardStep1Done;
-        private bool _onboardStep2Done;
-        private bool _onboardStep3Done;
         private readonly Image[] _onboardChecks = new Image[3];
         private readonly TextMeshProUGUI[] _onboardLabels = new TextMeshProUGUI[3];
 
@@ -161,6 +191,9 @@ namespace Outpost.Runtime.Terminal
         private readonly TextMeshProUGUI[] _taskWinLabels = new TextMeshProUGUI[WindowManager.MaxOpenWindows];
         private Button _leaveTerminalBtn;
         private Button _endSolBtn;
+        private RectTransform _endSolRect;
+        private Image _endSolBgImg;
+        private ButtonHoverFeedback _endSolHover;
         private TextMeshProUGUI _endSolLabel;
 
         // Fake Sol Clock
@@ -208,6 +241,7 @@ namespace Outpost.Runtime.Terminal
         private TextMeshProUGUI _toastText;
         private float _toastTimer;
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
         private GameObject _debugPanel;
         private GameObject _announcerDebugPanel;
         private TextMeshProUGUI _announcerDebugStatusText;
@@ -218,6 +252,7 @@ namespace Outpost.Runtime.Terminal
         private Slider _dbgSnapSlider, _dbgColorSlider, _dbgDitherSlider, _dbgAffineSlider, _dbgGrainSlider, _dbgResSlider;
         private TextMeshProUGUI _dbgSnapVal, _dbgColorVal, _dbgDitherVal, _dbgAffineVal, _dbgGrainVal, _dbgResVal;
         private bool _syncingDebugSliders;
+#endif
 
         private readonly StringBuilder _sb = new StringBuilder(512);
 
@@ -246,7 +281,6 @@ namespace Outpost.Runtime.Terminal
             }
 
             _hintsEnabled = PlayerPrefs.GetInt(PrefHintsEnabled, 1) == 1;
-            _onboardingDone = PlayerPrefs.GetInt(PrefOnboardingDone, 0) == 1;
 
             if (!_built)
             {
@@ -259,6 +293,8 @@ namespace Outpost.Runtime.Terminal
 
             if (_session.CurrentSnapshot != null)
             {
+                _dailyDuties.ConfigureMode(_showLeaveButton || _roomController != null);
+                _dailyDuties.ResetForSol(_session.CurrentSnapshot.CurrentSol);
                 ResetClockForSol(_session.CurrentSnapshot.CurrentSol);
                 RefreshAll(_session.CurrentSnapshot);
                 if (!_deferInitialEvent && _session.CurrentSnapshot.ActiveEvent != null && !_session.CurrentSnapshot.ActiveEvent.IsResolved)
@@ -281,12 +317,26 @@ namespace Outpost.Runtime.Terminal
             if (_endSolBtn != null)
                 _endSolBtn.gameObject.SetActive(!readOnly);
 
+            float classicTop = readOnly ? -144f : -98f;
+            SetTopOffset(_classicSidebar, classicTop);
+            SetTopOffset(_classicContentArea, classicTop);
+            SetTopOffset(_classicWindowLayer, classicTop);
+            desktopSkin?.SetReadOnlyBannerOffset(readOnly);
+
             if (_session?.CurrentSnapshot != null)
             {
                 RefreshAll(_session.CurrentSnapshot);
                 if (_windowManager != null)
                     _windowManager.RefreshOpenWindows(_session.CurrentSnapshot);
             }
+        }
+
+        private static void SetTopOffset(RectTransform rect, float topOffset)
+        {
+            if (rect == null) return;
+            var max = rect.offsetMax;
+            max.y = topOffset;
+            rect.offsetMax = max;
         }
 
         public void BeginFirstShiftCommandLog()
@@ -308,6 +358,7 @@ namespace Outpost.Runtime.Terminal
             _deferInitialEvent = false;
             _waitingFirstLogCloseHint = false;
             HideTooltip();
+            desktopSkin?.HideStartMenu();
             if (_helpModal != null) _helpModal.SetActive(false);
             if (_session?.CurrentSnapshot != null) RefreshAll(_session.CurrentSnapshot);
         }
@@ -328,10 +379,6 @@ namespace Outpost.Runtime.Terminal
             _deferInitialEvent = deferInitialEvent;
             _waitingFirstLogCloseHint = false;
             _playingFadeToBlack = false;
-            _onboardingDone = PlayerPrefs.GetInt(PrefOnboardingDone, 0) == 1;
-            _onboardStep1Done = false;
-            _onboardStep2Done = false;
-            _onboardStep3Done = false;
             for (int i = 0; i < _supplyTiles.Length; i++) _supplyTiles[i].HasValue = false;
 
             if (_eventModal != null) _eventModal.SetActive(false);
@@ -342,6 +389,8 @@ namespace Outpost.Runtime.Terminal
             if (_toastBanner != null) _toastBanner.SetActive(false);
             HideTooltip();
             _windowManager?.CloseAll();
+            _dailyDuties.ConfigureMode(_showLeaveButton || _roomController != null);
+            _dailyDuties.ResetForSol(_session?.CurrentSnapshot?.CurrentSol ?? 1);
             if (_session?.CurrentSnapshot != null)
             {
                 ResetClockForSol(_session.CurrentSnapshot.CurrentSol);
@@ -361,6 +410,12 @@ namespace Outpost.Runtime.Terminal
 
         private void HandleWindowClosed(TerminalAppId appId)
         {
+            if (appId == TerminalAppId.CommandersLog && _deferInitialEvent)
+            {
+                _deferInitialEvent = false;
+                if (_session?.CurrentSnapshot != null)
+                    RefreshAll(_session.CurrentSnapshot);
+            }
             if (appId == TerminalAppId.CommandersLog && _waitingFirstLogCloseHint)
             {
                 _waitingFirstLogCloseHint = false;
@@ -370,7 +425,12 @@ namespace Outpost.Runtime.Terminal
 
         public void SetTerminalVisible(bool visible)
         {
-            if (!visible) HideTooltip();
+            if (!visible)
+            {
+                HideTooltip();
+                desktopSkin?.HideStartMenu();
+                ResetEndSolHoverState();
+            }
             if (terminalRoot != null)
                 terminalRoot.gameObject.SetActive(visible);
         }
@@ -383,30 +443,161 @@ namespace Outpost.Runtime.Terminal
                 _accessibility.BindTextScaler(_textScaler);
             if (_leaveTerminalBtn != null)
                 _leaveTerminalBtn.gameObject.SetActive(_showLeaveButton);
+            desktopSkin?.SetShowLeaveButton(_showLeaveButton);
+            _dailyDuties.ConfigureMode(_showLeaveButton || _roomController != null);
+            if (_built && _session?.CurrentSnapshot != null)
+                RefreshAll(_session.CurrentSnapshot);
+        }
+
+        public void BindRoomController(FirstPersonRoomController room)
+        {
+            if (_roomController != null)
+                _roomController.OnPropInteracted -= HandleRoomPropInteracted;
+
+            _roomController = room;
+            if (_roomController != null)
+                _roomController.OnPropInteracted += HandleRoomPropInteracted;
+
+            _dailyDuties.ConfigureMode(_showLeaveButton || _roomController != null);
+            if (_built && _session?.CurrentSnapshot != null)
+                RefreshAll(_session.CurrentSnapshot);
+            else if (_session?.CurrentSnapshot != null)
+                PushRoomDutyHud(_session.CurrentSnapshot);
+        }
+
+        private void HandleRoomPropInteracted(InteractablePropType propType)
+        {
+            var s = _session?.CurrentSnapshot;
+            if (s == null) return;
+            bool newlyCompleted = _dailyDuties.NotifyPropInteracted(s, propType);
+            if (!newlyCompleted) return;
+
+            PushRoomDutyHud(s);
+            _roomController?.ShowRoomToast(DesktopLocalization.Get("duty.room_done_toast"), 4.2f);
+            if (_built) RefreshAll(s);
+        }
+
+        private void PushRoomDutyHud(SessionSnapshot s)
+        {
+            if (_roomController == null || s == null) return;
+            _dailyDuties.Evaluate(s);
+            _roomController.SetDailyDutyHint(_dailyDuties.RoomHudPrompt, _dailyDuties.IsRoomDutyDone);
         }
 
         public void SetPsxSettings(PSXSettings psxSettings)
         {
             _psxSettings = psxSettings;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             SyncPsxDebugSliders();
+#endif
         }
 
         public void OpenApp(TerminalAppId appId)
         {
             if (!_built || _windowManager == null) return;
-            if (appId == TerminalAppId.PowerGrid)
-                MarkOnboardingStep1();
+            if (!_isDesktopMode && appId == DesktopLocalization.MissionControlAppId)
+            {
+                _windowManager.CloseAll();
+                RefreshTaskbarWindows();
+                return;
+            }
+            bool dutyUpdated = _dailyDuties.NotifyAppOpened(_session?.CurrentSnapshot, appId);
             _windowManager.OpenWindow(appId);
+            if (dutyUpdated && _session?.CurrentSnapshot != null)
+                RefreshAll(_session.CurrentSnapshot);
+        }
+
+        public void ToggleUiMode()
+        {
+            ApplyUiMode(!_isDesktopMode, savePref: true);
+        }
+
+        public void ApplyUiMode(bool desktopMode, bool savePref = false)
+        {
+            bool desktopReady = desktopSkin != null && desktopSkin.WindowLayer != null;
+            _isDesktopMode = desktopMode && desktopReady;
+
+            if (savePref)
+            {
+                PlayerPrefs.SetInt(DesktopSkinController.PrefUiMode, _isDesktopMode ? 1 : 0);
+                PlayerPrefs.Save();
+            }
+
+            _windowManager?.CloseAll();
+
+            if (_classicWallpaper != null) _classicWallpaper.SetActive(!_isDesktopMode);
+            if (_classicSidebar != null) _classicSidebar.gameObject.SetActive(!_isDesktopMode);
+            if (_classicContentArea != null) _classicContentArea.gameObject.SetActive(!_isDesktopMode);
+            if (_classicWindowLayer != null) _classicWindowLayer.gameObject.SetActive(!_isDesktopMode);
+            if (_classicFooterLine != null) _classicFooterLine.SetActive(!_isDesktopMode);
+            if (_classicTaskbar != null) _classicTaskbar.SetActive(!_isDesktopMode);
+
+            desktopSkin?.SetModeVisible(_isDesktopMode);
+            desktopSkin?.SetReadOnlyBannerOffset(IsReadOnlyMode);
+            desktopSkin?.SetShowLeaveButton(_showLeaveButton);
+
+            if (_windowManager != null)
+            {
+                RectTransform targetWorkspace = _isDesktopMode ? desktopSkin.WindowLayer : _classicWindowLayer;
+                Vector2 winSize = _isDesktopMode ? DesktopSkinController.DesktopWindowSize : new Vector2(900f, 640f);
+                _windowManager.SetWorkspace(targetWorkspace, winSize);
+            }
+
+            ResetEndSolHoverState();
+            HideTooltip();
+
+            if (_brandTitleText != null)
+                _brandTitleText.text = _isDesktopMode ? DesktopLocalization.Get("desktop.os_brand") : "OUTPOST TERMINAL";
+
+            if (_modeToggleLabel != null)
+                _modeToggleLabel.text = DesktopLocalization.Get(_isDesktopMode ? "desktop.mode_to_classic" : "desktop.mode_to_desktop");
+
+            if (_session?.CurrentSnapshot != null)
+                RefreshAll(_session.CurrentSnapshot);
+        }
+
+        private void ToggleHintsSetting()
+        {
+            _hintsEnabled = !_hintsEnabled;
+            PlayerPrefs.SetInt(PrefHintsEnabled, _hintsEnabled ? 1 : 0);
+            PlayerPrefs.Save();
+            if (_session?.CurrentSnapshot != null) RefreshAll(_session.CurrentSnapshot);
+        }
+
+        private void OpenHelpModal()
+        {
+            if (_helpModal == null) return;
+            _helpModal.SetActive(true);
+            _helpModal.transform.SetAsLastSibling();
+        }
+
+        private void OnDesktopBellClicked()
+        {
+            var s = _session?.CurrentSnapshot;
+            if (s != null && !IsReadOnlyMode && !_deferInitialEvent && s.ActiveEvent != null && !s.ActiveEvent.IsResolved)
+            {
+                ShowIncomingEvent(s);
+                return;
+            }
+            if (s != null && s.AlertSeverity >= 1)
+            {
+                OpenApp(DesktopLocalization.MissionControlAppId);
+                return;
+            }
+            ShowToastMessage(DesktopLocalization.Get("desktop.bell_nominal"), 3.0f);
         }
 
         public void SetAnnouncerSystem(AnnouncerSystem announcer)
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             _announcerSystem = announcer;
             RefreshAnnouncerDebugStatus();
+#endif
         }
 
         public void ToggleDebugPanel()
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             if (_debugPanel == null) return;
             _lastDebugToggleFrame = Time.frameCount;
             bool next = !_debugPanel.activeSelf;
@@ -418,6 +609,7 @@ namespace Outpost.Runtime.Terminal
                 SyncPsxDebugSliders();
                 RefreshAnnouncerDebugStatus();
             }
+#endif
         }
 
         public void ShowModalBlockWarning()
@@ -428,6 +620,8 @@ namespace Outpost.Runtime.Terminal
         private void OnDestroy()
         {
             UnsubscribeSession();
+            if (_roomController != null)
+                _roomController.OnPropInteracted -= HandleRoomPropInteracted;
             TerminalUiBuilder.OnShowTooltipRequested -= ShowTooltip;
             TerminalUiBuilder.OnHideTooltipRequested -= HideTooltip;
             Apps.PowerGridAppWindow.OnPlayerAdjustedPower -= HandlePowerSliderAdjusted;
@@ -455,7 +649,8 @@ namespace Outpost.Runtime.Terminal
         {
             if (_session == null || _session.CurrentSnapshot == null) return;
 
-            if (_session.CurrentSnapshot.Status == MissionStatus.InProgress && !_playingFadeToBlack)
+            bool blackCardPlaying = IsExternalBlackCardPlaying != null && IsExternalBlackCardPlaying();
+            if (_session.CurrentSnapshot.Status == MissionStatus.InProgress && !_playingFadeToBlack && !blackCardPlaying)
             {
                 _solMinutesElapsed += Time.deltaTime * 4f;
                 if (_solMinutesElapsed > 960f) _solMinutesElapsed = 960f;
@@ -466,10 +661,12 @@ namespace Outpost.Runtime.Terminal
                     _cachedSolNumber = _session.CurrentSnapshot.CurrentSol;
                     int hh = (totalMins / 60) % 24;
                     int mm = totalMins % 60;
+                    string clockStr = $"{hh:00}:{mm:00}";
                     if (_solBadgeText != null)
                         _solBadgeText.text = Localization.Format("mc.sol_progress", _cachedSolNumber, _session.CurrentSnapshot.TotalSols);
                     if (_solClockText != null)
-                        _solClockText.text = $"{hh:00}:{mm:00}";
+                        _solClockText.text = clockStr;
+                    desktopSkin?.UpdateClock(_cachedSolNumber, _session.CurrentSnapshot.TotalSols, clockStr);
                 }
             }
 
@@ -530,6 +727,7 @@ namespace Outpost.Runtime.Terminal
                     _toastBanner.SetActive(false);
             }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             if (Time.unscaledDeltaTime > 0.0001f)
                 _smoothedFps = Mathf.Lerp(_smoothedFps, 1f / Time.unscaledDeltaTime, 0.1f);
             if (_debugPanel != null && _debugPanel.activeSelf && _debugFpsText != null)
@@ -541,6 +739,7 @@ namespace Outpost.Runtime.Terminal
                     _debugFpsText.text = $"FPS: {_smoothedFps:0.0}";
                 }
             }
+#endif
 
             HandleKeyboardShortcuts();
         }
@@ -551,40 +750,138 @@ namespace Outpost.Runtime.Terminal
             var kb = Keyboard.current;
             if (kb == null) return;
 
+            bool enterPressed = kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame;
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             if (kb.backquoteKey.wasPressedThisFrame && _debugPanel != null && _lastDebugToggleFrame != Time.frameCount)
             {
                 ToggleDebugPanel();
             }
+#endif
 
             if (_helpModal != null && _helpModal.activeSelf)
             {
-                if (kb.escapeKey.wasPressedThisFrame)
+                if (kb.escapeKey.wasPressedThisFrame || enterPressed)
+                {
+                    OnUiSoundRequested?.Invoke();
                     _helpModal.SetActive(false);
+                }
                 return;
             }
 
-            if (_eventModal.activeSelf || _confirmEndSolModal.activeSelf || _transitionOverlay.activeSelf || _missionEndOverlay.activeSelf)
+            if (_confirmEndSolModal != null && _confirmEndSolModal.activeSelf)
+            {
+                if (enterPressed)
+                {
+                    OnUiSoundRequested?.Invoke();
+                    ConfirmEndSolExecution();
+                }
+                else if (kb.escapeKey.wasPressedThisFrame)
+                {
+                    OnUiSoundRequested?.Invoke();
+                    _confirmEndSolModal.SetActive(false);
+                }
+                return;
+            }
+
+            if (_eventModal != null && _eventModal.activeSelf)
+            {
+                if (enterPressed && _eventContinueBtn != null && _eventContinueBtn.gameObject.activeSelf)
+                {
+                    OnUiSoundRequested?.Invoke();
+                    _eventModal.SetActive(false);
+                }
+                return;
+            }
+
+            if (_transitionOverlay != null && _transitionOverlay.activeSelf)
+            {
+                if (enterPressed && _transitionCard != null && _transitionCard.gameObject.activeSelf)
+                    OnTransitionContinueClicked();
+                return;
+            }
+
+            if (_missionEndOverlay != null && _missionEndOverlay.activeSelf)
                 return;
 
-            if (kb.digit1Key.wasPressedThisFrame) OpenApp(TerminalAppId.PowerGrid);
-            else if (kb.digit2Key.wasPressedThisFrame) OpenApp(TerminalAppId.LifeSupport);
-            else if (kb.digit3Key.wasPressedThisFrame) OpenApp(TerminalAppId.Greenhouse);
-            else if (kb.digit4Key.wasPressedThisFrame) OpenApp(TerminalAppId.Radiation);
-            else if (kb.digit5Key.wasPressedThisFrame) OpenApp(TerminalAppId.Crew);
-            else if (kb.digit6Key.wasPressedThisFrame) OpenApp(TerminalAppId.Comms);
-            else if (kb.digit7Key.wasPressedThisFrame) OpenApp(TerminalAppId.CommandersLog);
-            else if (kb.digit8Key.wasPressedThisFrame) OpenApp(TerminalAppId.Sources);
-            else if (kb.eKey.wasPressedThisFrame && !IsReadOnlyMode) OnEndSolClicked();
+            if (_isDesktopMode)
+            {
+                if (kb.digit1Key.wasPressedThisFrame) OpenApp(DesktopLocalization.MissionControlAppId);
+                else if (kb.digit2Key.wasPressedThisFrame) OpenApp(TerminalAppId.PowerGrid);
+                else if (kb.digit3Key.wasPressedThisFrame) OpenApp(TerminalAppId.LifeSupport);
+                else if (kb.digit4Key.wasPressedThisFrame) OpenApp(TerminalAppId.Greenhouse);
+                else if (kb.digit5Key.wasPressedThisFrame) OpenApp(TerminalAppId.Radiation);
+                else if (kb.digit6Key.wasPressedThisFrame) OpenApp(TerminalAppId.Crew);
+                else if (kb.digit7Key.wasPressedThisFrame) OpenApp(TerminalAppId.Comms);
+                else if (kb.digit8Key.wasPressedThisFrame) OpenApp(TerminalAppId.CommandersLog);
+                else if (kb.digit9Key.wasPressedThisFrame) OpenApp(TerminalAppId.Sources);
+                else if (kb.eKey.wasPressedThisFrame && !IsReadOnlyMode) OnEndSolClicked();
+            }
+            else if (_isDesktopMode)
+            {
+                if (kb.digit1Key.wasPressedThisFrame) OpenApp(DesktopLocalization.MissionControlAppId);
+                else if (kb.digit2Key.wasPressedThisFrame) OpenApp(TerminalAppId.PowerGrid);
+                else if (kb.digit3Key.wasPressedThisFrame) OpenApp(TerminalAppId.LifeSupport);
+                else if (kb.digit4Key.wasPressedThisFrame) OpenApp(TerminalAppId.Greenhouse);
+                else if (kb.digit5Key.wasPressedThisFrame) OpenApp(TerminalAppId.Radiation);
+                else if (kb.digit6Key.wasPressedThisFrame) OpenApp(TerminalAppId.Crew);
+                else if (kb.digit7Key.wasPressedThisFrame) OpenApp(TerminalAppId.Comms);
+                else if (kb.digit8Key.wasPressedThisFrame) OpenApp(TerminalAppId.CommandersLog);
+                else if (kb.digit9Key.wasPressedThisFrame) OpenApp(TerminalAppId.Sources);
+                else if (kb.eKey.wasPressedThisFrame && !IsReadOnlyMode) OnEndSolClicked();
+            }
+            else
+            {
+                if (kb.digit1Key.wasPressedThisFrame) OpenApp(TerminalAppId.PowerGrid);
+                else if (kb.digit2Key.wasPressedThisFrame) OpenApp(TerminalAppId.LifeSupport);
+                else if (kb.digit3Key.wasPressedThisFrame) OpenApp(TerminalAppId.Greenhouse);
+                else if (kb.digit4Key.wasPressedThisFrame) OpenApp(TerminalAppId.Radiation);
+                else if (kb.digit5Key.wasPressedThisFrame) OpenApp(TerminalAppId.Crew);
+                else if (kb.digit6Key.wasPressedThisFrame) OpenApp(TerminalAppId.Comms);
+                else if (kb.digit7Key.wasPressedThisFrame) OpenApp(TerminalAppId.CommandersLog);
+                else if (kb.digit8Key.wasPressedThisFrame) OpenApp(TerminalAppId.Sources);
+                else if (kb.digit9Key.wasPressedThisFrame) OpenApp(DesktopLocalization.MissionControlAppId);
+                else if (kb.eKey.wasPressedThisFrame && !IsReadOnlyMode) OnEndSolClicked();
+            }
         }
 
         private void HandleSolStarted(SessionSnapshot s)
         {
+            _dailyDuties.ResetForSol(s.CurrentSol);
             ResetClockForSol(s.CurrentSol);
             if (s.LastSolSummary != null && s.CurrentSol > 1)
             {
-                BeginSolTransition(s);
+                if (_suppressTransitionForBlackCard)
+                    _pendingBlackCardSummary = s;
+                else
+                    BeginSolTransition(s);
             }
             RefreshAll(s);
+        }
+
+        public void ResetClockForSolImmediate(int sol) => ResetClockForSol(sol);
+
+        public void CloseAllModalsForBlackCard()
+        {
+            HideTooltip();
+            desktopSkin?.HideStartMenu();
+            ResetEndSolHoverState();
+            if (_confirmEndSolModal != null) _confirmEndSolModal.SetActive(false);
+            if (_eventModal != null) _eventModal.SetActive(false);
+            if (_helpModal != null) _helpModal.SetActive(false);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (_debugPanel != null) _debugPanel.SetActive(false);
+            if (_announcerDebugPanel != null) _announcerDebugPanel.SetActive(false);
+#endif
+        }
+
+        public void ShowSolSummaryImmediateAfterBlackCard(SessionSnapshot s)
+        {
+            if (s == null || s.LastSolSummary == null || s.Status != MissionStatus.InProgress) return;
+            BeginSolTransition(s);
+            _playingFadeToBlack = false;
+            if (_transitionGroup != null) _transitionGroup.alpha = 1f;
+            if (_transitionCard != null) _transitionCard.gameObject.SetActive(true);
         }
 
         private void HandleStateChanged(SessionSnapshot s)
@@ -598,6 +895,8 @@ namespace Outpost.Runtime.Terminal
         {
             RefreshAll(s);
             if (_deferInitialEvent || IsReadOnlyMode) return;
+            if (_isDesktopMode && s.ActiveEvent != null && !s.ActiveEvent.IsResolved)
+                desktopSkin?.TriggerBellToast(s.ActiveEvent.Title);
             if (!_playingFadeToBlack && !_transitionOverlay.activeSelf)
                 ShowIncomingEvent(s);
         }
@@ -623,30 +922,26 @@ namespace Outpost.Runtime.Terminal
                 _solBadgeText.text = Localization.Format("mc.sol_progress", sol, _session.CurrentSnapshot.TotalSols);
             if (_solClockText != null)
                 _solClockText.text = "06:00";
-        }
-
-        private void MarkOnboardingStep1()
-        {
-            if (_onboardingDone) return;
-            _onboardStep1Done = true;
-            RefreshOnboardingUi();
+            if (_session?.CurrentSnapshot != null)
+                desktopSkin?.UpdateClock(sol, _session.CurrentSnapshot.TotalSols, "06:00");
         }
 
         private void HandlePowerSliderAdjusted()
         {
-            if (_onboardingDone) return;
-            _onboardStep2Done = true;
-            RefreshOnboardingUi();
+            _dailyDuties.NotifyPowerAdjusted();
+            if (_session?.CurrentSnapshot != null)
+                RefreshAll(_session.CurrentSnapshot);
+            else
+                RefreshOnboardingUi();
         }
 
         private void MarkOnboardingStep3Complete()
         {
-            if (_onboardingDone) return;
-            _onboardStep3Done = true;
-            _onboardingDone = true;
-            PlayerPrefs.SetInt(PrefOnboardingDone, 1);
-            PlayerPrefs.Save();
-            RefreshOnboardingUi();
+            if (PlayerPrefs.GetInt(PrefOnboardingDone, 0) == 0)
+            {
+                PlayerPrefs.SetInt(PrefOnboardingDone, 1);
+                PlayerPrefs.Save();
+            }
         }
 
         private void RefreshAll(SessionSnapshot s)
@@ -659,7 +954,8 @@ namespace Outpost.Runtime.Terminal
             if (_apHeaderText != null)
             {
                 string apColor = s.ActionPoints > 0 ? "#F7C948" : "#7FA1B8";
-                _apHeaderText.text = $"Action Points: <color={apColor}><b>{s.ActionPoints} / {s.MaxActionPoints}</b></color>";
+                string rawAp = Localization.GetRaw("ui.ap_count").Replace("{0} / {1}", $"<color={apColor}><b>{s.ActionPoints} / {s.MaxActionPoints}</b></color>");
+                _apHeaderText.text = Localization.ShapeDisplay(rawAp);
             }
 
             // 2. Right Column Top: 5 Outpost Resources Rows
@@ -763,7 +1059,8 @@ namespace Outpost.Runtime.Terminal
                 TerminalUiBuilder.SetBorderColor(_nextStepBtn.GetComponent<RectTransform>(), Color.Lerp(_nextStepBtnBg.color, Color.white, 0.28f));
             }
 
-            // 5. Center Bottom: First Shift Checklist (Sol 1) / HELIOS Brief (Sol 2+)
+            // 5. Center Bottom: Daily Shift Duties / HELIOS Brief
+            _dailyDuties.Evaluate(s);
             RefreshOnboardingUi(s.CurrentSol, eval.HeliosHintText);
 
             if (_hintsToggleLabel != null)
@@ -776,18 +1073,34 @@ namespace Outpost.Runtime.Terminal
             }
 
             // 7. Footer Hint / Forecast & End Sol Button
-            _forecastStripText.text = $"<color=#7FDFFF><b>Hint:</b></color> {s.ForecastSummaryLine}";
+            string hintTag = Localization.Get("term.hint_prefix");
+            _forecastStripText.text = Localization.CurrentLanguage == Language.Arabic
+                ? $"{s.ForecastSummaryLine} <color=#7FDFFF><b>{hintTag}</b></color>"
+                : $"<color=#7FDFFF><b>{hintTag}</b></color> {s.ForecastSummaryLine}";
             if (!IsReadOnlyMode)
             {
                 bool eventBlocksEndSol = !_deferInitialEvent && hasPendingEvent;
+                bool dutiesIncomplete = !_dailyDuties.AllComplete;
                 _endSolBtn.gameObject.SetActive(true);
-                _endSolBtn.interactable = s.Status == MissionStatus.InProgress && !eventBlocksEndSol;
-                _endSolLabel.text = eventBlocksEndSol ? "RESOLVE EVENT" : "END SOL";
+                _endSolBtn.interactable = s.Status == MissionStatus.InProgress;
+                _endSolLabel.text = eventBlocksEndSol
+                    ? DesktopLocalization.Get("desktop.resolve_event_short")
+                    : (dutiesIncomplete ? DesktopLocalization.Format("desktop.tasks_short", _dailyDuties.CompletedCount) : Localization.Get("ui.end_sol"));
+
+                Color cBg = eventBlocksEndSol ? theme.StatusWarn
+                    : (dutiesIncomplete ? theme.TextAmber : new Color(0.12f, 0.86f, 0.76f, 1f));
+                Color cBorder = (eventBlocksEndSol || dutiesIncomplete)
+                    ? Color.Lerp(cBg, Color.white, 0.25f)
+                    : new Color(0.45f, 1f, 0.94f, 1f);
+                if (_endSolBgImg != null) _endSolBgImg.color = cBg;
+                if (_endSolRect != null) TerminalUiBuilder.SetBorderColor(_endSolRect, cBorder);
             }
             else
             {
                 _endSolBtn.gameObject.SetActive(false);
             }
+
+            PushRoomDutyHud(s);
 
             // 8. Left Sidebar Unread Badges & Active Selection
             _iconBadges[(int)TerminalAppId.Comms].text = s.UnreadCommsCount > 0 ? $"[{s.UnreadCommsCount}]" : "";
@@ -795,6 +1108,7 @@ namespace Outpost.Runtime.Terminal
 
             _pulsingApp = s.GuidedHighlightApp;
             _windowManager.RefreshOpenWindows(s);
+            desktopSkin?.Refresh(s, eval, IsReadOnlyMode, _deferInitialEvent, _dailyDuties, _hintsEnabled);
             RefreshTaskbarWindows();
         }
 
@@ -885,32 +1199,42 @@ namespace Outpost.Runtime.Terminal
         private void RefreshOnboardingUi(int currentSol = 1, string heliosTip = null)
         {
             if (_onboardingCard == null || _nextStepCard == null) return;
-            bool showChecklist = !_onboardingDone && currentSol == 1;
+            var s = _session?.CurrentSnapshot;
+            if (s == null) return;
+
+            var items = _dailyDuties.Evaluate(s);
+            bool allDone = _dailyDuties.AllComplete;
+            bool showChecklist = !allDone || !_hintsEnabled;
             if (_checklistGroup != null) _checklistGroup.SetActive(showChecklist);
             if (_heliosBubble != null) _heliosBubble.SetActive(!showChecklist && _hintsEnabled);
 
             if (showChecklist)
             {
+                Color accent = allDone ? theme.StatusOk : theme.TextAmber;
                 if (_bottomCardIcon != null)
                 {
-                    _bottomCardIcon.sprite = TerminalUiArt.GetIcon(TerminalIconId.Log);
-                    _bottomCardIcon.color = new Color(0.498f, 0.875f, 1f, 1f);
+                    _bottomCardIcon.sprite = TerminalUiArt.GetIcon(allDone ? TerminalIconId.Check : TerminalIconId.Log);
+                    _bottomCardIcon.color = accent;
                 }
                 if (_bottomCardTitle != null)
                 {
-                    _bottomCardTitle.text = Localization.Get("onboard.title").ToUpperInvariant();
-                    _bottomCardTitle.color = new Color(0.498f, 0.875f, 1f, 1f);
+                    _bottomCardTitle.text = allDone
+                        ? DesktopLocalization.Format("duty.title_ready", s.CurrentSol)
+                        : DesktopLocalization.Format("duty.title_sol", s.CurrentSol, _dailyDuties.CompletedCount, items.Length);
+                    _bottomCardTitle.color = accent;
                 }
-                bool[] states = { _onboardStep1Done, _onboardStep2Done, _onboardStep3Done };
-                for (int i = 0; i < 3; i++)
+                for (int i = 0; i < 3 && i < items.Length; i++)
                 {
                     if (_onboardChecks[i] != null)
                     {
-                        _onboardChecks[i].sprite = TerminalUiArt.GetIcon(states[i] ? TerminalIconId.Check : TerminalIconId.CheckBox);
-                        _onboardChecks[i].color = states[i] ? theme.StatusOk : new Color(0.35f, 0.68f, 0.78f, 1f);
+                        _onboardChecks[i].sprite = TerminalUiArt.GetIcon(items[i].IsDone ? TerminalIconId.Check : TerminalIconId.CheckBox);
+                        _onboardChecks[i].color = items[i].IsDone ? theme.StatusOk : theme.TextAmber;
                     }
                     if (_onboardLabels[i] != null)
-                        _onboardLabels[i].color = states[i] ? theme.StatusOk : theme.TextPrimary;
+                    {
+                        _onboardLabels[i].text = items[i].Label;
+                        _onboardLabels[i].color = items[i].IsDone ? theme.StatusOk : theme.TextPrimary;
+                    }
                 }
             }
             else
@@ -918,17 +1242,17 @@ namespace Outpost.Runtime.Terminal
                 if (_bottomCardIcon != null)
                 {
                     _bottomCardIcon.sprite = TerminalUiArt.GetIcon(TerminalIconId.Help);
-                    _bottomCardIcon.color = theme.AccentHelp;
+                    _bottomCardIcon.color = theme.StatusOk;
                 }
                 if (_bottomCardTitle != null)
                 {
-                    _bottomCardTitle.text = _hintsEnabled ? "HELIOS OPERATIONS BRIEF" : "SYSTEMS SUMMARY";
-                    _bottomCardTitle.color = theme.AccentHelp;
+                    _bottomCardTitle.text = Localization.ShapeDisplay($"{string.Format(DesktopLocalization.GetRaw("duty.title_ready"), s.CurrentSol)} — {Localization.GetRaw("helios.name")}");
+                    _bottomCardTitle.color = theme.StatusOk;
                 }
                 if (_heliosText != null)
                     _heliosText.text = !string.IsNullOrEmpty(heliosTip)
                         ? heliosTip
-                        : (_session?.CurrentSnapshot != null ? HintEngine.Evaluate(_session.CurrentSnapshot).HeliosHintText : "");
+                        : HintEngine.Evaluate(s).HeliosHintText;
             }
         }
 
@@ -966,6 +1290,8 @@ namespace Outpost.Runtime.Terminal
                 if (_iconLabels[i] != null)
                     _iconLabels[i].color = isFocus ? Color.white : new Color(0.84f, 0.92f, 0.97f, 1f);
             }
+
+            desktopSkin?.RefreshTaskbarWindows();
         }
 
         private bool ContainsOpenOrder(TerminalAppId appId)
@@ -979,6 +1305,9 @@ namespace Outpost.Runtime.Terminal
         private void ShowIncomingEvent(SessionSnapshot s)
         {
             if (s.ActiveEvent == null || IsReadOnlyMode) return;
+            HideTooltip();
+            desktopSkin?.HideStartMenu();
+            ResetEndSolHoverState();
             _eventModal.SetActive(true);
             var ev = s.ActiveEvent;
 
@@ -1014,7 +1343,7 @@ namespace Outpost.Runtime.Terminal
                 _eventResultBox.SetActive(true);
                 _eventContinueBtn.gameObject.SetActive(true);
                 _eventResultText.text = ev.OutcomeText;
-                _eventFactText.text = $"{Localization.Get("event.fact_heading")} [{ev.SourceId}]: {ev.FactText}";
+                _eventFactText.text = $"{Localization.Get("event.fact_heading")}:\n{ev.FactText}";
             }
         }
 
@@ -1066,6 +1395,9 @@ namespace Outpost.Runtime.Terminal
 
         private void BeginSolTransition(SessionSnapshot s)
         {
+            HideTooltip();
+            desktopSkin?.HideStartMenu();
+            ResetEndSolHoverState();
             _playingFadeToBlack = true;
             _fadeTimer = 0f;
             _transitionOverlay.SetActive(true);
@@ -1090,27 +1422,122 @@ namespace Outpost.Runtime.Terminal
                 ShowIncomingEvent(s);
         }
 
+        private void ResetEndSolHoverState()
+        {
+            _endSolHover?.ResetScaleImmediate();
+            desktopSkin?.ResetEndSolHover();
+        }
+
+        private void HandleDutyRowClicked(int slot)
+        {
+            var s = _session?.CurrentSnapshot;
+            if (s == null) return;
+            var items = _dailyDuties.Evaluate(s);
+            if (slot < 0 || slot >= items.Length) return;
+            var item = items[slot];
+
+            if (item.OpensEvent)
+            {
+                if (IsReadOnlyMode)
+                {
+                    ShowToastMessage(Localization.Get("tablet.readonly_banner"), 2.8f);
+                    return;
+                }
+                _deferInitialEvent = false;
+                if (s.ActiveEvent != null && !s.ActiveEvent.IsResolved)
+                    ShowIncomingEvent(s);
+                else
+                    RefreshAll(s);
+                return;
+            }
+
+            if (item.IsRoomDuty)
+            {
+                ShowToastMessage(DesktopLocalization.Format("duty.leave_room_toast", item.Label), 5.0f);
+                return;
+            }
+
+            if (item.TargetApp.HasValue)
+                OpenApp(item.TargetApp.Value);
+        }
+
         private void OnEndSolClicked()
         {
-            if (IsReadOnlyMode || _session?.CurrentSnapshot == null) return;
+            if (IsReadOnlyMode || _session?.CurrentSnapshot == null || _playingFadeToBlack || IsModalBlockingLeanBack) return;
             OnUiSoundRequested?.Invoke();
+            HideTooltip();
+            desktopSkin?.HideStartMenu();
+            ResetEndSolHoverState();
+
             var s = _session.CurrentSnapshot;
             if (s.Status != MissionStatus.InProgress) return;
-            if (!_deferInitialEvent && s.ActiveEvent != null && !s.ActiveEvent.IsResolved)
+
+            // Never skip Sol 1's opening event if the player clicks End Sol before standing up once
+            _deferInitialEvent = false;
+            if (s.ActiveEvent != null && !s.ActiveEvent.IsResolved)
             {
                 ShowIncomingEvent(s);
+                return;
+            }
+
+            _dailyDuties.Evaluate(s);
+            if (!_dailyDuties.AllComplete && _dailyDuties.TryGetFirstPendingDuty(s, out var nextDuty))
+            {
+                ShowToastMessage(DesktopLocalization.Format("duty.blocked_toast", _dailyDuties.CompletedCount, nextDuty.Label), 5.0f);
+                if (!nextDuty.IsRoomDuty && nextDuty.TargetApp.HasValue)
+                    OpenApp(nextDuty.TargetApp.Value);
+                RefreshAll(s);
                 return;
             }
 
             if (s.NeedsEndSolConfirm)
             {
                 _confirmEndSolModal.SetActive(true);
+                _confirmEndSolModal.transform.SetAsLastSibling();
                 _confirmBodyText.text = Localization.Format("modal.confirm_endsol.body", s.EndSolDangerSummary);
                 return;
             }
 
+            ConfirmEndSolExecution();
+        }
+
+        private void ConfirmEndSolExecution()
+        {
+            if (IsReadOnlyMode || _session?.CurrentSnapshot == null || _playingFadeToBlack) return;
+            _confirmEndSolModal.SetActive(false);
+            HideTooltip();
+            desktopSkin?.HideStartMenu();
+            ResetEndSolHoverState();
+
+            var s = _session.CurrentSnapshot;
+            if (s.Status != MissionStatus.InProgress) return;
+            if (s.ActiveEvent != null && !s.ActiveEvent.IsResolved)
+            {
+                ShowIncomingEvent(s);
+                return;
+            }
+
+            _dailyDuties.Evaluate(s);
+            if (!_dailyDuties.AllComplete)
+            {
+                RefreshAll(s);
+                return;
+            }
+
             MarkOnboardingStep3Complete();
+            bool useBlackCard = !IsReadOnlyMode && OnEndSolBlackCardRequested != null;
+            _suppressTransitionForBlackCard = useBlackCard;
+            _pendingBlackCardSummary = null;
             _session.EndSol();
+            _suppressTransitionForBlackCard = false;
+
+            var postSnap = _pendingBlackCardSummary ?? _session.CurrentSnapshot;
+            _pendingBlackCardSummary = null;
+            if (useBlackCard && postSnap != null && postSnap.Status == MissionStatus.InProgress)
+            {
+                CloseAllModalsForBlackCard();
+                OnEndSolBlackCardRequested.Invoke(postSnap);
+            }
         }
 
         private void ShowMissionEnded(SessionSnapshot s)
@@ -1132,7 +1559,7 @@ namespace Outpost.Runtime.Terminal
             for (int i = 0; i < s.DebriefCards.Count; i++)
             {
                 var d = s.DebriefCards[i];
-                _sb.AppendLine($"Sol {d.Sol}: {Localization.Get(d.TitleKey)} -> {Localization.Get(d.FactKey)} [{d.SourceId}]");
+                _sb.AppendLine(Localization.ShapeDisplay($"Sol {d.Sol}: {Localization.GetRaw(d.TitleKey)} -> {Localization.GetRaw(d.FactKey)}"));
             }
             _missionEndBody.text = _sb.ToString();
         }
@@ -1172,6 +1599,7 @@ namespace Outpost.Runtime.Terminal
             _windowManager = terminalRoot.GetComponent<WindowManager>() ?? terminalRoot.gameObject.AddComponent<WindowManager>();
             _windowManager.OnWindowLayoutChanged += RefreshTaskbarWindows;
             _windowManager.OnWindowClosed += HandleWindowClosed;
+            _windowManager.OnWindowSoundRequested += () => OnUiSoundRequested?.Invoke();
 
             TerminalUiBuilder.OnShowTooltipRequested += ShowTooltip;
             TerminalUiBuilder.OnHideTooltipRequested += HideTooltip;
@@ -1210,7 +1638,7 @@ namespace Outpost.Runtime.Terminal
 
             var bezelStamp = TerminalUiBuilder.CreateCompactDebugText("BezelStamp", bezelInner, theme, 14f, new Color(0.45f, 0.54f, 0.62f, 0.9f), TextAlignmentOptions.Center, _textScaler);
             bezelStamp.fontStyle = FontStyles.Bold;
-            bezelStamp.text = "///   MARS OUTPOST - OPS TERM v2.1   ///";
+            bezelStamp.text = Localization.Get("term.bezel");
             bezelStamp.raycastTarget = false;
             bezelStamp.rectTransform.anchorMin = new Vector2(0.25f, 0f);
             bezelStamp.rectTransform.anchorMax = new Vector2(0.75f, 0f);
@@ -1231,55 +1659,50 @@ namespace Outpost.Runtime.Terminal
             wpImg.sprite = TerminalUiArt.GetMarsWallpaperSprite(theme);
             wpImg.color = new Color(0.30f, 0.52f, 0.65f, 0.10f);
             wpImg.raycastTarget = false;
+            _classicWallpaper = wpRect.gameObject;
 
-            // 1. Top Header Bar (Emblem + OUTPOST TERMINAL + Sol / Clock / Action Points Pill)
+            // 1. Top Header Bar (OUTPOST TERMINAL + Mode Toggle + Sol / Clock / Action Points Pill — no agency logo)
             var topHeader = TerminalUiBuilder.CreateRect("TopHeaderBar", screen);
             topHeader.anchorMin = new Vector2(0f, 1f);
             topHeader.anchorMax = new Vector2(1f, 1f);
             topHeader.offsetMin = new Vector2(18f, -84f);
             topHeader.offsetMax = new Vector2(-18f, -8f);
 
-            var emblemRect = TerminalUiBuilder.CreateRect("AgencyBadge", topHeader);
-            emblemRect.anchorMin = new Vector2(0f, 0.5f);
-            emblemRect.anchorMax = new Vector2(0f, 0.5f);
-            emblemRect.offsetMin = new Vector2(4f, -26f);
-            emblemRect.offsetMax = new Vector2(56f, 26f);
-            var emblemImg = emblemRect.gameObject.AddComponent<Image>();
-            emblemImg.sprite = TerminalUiArt.GetNasaBadgeSprite();
-            emblemImg.preserveAspect = true;
-            emblemImg.raycastTarget = false;
-
-            var emblemDiv = TerminalUiBuilder.CreateRect("EmblemDivider", topHeader);
-            emblemDiv.anchorMin = new Vector2(0f, 0.16f);
-            emblemDiv.anchorMax = new Vector2(0f, 0.84f);
-            emblemDiv.offsetMin = new Vector2(72f, 0f);
-            emblemDiv.offsetMax = new Vector2(74f, 0f);
-            emblemDiv.gameObject.AddComponent<Image>().color = new Color(0.18f, 0.30f, 0.40f, 1f);
-
-            var termTitle = TerminalUiBuilder.CreateText("TerminalBrandTitle", topHeader, theme, 34f, new Color(0.95f, 0.98f, 1f, 1f), TextAlignmentOptions.MidlineLeft, _textScaler);
-            termTitle.fontStyle = FontStyles.Bold;
-            termTitle.textWrappingMode = TextWrappingModes.NoWrap;
-            termTitle.text = "OUTPOST TERMINAL";
-            termTitle.rectTransform.anchorMin = new Vector2(0f, 0f);
-            termTitle.rectTransform.anchorMax = new Vector2(0f, 1f);
-            termTitle.rectTransform.offsetMin = new Vector2(90f, 0f);
-            termTitle.rectTransform.offsetMax = new Vector2(510f, 0f);
+            _brandTitleText = TerminalUiBuilder.CreateText("TerminalBrandTitle", topHeader, theme, 34f, new Color(0.95f, 0.98f, 1f, 1f), TextAlignmentOptions.MidlineLeft, _textScaler);
+            _brandTitleText.fontStyle = FontStyles.Bold;
+            _brandTitleText.textWrappingMode = TextWrappingModes.NoWrap;
+            _brandTitleText.text = Localization.Get("term.brand_title");
+            _brandTitleText.rectTransform.anchorMin = new Vector2(0f, 0f);
+            _brandTitleText.rectTransform.anchorMax = new Vector2(0f, 1f);
+            _brandTitleText.rectTransform.offsetMin = new Vector2(8f, 0f);
+            _brandTitleText.rectTransform.offsetMax = new Vector2(430f, 0f);
 
             var termSub = TerminalUiBuilder.CreateCompactDebugText("TerminalBrandSub", topHeader, theme, 15f, new Color(0.56f, 0.72f, 0.83f, 1f), TextAlignmentOptions.MidlineLeft, _textScaler);
             termSub.fontStyle = FontStyles.Bold;
-            termSub.text = "MARS OUTPOST\nSURVIVAL MANAGEMENT";
+            termSub.textWrappingMode = TextWrappingModes.NoWrap;
+            termSub.text = Localization.Get("term.brand_sub");
             termSub.rectTransform.anchorMin = new Vector2(0f, 0f);
             termSub.rectTransform.anchorMax = new Vector2(0f, 1f);
-            termSub.rectTransform.offsetMin = new Vector2(520f, 2f);
-            termSub.rectTransform.offsetMax = new Vector2(735f, -2f);
+            termSub.rectTransform.offsetMin = new Vector2(436f, 2f);
+            termSub.rectTransform.offsetMax = new Vector2(610f, -2f);
 
-            var slashTicks = TerminalUiBuilder.CreateCompactDebugText("SlashTicks", topHeader, theme, 24f, new Color(0.19f, 0.31f, 0.40f, 0.9f), TextAlignmentOptions.Center, _textScaler);
-            slashTicks.fontStyle = FontStyles.Bold;
-            slashTicks.text = "/////";
-            slashTicks.rectTransform.anchorMin = new Vector2(0f, 0f);
-            slashTicks.rectTransform.anchorMax = new Vector2(0f, 1f);
-            slashTicks.rectTransform.offsetMin = new Vector2(738f, 0f);
-            slashTicks.rectTransform.offsetMax = new Vector2(810f, 0f);
+            // Title bar Classic / Desktop skin toggle
+            _modeToggleBtn = TerminalUiBuilder.CreateButton("ModeToggleBtn", topHeader, DesktopLocalization.Get("desktop.mode_to_classic"), theme, new Color(0.065f, 0.145f, 0.215f, 1f), UITheme.PaletteTeal, UITheme.PaletteTeal, 24f, () =>
+            {
+                OnUiSoundRequested?.Invoke();
+                ToggleUiMode();
+            }, _textScaler);
+            _modeToggleLabel = _modeToggleBtn.GetComponentInChildren<TextMeshProUGUI>();
+            if (_modeToggleLabel != null)
+            {
+                _modeToggleLabel.textWrappingMode = TextWrappingModes.NoWrap;
+                _modeToggleLabel.overflowMode = TextOverflowModes.Ellipsis;
+            }
+            var toggleRect = _modeToggleBtn.GetComponent<RectTransform>();
+            toggleRect.anchorMin = new Vector2(0f, 0.12f);
+            toggleRect.anchorMax = new Vector2(0f, 0.88f);
+            toggleRect.offsetMin = new Vector2(672f, 0f);
+            toggleRect.offsetMax = new Vector2(882f, 0f);
 
             // Top Right Status Pill: [Cal] Sol X of 7 | [Clock] 06:00 | Action Points: 3 / 3
             var statusPill = TerminalUiBuilder.CreateFlatPanel("TopStatusPill", topHeader, new Color(0.048f, 0.098f, 0.145f, 0.96f), new Color(0.18f, 0.31f, 0.42f, 1f), 2f);
@@ -1324,17 +1747,19 @@ namespace Outpost.Runtime.Terminal
             hdrLine.offsetMax = new Vector2(-18f, -88f);
             hdrLine.gameObject.AddComponent<Image>().color = new Color(0.11f, 0.22f, 0.31f, 1f);
 
-            // Read-Only Banner (shown only on Corridor/Airlock Wall Tablets)
-            var roPanel = TerminalUiBuilder.CreateFlatPanel("ReadOnlyBanner", screen, new Color(0.10f, 0.22f, 0.33f, 0.98f), theme.AccentSources, 2f, true);
-            roPanel.anchorMin = new Vector2(0.24f, 1f);
-            roPanel.anchorMax = new Vector2(0.76f, 1f);
-            roPanel.offsetMin = new Vector2(0f, -128f);
-            roPanel.offsetMax = new Vector2(0f, -92f);
+            // Read-Only Banner (dedicated full-width slim row below top header so it never overlaps OVERVIEW or apps)
+            var roPanel = TerminalUiBuilder.CreateFlatPanel("ReadOnlyBanner", screen, new Color(0.14f, 0.20f, 0.10f, 0.98f), theme.TextAmber, 2f, true);
+            roPanel.anchorMin = new Vector2(0f, 1f);
+            roPanel.anchorMax = new Vector2(1f, 1f);
+            roPanel.offsetMin = new Vector2(18f, -138f);
+            roPanel.offsetMax = new Vector2(-18f, -92f);
             _readOnlyBanner = roPanel.gameObject;
             _readOnlyBannerText = TerminalUiBuilder.CreateText("ReadOnlyText", TerminalUiBuilder.GetInner(roPanel), theme, 24f, theme.TextAmber, TextAlignmentOptions.Center, _textScaler);
             _readOnlyBannerText.fontStyle = FontStyles.Bold;
+            _readOnlyBannerText.textWrappingMode = TextWrappingModes.NoWrap;
+            _readOnlyBannerText.overflowMode = TextOverflowModes.Ellipsis;
             _readOnlyBannerText.text = Localization.Get("mc.readonly_banner");
-            TerminalUiBuilder.SetStretch(_readOnlyBannerText.rectTransform, 4f);
+            TerminalUiBuilder.SetStretch(_readOnlyBannerText.rectTransform, 1f);
             _readOnlyBanner.SetActive(false);
 
             // 2. Left Navigation Sidebar (Overview + 8 Apps)
@@ -1343,6 +1768,7 @@ namespace Outpost.Runtime.Terminal
             leftSidebar.anchorMax = new Vector2(0.205f, 1f);
             leftSidebar.offsetMin = new Vector2(18f, 88f);
             leftSidebar.offsetMax = new Vector2(-6f, -98f);
+            _classicSidebar = leftSidebar;
             BuildDesktopAppDock(leftSidebar);
 
             // 3. Main Content Container (Center Overview + Right Status Cards)
@@ -1351,6 +1777,7 @@ namespace Outpost.Runtime.Terminal
             contentArea.anchorMax = new Vector2(1f, 1f);
             contentArea.offsetMin = new Vector2(10f, 88f);
             contentArea.offsetMax = new Vector2(-18f, -98f);
+            _classicContentArea = contentArea;
 
             // 3A. Center Column: OVERVIEW (Mission Goal + Outpost Alert + First Shift Checklist / HELIOS)
             var centerCol = TerminalUiBuilder.CreateRect("CenterHomeCol", contentArea);
@@ -1374,6 +1801,7 @@ namespace Outpost.Runtime.Terminal
             windowLayer.anchorMax = new Vector2(1f, 1f);
             windowLayer.offsetMin = new Vector2(10f, 88f);
             windowLayer.offsetMax = new Vector2(-18f, -98f);
+            _classicWindowLayer = windowLayer;
             CreateAllAppWindows(windowLayer);
 
             // 5. Bottom Footer Strip Divider + Controls (Hint, Hints/Help, Leave Terminal, END SOL)
@@ -1383,13 +1811,33 @@ namespace Outpost.Runtime.Terminal
             footerLine.offsetMin = new Vector2(18f, 80f);
             footerLine.offsetMax = new Vector2(-18f, 82f);
             footerLine.gameObject.AddComponent<Image>().color = new Color(0.11f, 0.22f, 0.31f, 1f);
+            _classicFooterLine = footerLine.gameObject;
 
             var taskbar = TerminalUiBuilder.CreateRect("Taskbar", screen);
             taskbar.anchorMin = new Vector2(0f, 0f);
             taskbar.anchorMax = new Vector2(1f, 0f);
             taskbar.offsetMin = new Vector2(18f, 8f);
             taskbar.offsetMax = new Vector2(-18f, 76f);
+            _classicTaskbar = taskbar.gameObject;
             BuildTaskbar(taskbar);
+
+            // 5B. OUTPOST OS Desktop Skin Overlay + Mission Control window wiring
+            if (desktopSkin == null)
+                desktopSkin = terminalRoot.GetComponent<DesktopSkinController>() ?? terminalRoot.gameObject.AddComponent<DesktopSkinController>();
+            desktopSkin.Build(
+                screen,
+                theme,
+                _textScaler,
+                _windowManager,
+                OpenApp,
+                OnEndSolClicked,
+                ToggleHintsSetting,
+                OpenHelpModal,
+                () => OnLeaveTerminalRequested?.Invoke(),
+                OnDesktopBellClicked,
+                ToggleUiMode,
+                () => OnUiSoundRequested?.Invoke(),
+                HandleDutyRowClicked);
 
             // 6. Modals, Help, Tooltip, Debug & Toast
             BuildEventModal();
@@ -1398,8 +1846,13 @@ namespace Outpost.Runtime.Terminal
             BuildHelpModal();
             BuildMissionEndOverlay();
             BuildTooltipPopup();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             BuildDebugPanel();
+#endif
             BuildToastBanner();
+
+            bool startDesktop = PlayerPrefs.GetInt(DesktopSkinController.PrefUiMode, 1) == 1;
+            ApplyUiMode(startDesktop, savePref: false);
         }
 
         private void BuildSupplyTilesColumn(RectTransform parent)
@@ -1413,7 +1866,7 @@ namespace Outpost.Runtime.Terminal
 
             var hdr = TerminalUiBuilder.CreateText("SuppliesHdr", pInner, theme, 24f, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
             hdr.fontStyle = FontStyles.Bold;
-            hdr.text = "OUTPOST RESOURCES";
+            hdr.text = Localization.Get("term.resources_hdr");
             TerminalUiBuilder.SetAnchors(hdr.rectTransform, 0.095f, 0.84f, 0.97f, 0.985f);
 
             var hdrDiv = TerminalUiBuilder.CreateRect("ResourcesHdrDiv", pInner);
@@ -1422,11 +1875,11 @@ namespace Outpost.Runtime.Terminal
 
             (string label, TerminalIconId icon, Color accent, TerminalAppId targetApp, string glossTerm, string glossDef)[] defs =
             {
-                ("Battery", TerminalIconId.Bolt, new Color(0.32f, 0.90f, 0.84f, 1f), TerminalAppId.PowerGrid, "gloss.power.term", "gloss.power.def"),
-                ("Oxygen",  TerminalIconId.Oxygen, new Color(0.45f, 0.88f, 0.96f, 1f), TerminalAppId.LifeSupport, "gloss.o2.term", "gloss.o2.def"),
-                ("Water",   TerminalIconId.Water, new Color(0.42f, 0.86f, 1.00f, 1f), TerminalAppId.LifeSupport, "gloss.water.term", "gloss.water.def"),
-                ("Food",    TerminalIconId.Food, new Color(0.32f, 0.89f, 0.82f, 1f), TerminalAppId.Greenhouse, "gloss.food.term", "gloss.food.def"),
-                ("Shield",  TerminalIconId.Shield, new Color(0.45f, 0.88f, 0.94f, 1f), TerminalAppId.Radiation, "gloss.shield.term", "gloss.shield.def")
+                (Localization.Get("mc.status.power"),  TerminalIconId.Bolt,   new Color(0.32f, 0.90f, 0.84f, 1f), TerminalAppId.PowerGrid,   "gloss.power.term", "gloss.power.def"),
+                (Localization.Get("mc.status.oxygen"), TerminalIconId.Oxygen, new Color(0.45f, 0.88f, 0.96f, 1f), TerminalAppId.LifeSupport, "gloss.o2.term",    "gloss.o2.def"),
+                (Localization.Get("mc.status.water"),  TerminalIconId.Water,  new Color(0.42f, 0.86f, 1.00f, 1f), TerminalAppId.LifeSupport, "gloss.water.term", "gloss.water.def"),
+                (Localization.Get("mc.status.food"),   TerminalIconId.Food,   new Color(0.32f, 0.89f, 0.82f, 1f), TerminalAppId.Greenhouse,  "gloss.food.term",  "gloss.food.def"),
+                (Localization.Get("mc.status.shield"), TerminalIconId.Shield, new Color(0.45f, 0.88f, 0.94f, 1f), TerminalAppId.Radiation,   "gloss.shield.term","gloss.shield.def")
             };
 
             for (int i = 0; i < 5; i++)
@@ -1537,7 +1990,7 @@ namespace Outpost.Runtime.Terminal
 
             var hdr = TerminalUiBuilder.CreateText("CrewHdr", pInner, theme, 24f, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
             hdr.fontStyle = FontStyles.Bold;
-            hdr.text = "CREW STATUS";
+            hdr.text = Localization.Get("term.crew_hdr");
             TerminalUiBuilder.SetAnchors(hdr.rectTransform, 0.095f, 0.835f, 0.97f, 0.985f);
 
             var hdrDiv = TerminalUiBuilder.CreateRect("CrewHdrDiv", pInner);
@@ -1614,7 +2067,7 @@ namespace Outpost.Runtime.Terminal
             // Eyebrow Header: OVERVIEW + divider line
             var eyebrow = TerminalUiBuilder.CreateCompactDebugText("OverviewEyebrow", parent, theme, 20f, new Color(0.75f, 0.88f, 0.95f, 1f), TextAlignmentOptions.MidlineLeft, _textScaler);
             eyebrow.fontStyle = FontStyles.Bold;
-            eyebrow.text = "OVERVIEW";
+            eyebrow.text = Localization.Get("term.overview");
             TerminalUiBuilder.SetAnchors(eyebrow.rectTransform, 0.005f, 0.95f, 1f, 1f);
 
             var eyeDiv = TerminalUiBuilder.CreateRect("OverviewDiv", parent);
@@ -1631,7 +2084,7 @@ namespace Outpost.Runtime.Terminal
 
             var goalHdr = TerminalUiBuilder.CreateText("GoalHdr", gInner, theme, 24f, theme.StatusOk, TextAlignmentOptions.MidlineLeft, _textScaler);
             goalHdr.fontStyle = FontStyles.Bold;
-            goalHdr.text = "MISSION GOAL";
+            goalHdr.text = Localization.Get("term.goal_hdr");
             TerminalUiBuilder.SetAnchors(goalHdr.rectTransform, 0.11f, 0.66f, 0.96f, 0.92f);
 
             _goalTitleText = TerminalUiBuilder.CreateText("GoalTitle", gInner, theme, 34f, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
@@ -1668,13 +2121,13 @@ namespace Outpost.Runtime.Terminal
 
             _alertCardTitle = TerminalUiBuilder.CreateText("NextStepHdr", nsInner, theme, 26f, theme.StatusWarn, TextAlignmentOptions.MidlineLeft, _textScaler);
             _alertCardTitle.fontStyle = FontStyles.Bold;
-            _alertCardTitle.text = "OUTPOST ALERT";
+            _alertCardTitle.text = Localization.Get("term.alert_hdr");
             TerminalUiBuilder.SetAnchors(_alertCardTitle.rectTransform, 0.165f, 0.58f, 0.68f, 0.88f);
 
             _nextStepBodyText = TerminalUiBuilder.CreateText("NextStepBody", nsInner, theme, 24f, new Color(0.95f, 0.92f, 0.86f, 1f), TextAlignmentOptions.TopLeft, _textScaler);
             TerminalUiBuilder.SetAnchors(_nextStepBodyText.rectTransform, 0.165f, 0.10f, 0.68f, 0.58f);
 
-            _nextStepBtn = TerminalUiBuilder.CreateButton("NextStepBtn", nsInner, "VIEW ALERT", theme, theme.StatusWarn, new Color(1f, 0.88f, 0.52f, 1f), new Color(0.04f, 0.08f, 0.12f, 1f), 24f, OnNextStepActionClicked, _textScaler);
+            _nextStepBtn = TerminalUiBuilder.CreateButton("NextStepBtn", nsInner, DesktopLocalization.Get("desktop.view_alert"), theme, theme.StatusWarn, new Color(1f, 0.88f, 0.52f, 1f), new Color(0.04f, 0.08f, 0.12f, 1f), 24f, OnNextStepActionClicked, _textScaler);
             _nextStepBtnLabel = _nextStepBtn.GetComponentInChildren<TextMeshProUGUI>();
             if (_nextStepBtnLabel != null)
                 _nextStepBtnBg = _nextStepBtnLabel.transform.parent.GetComponent<Image>();
@@ -1690,25 +2143,52 @@ namespace Outpost.Runtime.Terminal
 
             _bottomCardTitle = TerminalUiBuilder.CreateText("ObHdr", obInner, theme, 24f, new Color(0.498f, 0.875f, 1f, 1f), TextAlignmentOptions.MidlineLeft, _textScaler);
             _bottomCardTitle.fontStyle = FontStyles.Bold;
-            _bottomCardTitle.text = "FIRST SHIFT CHECKLIST";
+            _bottomCardTitle.text = Localization.Get("onboard.title");
             TerminalUiBuilder.SetAnchors(_bottomCardTitle.rectTransform, 0.11f, 0.70f, 0.96f, 0.94f);
 
             var checklistGroup = TerminalUiBuilder.CreateRect("ChecklistGroup", obInner);
             TerminalUiBuilder.SetAnchors(checklistGroup, 0.035f, 0.06f, 0.96f, 0.68f);
             _checklistGroup = checklistGroup.gameObject;
 
+            var rounded = TerminalUiArt.GetRoundedRect8px();
             string[] obKeys = { "onboard.step1", "onboard.step2", "onboard.step3" };
             for (int i = 0; i < 3; i++)
             {
+                int slot = i;
                 float rowTop = 1f - i * 0.33f;
-                float rowBot = rowTop - 0.30f;
-                var chk = TerminalUiBuilder.CreateIcon($"Check_{i}", checklistGroup, TerminalIconId.CheckBox, new Color(0.35f, 0.68f, 0.78f, 1f));
-                TerminalUiBuilder.SetAnchors(chk.rectTransform, 0.01f, rowBot + 0.03f, 0.09f, rowTop - 0.03f);
+                float rowBot = rowTop - 0.31f;
+
+                var rowRect = TerminalUiBuilder.CreateRect($"DutyClassicRow_{i}", checklistGroup);
+                TerminalUiBuilder.SetAnchors(rowRect, 0f, rowBot, 1f, rowTop);
+                var rowImg = rowRect.gameObject.AddComponent<Image>();
+                rowImg.sprite = rounded;
+                rowImg.type = Image.Type.Sliced;
+                rowImg.color = Color.white;
+                var rowBtn = rowRect.gameObject.AddComponent<Button>();
+                rowBtn.targetGraphic = rowImg;
+                var rCols = rowBtn.colors;
+                rCols.normalColor = new Color(0.06f, 0.12f, 0.18f, 0.45f);
+                rCols.highlightedColor = new Color(0.14f, 0.30f, 0.38f, 0.85f);
+                rCols.pressedColor = new Color(0.10f, 0.22f, 0.30f, 0.92f);
+                rCols.selectedColor = rCols.normalColor;
+                rowBtn.colors = rCols;
+                rowBtn.onClick.AddListener(() =>
+                {
+                    OnUiSoundRequested?.Invoke();
+                    HandleDutyRowClicked(slot);
+                });
+
+                var chk = TerminalUiBuilder.CreateIcon($"Check_{i}", rowRect, TerminalIconId.CheckBox, new Color(0.35f, 0.68f, 0.78f, 1f));
+                chk.raycastTarget = false;
+                TerminalUiBuilder.SetAnchors(chk.rectTransform, 0.01f, 0.10f, 0.09f, 0.90f);
                 _onboardChecks[i] = chk;
 
-                var lbl = TerminalUiBuilder.CreateText($"StepLbl_{i}", checklistGroup, theme, 24f, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
+                var lbl = TerminalUiBuilder.CreateText($"StepLbl_{i}", rowRect, theme, 24f, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
+                lbl.textWrappingMode = TextWrappingModes.NoWrap;
+                lbl.overflowMode = TextOverflowModes.Truncate;
+                lbl.raycastTarget = false;
                 lbl.text = Localization.Get(obKeys[i]);
-                TerminalUiBuilder.SetAnchors(lbl.rectTransform, 0.11f, rowBot, 0.99f, rowTop);
+                TerminalUiBuilder.SetAnchors(lbl.rectTransform, 0.11f, 0f, 0.99f, 1f);
                 _onboardLabels[i] = lbl;
             }
 
@@ -1751,20 +2231,20 @@ namespace Outpost.Runtime.Terminal
             _overviewNavLabel = TerminalUiBuilder.CreateText("Name", ovInner, theme, 24f, Color.white, TextAlignmentOptions.MidlineLeft, _textScaler);
             _overviewNavLabel.fontStyle = FontStyles.Bold;
             _overviewNavLabel.textWrappingMode = TextWrappingModes.NoWrap;
-            _overviewNavLabel.text = "Overview";
+            _overviewNavLabel.text = Localization.Get("term.overview");
             TerminalUiBuilder.SetAnchors(_overviewNavLabel.rectTransform, 0.205f, 0f, 0.95f, 1f);
 
             // Slots 1..8: Apps
             (TerminalAppId appId, string navLabel, TerminalIconId icon, string tipTitle, string tipBody)[] appDefs =
             {
-                (TerminalAppId.PowerGrid,     "Power",          TerminalIconId.Bolt,    "app.power",       "gloss.power.def"),
-                (TerminalAppId.LifeSupport,   "Air & Water",    TerminalIconId.Water,   "app.lifesupport", "gloss.o2.def"),
-                (TerminalAppId.Greenhouse,    "Food",           TerminalIconId.Food,    "app.greenhouse",  "gloss.food.def"),
-                (TerminalAppId.Radiation,     "Shield",         TerminalIconId.Shield,  "app.radiation",   "gloss.rad.def"),
-                (TerminalAppId.Crew,          "Crew",           TerminalIconId.Crew,    "app.crew",        "gloss.ap.def"),
-                (TerminalAppId.Comms,         "Communications", TerminalIconId.Signal,  "app.comms",       "gloss.dsn.def"),
-                (TerminalAppId.CommandersLog, "Log",            TerminalIconId.Log,     "app.log",         "log.friendly_intro"),
-                (TerminalAppId.Sources,       "Sources",        TerminalIconId.Sources, "app.sources",     "sources.friendly_intro")
+                (TerminalAppId.PowerGrid,     DesktopLocalization.GetAppTitle(TerminalAppId.PowerGrid),     TerminalIconId.Bolt,    "app.power",       "gloss.power.def"),
+                (TerminalAppId.LifeSupport,   DesktopLocalization.GetAppTitle(TerminalAppId.LifeSupport),   TerminalIconId.Water,   "app.lifesupport", "gloss.o2.def"),
+                (TerminalAppId.Greenhouse,    DesktopLocalization.GetAppTitle(TerminalAppId.Greenhouse),    TerminalIconId.Food,    "app.greenhouse",  "gloss.food.def"),
+                (TerminalAppId.Radiation,     DesktopLocalization.GetAppTitle(TerminalAppId.Radiation),     TerminalIconId.Shield,  "app.radiation",   "gloss.rad.def"),
+                (TerminalAppId.Crew,          DesktopLocalization.GetAppTitle(TerminalAppId.Crew),          TerminalIconId.Crew,    "app.crew",        "gloss.ap.def"),
+                (TerminalAppId.Comms,         DesktopLocalization.GetAppTitle(TerminalAppId.Comms),         TerminalIconId.Signal,  "app.comms",       "gloss.dsn.def"),
+                (TerminalAppId.CommandersLog, DesktopLocalization.GetAppTitle(TerminalAppId.CommandersLog), TerminalIconId.Log,     "app.log",         "log.friendly_intro"),
+                (TerminalAppId.Sources,       DesktopLocalization.GetAppTitle(TerminalAppId.Sources),       TerminalIconId.Sources, "app.sources",     "sources.friendly_intro")
             };
 
             for (int i = 0; i < appDefs.Length; i++)
@@ -1844,6 +2324,9 @@ namespace Outpost.Runtime.Terminal
 
         private void CreateAllAppWindows(RectTransform parent)
         {
+            _missionControlWindow = RegisterApp<Apps.MissionControlAppWindow>(parent, DesktopLocalization.MissionControlAppId, "app.mission_control");
+            _missionControlWindow.SetNavigationCallbacks(OpenApp, OnDesktopBellClicked);
+
             RegisterApp<Apps.PowerGridAppWindow>(parent, TerminalAppId.PowerGrid, "app.power");
             RegisterApp<Apps.LifeSupportAppWindow>(parent, TerminalAppId.LifeSupport, "app.lifesupport");
             RegisterApp<Apps.GreenhouseAppWindow>(parent, TerminalAppId.Greenhouse, "app.greenhouse");
@@ -1897,7 +2380,7 @@ namespace Outpost.Runtime.Terminal
             TerminalUiBuilder.AttachTooltip(helpBtn, "ui.help", "help.howto_header");
 
             // Leave Terminal [ESC] sleek dark slate button
-            _leaveTerminalBtn = TerminalUiBuilder.CreateButton("LeaveTerminalBtn", parent, "LEAVE TERMINAL [ESC]", theme, new Color(0.06f, 0.115f, 0.165f, 1f), new Color(0.20f, 0.34f, 0.44f, 1f), new Color(0.90f, 0.95f, 0.99f, 1f), 24f, () =>
+            _leaveTerminalBtn = TerminalUiBuilder.CreateButton("LeaveTerminalBtn", parent, Localization.Get("ui.leave_terminal"), theme, new Color(0.06f, 0.115f, 0.165f, 1f), new Color(0.20f, 0.34f, 0.44f, 1f), new Color(0.90f, 0.95f, 0.99f, 1f), 24f, () =>
             {
                 OnUiSoundRequested?.Invoke();
                 OnLeaveTerminalRequested?.Invoke();
@@ -1908,17 +2391,21 @@ namespace Outpost.Runtime.Terminal
             _leaveTerminalBtn.gameObject.SetActive(_showLeaveButton);
 
             // Prominent Cyan-Teal END SOL CTA Button
-            _endSolBtn = TerminalUiBuilder.CreateButton("EndSolBtn", parent, "END SOL", theme, new Color(0.12f, 0.86f, 0.76f, 1f), new Color(0.45f, 1f, 0.94f, 1f), new Color(0.03f, 0.08f, 0.12f, 1f), 28f, OnEndSolClicked, _textScaler, true);
-            TerminalUiBuilder.SetAnchors(_endSolBtn.GetComponent<RectTransform>(), 0.842f, 0.06f, 1f, 0.94f);
+            _endSolBtn = TerminalUiBuilder.CreateButton("EndSolBtn", parent, Localization.Get("ui.end_sol"), theme, new Color(0.12f, 0.86f, 0.76f, 1f), new Color(0.45f, 1f, 0.94f, 1f), new Color(0.03f, 0.08f, 0.12f, 1f), 28f, OnEndSolClicked, _textScaler, true);
+            _endSolRect = _endSolBtn.GetComponent<RectTransform>();
+            _endSolHover = _endSolBtn.GetComponent<ButtonHoverFeedback>();
+            TerminalUiBuilder.SetAnchors(_endSolRect, 0.842f, 0.06f, 1f, 0.94f);
             _endSolLabel = _endSolBtn.GetComponentInChildren<TextMeshProUGUI>();
             var endInner = _endSolLabel != null ? _endSolLabel.transform.parent as RectTransform : null;
             if (endInner != null)
             {
+                _endSolBgImg = endInner.GetComponent<Image>();
                 var nextIcon = TerminalUiBuilder.CreateIcon("NextHexIcon", endInner, TerminalIconId.PlayArrow, new Color(0.03f, 0.08f, 0.12f, 1f));
                 TerminalUiBuilder.SetAnchors(nextIcon.rectTransform, 0.11f, 0.24f, 0.25f, 0.76f);
                 if (_endSolLabel != null)
                 {
                     _endSolLabel.textWrappingMode = TextWrappingModes.NoWrap;
+                    _endSolLabel.overflowMode = TextOverflowModes.Truncate;
                     TerminalUiBuilder.SetAnchors(_endSolLabel.rectTransform, 0.25f, 0f, 0.95f, 1f);
                 }
             }
@@ -2039,9 +2526,7 @@ namespace Outpost.Runtime.Terminal
             var confirmBtn = TerminalUiBuilder.CreateButton("ConfirmBtn", inner, Localization.Get("modal.confirm"), theme, theme.ButtonDangerBg, theme.StatusCrit, Color.white, theme.BodyFontSize, () =>
             {
                 OnUiSoundRequested?.Invoke();
-                _confirmEndSolModal.SetActive(false);
-                MarkOnboardingStep3Complete();
-                _session.EndSol();
+                ConfirmEndSolExecution();
             }, _textScaler);
             TerminalUiBuilder.SetAnchors(confirmBtn.GetComponent<RectTransform>(), 0.53f, 0.08f, 0.94f, 0.26f);
 
@@ -2138,8 +2623,7 @@ namespace Outpost.Runtime.Terminal
                 for (int i = 0; i < glossaryDatabase.Entries.Count; i++)
                 {
                     var e = glossaryDatabase.Entries[i];
-                    string src = string.IsNullOrEmpty(e.SourceId) ? "" : $" [{e.SourceId}]";
-                    _sb.AppendLine($"<b><color=#FFD43B>{Localization.Get(e.TermKey)}</color></b>{src}");
+                    _sb.AppendLine($"<b><color=#FFD43B>{Localization.Get(e.TermKey)}</color></b>");
                     _sb.AppendLine($"  {Localization.Get(e.DefinitionKey)}");
                     _sb.AppendLine();
                 }
@@ -2201,6 +2685,7 @@ namespace Outpost.Runtime.Terminal
             _tooltipPanel.SetActive(false);
         }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
         private void BuildDebugPanel()
         {
             Transform debugParent = terminalRoot.parent != null ? terminalRoot.parent : terminalRoot;
@@ -2229,8 +2714,30 @@ namespace Outpost.Runtime.Terminal
             AddDebugPair(inner, r++, "FORCE FLARE", () => _session.DebugTriggerEvent("evt_solar_flare"), "TRIG METEOR", () => _session.DebugTriggerEvent("evt_micrometeorite"));
             AddDebugPair(inner, r++, "TP COMMAND", () => OnDebugTeleportSpawnRequested?.Invoke(), "TP CORRIDOR", () => OnDebugTeleportCorridorRequested?.Invoke());
             AddDebugPair(inner, r++, "TP AIRLOCK", () => OnDebugTeleportAirlockRequested?.Invoke(), "TP SURFACE", () => OnDebugTeleportSurfaceRequested?.Invoke());
+            AddDebugPair(inner, r++, "TP SUIT RACK", () => OnDebugTeleportSuitRackRequested?.Invoke(), "TOGGLE SUIT", () =>
+            {
+                var suit = SuitController.Instance;
+                if (suit != null) suit.DebugForceSetSuit(!suit.IsWearingSuit);
+            });
+            _debugBlackCardSol = 1;
+            _debugBlackCardSolLabel = AddDebugPairWithLeftLabel(
+                inner,
+                r++,
+                "CARD SOL: 1",
+                () =>
+                {
+                    _debugBlackCardSol = (_debugBlackCardSol % 6) + 1;
+                    if (_debugBlackCardSolLabel != null)
+                        _debugBlackCardSolLabel.text = $"CARD SOL: {_debugBlackCardSol}";
+                },
+                "FORCE BLACK CARD",
+                () =>
+                {
+                    CloseAllModalsForBlackCard();
+                    OnDebugTriggerEndSolBlackCardRequested?.Invoke(_debugBlackCardSol);
+                });
             AddDebugPair(inner, r++, "FOCUS IN", () => OnDebugTeleportLeanRequested?.Invoke(true), "FOCUS OUT", () => OnDebugTeleportLeanRequested?.Invoke(false));
-            AddDebugPair(inner, r++, "SKIP INTRO", () => OnDebugSkipIntroRequested?.Invoke(), "RESET INTRO", () => { PlayerPrefs.DeleteKey(PrefOnboardingDone); _onboardingDone = false; _onboardStep1Done = _onboardStep2Done = _onboardStep3Done = false; OnDebugResetIntroSeenRequested?.Invoke(); RefreshOnboardingUi(_session?.CurrentSnapshot?.CurrentSol ?? 1); });
+            AddDebugPair(inner, r++, "SKIP INTRO", () => OnDebugSkipIntroRequested?.Invoke(), "RESET INTRO", () => { PlayerPrefs.DeleteKey(PrefOnboardingDone); OnDebugResetIntroSeenRequested?.Invoke(); RefreshOnboardingUi(_session?.CurrentSnapshot?.CurrentSol ?? 1); });
             AddDebugPair(inner, r++, "JUMP DEBRIEF", () => OnDebugJumpToDebriefRequested?.Invoke(), "REPLAY INTRO", () => OnDebugReplayIntroRequested?.Invoke());
             AddDebugPair(inner, r++, "FORCE WIN", () => _session.DebugForceOutcome(true), "FORCE LOSE", () => _session.DebugForceOutcome(false));
             AddDebugPair(inner, r++, "PSX ON/OFF", () =>
@@ -2381,6 +2888,7 @@ namespace Outpost.Runtime.Terminal
             _dbgResVal.text = $"{_psxSettings.renderHeight}p";
             _syncingDebugSliders = false;
         }
+#endif
 
         private void BuildToastBanner()
         {
@@ -2394,19 +2902,25 @@ namespace Outpost.Runtime.Terminal
             _toastBanner.SetActive(false);
         }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
         private void AddDebugPair(RectTransform parent, int row, string leftLabel, Action onLeft, string rightLabel, Action onRight)
         {
-            const float top = 0.935f;
-            const float step = 0.050f;
+            AddDebugPairWithLeftLabel(parent, row, leftLabel, onLeft, rightLabel, onRight);
+        }
+
+        private TextMeshProUGUI AddDebugPairWithLeftLabel(RectTransform parent, int row, string leftLabel, Action onLeft, string rightLabel, Action onRight)
+        {
+            const float top = 0.940f;
+            const float step = 0.0445f;
             float yMax = top - row * step;
-            float yMin = yMax - 0.044f;
+            float yMin = yMax - 0.039f;
 
             var lPanel = TerminalUiBuilder.CreateFlatPanel("Dbg_" + leftLabel, parent, theme.ButtonBg, theme.BorderUnfocused, 1f);
             TerminalUiBuilder.SetAnchors(lPanel, 0.03f, yMin, 0.49f, yMax);
             var lBtn = lPanel.gameObject.AddComponent<Button>();
             lBtn.targetGraphic = TerminalUiBuilder.GetInner(lPanel).GetComponent<Image>();
             lBtn.onClick.AddListener(() => onLeft?.Invoke());
-            var lTxt = TerminalUiBuilder.CreateCompactDebugText("Lbl", TerminalUiBuilder.GetInner(lPanel), theme, 16f, theme.TextPrimary, TextAlignmentOptions.Center, _textScaler);
+            var lTxt = TerminalUiBuilder.CreateCompactDebugText("Lbl", TerminalUiBuilder.GetInner(lPanel), theme, 15f, theme.TextPrimary, TextAlignmentOptions.Center, _textScaler);
             lTxt.text = leftLabel;
             TerminalUiBuilder.SetStretch(lTxt.rectTransform, 2f);
 
@@ -2415,19 +2929,20 @@ namespace Outpost.Runtime.Terminal
             var rBtn = rPanel.gameObject.AddComponent<Button>();
             rBtn.targetGraphic = TerminalUiBuilder.GetInner(rPanel).GetComponent<Image>();
             rBtn.onClick.AddListener(() => onRight?.Invoke());
-            var rTxt = TerminalUiBuilder.CreateCompactDebugText("Lbl", TerminalUiBuilder.GetInner(rPanel), theme, 16f, theme.TextPrimary, TextAlignmentOptions.Center, _textScaler);
+            var rTxt = TerminalUiBuilder.CreateCompactDebugText("Lbl", TerminalUiBuilder.GetInner(rPanel), theme, 15f, theme.TextPrimary, TextAlignmentOptions.Center, _textScaler);
             rTxt.text = rightLabel;
             TerminalUiBuilder.SetStretch(rTxt.rectTransform, 2f);
+            return lTxt;
         }
 
         private void AddDebugSliderRow(RectTransform parent, int row, string label, float min, float max, bool wholeNumbers, out Slider slider, out TextMeshProUGUI valueText, Action<float> onChanged)
         {
-            const float top = 0.935f;
-            const float step = 0.050f;
+            const float top = 0.940f;
+            const float step = 0.0445f;
             float yMax = top - row * step;
-            float yMin = yMax - 0.044f;
+            float yMin = yMax - 0.039f;
 
-            var lbl = TerminalUiBuilder.CreateCompactDebugText("DbgLbl_" + label, parent, theme, 16f, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
+            var lbl = TerminalUiBuilder.CreateCompactDebugText("DbgLbl_" + label, parent, theme, 15f, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
             lbl.text = label;
             TerminalUiBuilder.SetAnchors(lbl.rectTransform, 0.03f, yMin, 0.30f, yMax);
 
@@ -2438,6 +2953,11 @@ namespace Outpost.Runtime.Terminal
             var fillArea = TerminalUiBuilder.CreateRect("Fill Area", sInner);
             TerminalUiBuilder.SetStretch(fillArea, 1f);
             var fillRect = TerminalUiBuilder.CreateRect("Fill", fillArea);
+            fillRect.anchorMin = Vector2.zero;
+            fillRect.anchorMax = new Vector2(0f, 1f);
+            fillRect.sizeDelta = Vector2.zero;
+            fillRect.offsetMin = Vector2.zero;
+            fillRect.offsetMax = Vector2.zero;
             fillRect.gameObject.AddComponent<Image>().color = theme.StatusOk;
 
             var handleArea = TerminalUiBuilder.CreateRect("Handle Slide Area", sInner);
@@ -2458,6 +2978,7 @@ namespace Outpost.Runtime.Terminal
             valueText = TerminalUiBuilder.CreateCompactDebugText("DbgVal_" + label, parent, theme, 16f, theme.TextAmber, TextAlignmentOptions.MidlineRight, _textScaler);
             TerminalUiBuilder.SetAnchors(valueText.rectTransform, 0.81f, yMin, 0.97f, yMax);
         }
+#endif
 
         private static string GetAppShortName(TerminalAppId id)
         {

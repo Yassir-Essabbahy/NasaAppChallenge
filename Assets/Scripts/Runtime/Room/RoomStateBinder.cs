@@ -274,12 +274,12 @@ namespace Outpost.Runtime.Room
             {
                 float v = values[i];
                 Color c = v >= okMin ? ColorOk : (v >= lowMin ? ColorLow : ColorCrit);
-                string tag = Localization.Get(v >= okMin ? "status.ok" : (v >= lowMin ? "status.low" : "status.crit"));
+                string tagKey = v >= okMin ? "status.ok" : (v >= lowMin ? "status.low" : "status.crit");
                 if (corridorStatusRenderers != null && i < corridorStatusRenderers.Length && corridorStatusRenderers[i] != null)
                     ApplyEmissive(corridorStatusRenderers[i], c, 1.8f);
                 if (corridorStatusLabels != null && i < corridorStatusLabels.Length && corridorStatusLabels[i] != null)
                 {
-                    corridorStatusLabels[i].text = $"{Localization.Get(shortKeys[i])}\n{Mathf.RoundToInt(v)}% {tag}";
+                    corridorStatusLabels[i].text = Localization.ShapeDisplay($"{Localization.GetRaw(shortKeys[i])}\n{Mathf.RoundToInt(v)}% {Localization.GetRaw(tagKey)}");
                     corridorStatusLabels[i].color = c;
                 }
             }
@@ -444,21 +444,21 @@ namespace Outpost.Runtime.Room
             {
                 float v = values[i];
                 Color c;
-                string tag;
+                string tagKey;
                 if (v >= okMin)
                 {
                     c = ColorOk;
-                    tag = Localization.Get("status.ok");
+                    tagKey = "status.ok";
                 }
                 else if (v >= lowMin)
                 {
                     c = ColorLow;
-                    tag = Localization.Get("status.low");
+                    tagKey = "status.low";
                 }
                 else
                 {
                     c = ColorCrit;
-                    tag = Localization.Get("status.crit");
+                    tagKey = "status.crit";
                     crit = true;
                 }
 
@@ -468,8 +468,8 @@ namespace Outpost.Runtime.Room
                 if (statusLightLabels != null && i < statusLightLabels.Length && statusLightLabels[i] != null)
                 {
                     _sb.Clear();
-                    _sb.Append(Localization.Get(shortKeys[i])).Append('\n').Append(Mathf.RoundToInt(v)).Append("% ").Append(tag);
-                    statusLightLabels[i].text = _sb.ToString();
+                    _sb.Append(Localization.GetRaw(shortKeys[i])).Append('\n').Append(Mathf.RoundToInt(v)).Append("% ").Append(Localization.GetRaw(tagKey));
+                    statusLightLabels[i].text = Localization.ShapeDisplay(_sb.ToString());
                     statusLightLabels[i].color = c;
                 }
             }

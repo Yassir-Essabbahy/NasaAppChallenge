@@ -38,6 +38,7 @@ namespace Outpost.Runtime.Terminal
         [SerializeField] private AnnouncerSystem announcerSystem;
         [SerializeField] private AnnouncerSubtitleHud announcerSubtitleHud;
         [SerializeField] private AirlockController airlockController;
+        [SerializeField] private SuitController suitController;
 
         public GameSession Session { get; private set; }
 
@@ -86,7 +87,11 @@ namespace Outpost.Runtime.Terminal
                 roomStateBinder.Initialize(Session, accessibilitySettings, audioManager);
 
             if (firstPersonController != null)
+            {
                 firstPersonController.Initialize(Session, startInRoomView && !deferEventForFlow);
+                if (terminalController != null)
+                    terminalController.BindRoomController(firstPersonController);
+            }
 
             if (psxRenderController != null && psxSettings != null)
                 psxSettings.NotifyChanged();
@@ -134,6 +139,30 @@ namespace Outpost.Runtime.Terminal
 
             if (airlockController == null)
                 airlockController = FindAnyObjectByType<AirlockController>();
+            if (suitController == null)
+                suitController = GetComponent<SuitController>() ?? FindAnyObjectByType<SuitController>();
+
+            if (suitController != null)
+            {
+                suitController.ConfigureReferences(
+                    playerGate,
+                    firstPersonController,
+                    airlockController,
+                    audioManager,
+                    announcerSystem,
+                    accessibilitySettings,
+                    missionFlowController,
+                    terminalController,
+                    propSuit: null,
+                    theme,
+                    visor: null);
+            }
+
+            if (airlockController != null)
+            {
+                airlockController.IsWearingSuitCheck = () => suitController != null && suitController.IsWearingSuit;
+                airlockController.SetAnnouncer(announcerSystem);
+            }
 
             announcerSystem.Initialize(
                 announcerDatabase,

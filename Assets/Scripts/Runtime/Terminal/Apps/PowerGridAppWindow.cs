@@ -60,7 +60,7 @@ namespace Outpost.Runtime.Terminal.Apps
             TerminalUiBuilder.SetAnchors(allocIcon.rectTransform, 0f, 0.65f, 0.048f, 0.705f);
             var allocHdr = TerminalUiBuilder.CreateText("AllocHeader", content, Theme, Theme.BodyFontSize, Theme.TextPrimary, TextAlignmentOptions.MidlineLeft, Scaler);
             allocHdr.fontStyle = FontStyles.Bold;
-            allocHdr.text = "POWER ALLOCATION";
+            allocHdr.text = Localization.Get("pwr.alloc_header");
             TerminalUiBuilder.SetAnchors(allocHdr.rectTransform, 0.056f, 0.65f, 1f, 0.705f);
 
             // 4 allocation sliders with live plain-English consequences underneath
@@ -178,7 +178,7 @@ namespace Outpost.Runtime.Terminal.Apps
             else
             {
                 _projectedText.color = s.NetPowerDelta < 0f ? Theme.StatusWarn : Theme.StatusOk;
-                _projectedText.text = $"{Localization.Get("mc.forecast_prefix")}{Localization.Get("mc.status.power")} {s.ProjectedBatteryAfter:0}% ({s.NetPowerDelta:+0;-0;0}{Localization.Get("mc.per_sol")})";
+                _projectedText.text = Localization.ShapeDisplay($"{Localization.GetRaw("mc.forecast_prefix")}{Localization.GetRaw("mc.status.power")} {s.ProjectedBatteryAfter:0}% ({s.NetPowerDelta:+0;-0;0}{Localization.GetRaw("mc.per_sol")})");
             }
 
             _updating = true;
@@ -213,7 +213,7 @@ namespace Outpost.Runtime.Terminal.Apps
                 ? Localization.Format("pwr.conseq.cm_on", s.CommsAllocPct)
                 : Localization.Get("pwr.conseq.cm_off");
 
-            _detailsText.text = $"{Localization.Get("ui.solar_gen")}: {s.SolarGeneration:0.0}W ({s.GenerationReason}) | {Localization.Get("ui.demand")}: {s.TotalDemand:0.0}W";
+            _detailsText.text = Localization.ShapeDisplay($"{Localization.GetRaw("ui.solar_gen")}: {s.SolarGeneration:0.0}W ({s.GenerationReason}) | {Localization.GetRaw("ui.demand")}: {s.TotalDemand:0.0}W");
 
             _cleanPanelsBtn.interactable = editable && s.ActionPoints > 0;
             _cleanBtnLabel.text = s.ActionPoints > 0
