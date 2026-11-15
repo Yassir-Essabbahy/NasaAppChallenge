@@ -22,14 +22,10 @@ namespace Outpost.Editor
         [MenuItem("Outpost/Link Atmosphere Audio")]
         public static void LinkAtmosphereAudio()
         {
-            ConfigureAudioImporter(SpaceShipPath, AudioClipLoadType.Streaming, 0.45f, preloadDefault: false,
-                AudioClipLoadType.CompressedInMemory, 0.40f);
-            ConfigureAudioImporter(MarsSoundPath, AudioClipLoadType.CompressedInMemory, 0.50f, preloadDefault: true,
-                AudioClipLoadType.CompressedInMemory, 0.45f);
-            ConfigureAudioImporter(DoorOpenPath, AudioClipLoadType.DecompressOnLoad, 0.70f, preloadDefault: true,
-                AudioClipLoadType.DecompressOnLoad, 0.70f);
-            ConfigureAudioImporter(CloseDoorPath, AudioClipLoadType.DecompressOnLoad, 0.70f, preloadDefault: true,
-                AudioClipLoadType.DecompressOnLoad, 0.70f);
+            ConfigureAudioImporter(SpaceShipPath, AudioClipLoadType.Streaming, 0.45f, preloadDefault: false);
+            ConfigureAudioImporter(MarsSoundPath, AudioClipLoadType.CompressedInMemory, 0.50f, preloadDefault: true);
+            ConfigureAudioImporter(DoorOpenPath, AudioClipLoadType.DecompressOnLoad, 0.70f, preloadDefault: true);
+            ConfigureAudioImporter(CloseDoorPath, AudioClipLoadType.DecompressOnLoad, 0.70f, preloadDefault: true);
 
             AudioClip spaceClip = AssetDatabase.LoadAssetAtPath<AudioClip>(SpaceShipPath);
             AudioClip marsClip = AssetDatabase.LoadAssetAtPath<AudioClip>(MarsSoundPath);
@@ -104,9 +100,7 @@ namespace Outpost.Editor
             string assetPath,
             AudioClipLoadType defaultLoadType,
             float defaultQuality,
-            bool preloadDefault,
-            AudioClipLoadType webglLoadType,
-            float webglQuality)
+            bool preloadDefault)
         {
             AudioImporter importer = AssetImporter.GetAtPath(assetPath) as AudioImporter;
             if (importer == null)
@@ -121,9 +115,15 @@ namespace Outpost.Editor
                 importer.forceToMono = false;
                 dirty = true;
             }
-            if (!importer.loadInBackground)
+            if (importer.loadInBackground)
             {
-                importer.loadInBackground = true;
+                importer.loadInBackground = false;
+                dirty = true;
+            }
+
+            if (importer.ContainsSampleSettingsOverride("WebGL"))
+            {
+                importer.ClearSampleSettingOverride("WebGL");
                 dirty = true;
             }
 
@@ -138,23 +138,6 @@ namespace Outpost.Editor
                 def.quality = defaultQuality;
                 def.preloadAudioData = preloadDefault;
                 importer.defaultSampleSettings = def;
-                dirty = true;
-            }
-
-            const string webglPlatform = "WebGL";
-            AudioImporterSampleSettings webgl = importer.GetOverrideSampleSettings(webglPlatform);
-            bool hasWebglOverride = importer.ContainsSampleSettingsOverride(webglPlatform);
-            if (!hasWebglOverride ||
-                webgl.loadType != webglLoadType ||
-                webgl.compressionFormat != AudioCompressionFormat.Vorbis ||
-                Mathf.Abs(webgl.quality - webglQuality) > 0.01f ||
-                !webgl.preloadAudioData)
-            {
-                webgl.loadType = webglLoadType;
-                webgl.compressionFormat = AudioCompressionFormat.Vorbis;
-                webgl.quality = webglQuality;
-                webgl.preloadAudioData = true;
-                importer.SetOverrideSampleSettings(webglPlatform, webgl);
                 dirty = true;
             }
 

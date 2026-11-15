@@ -37,6 +37,7 @@ Generated cleanly from shared `SourcesDatabase` (`Assets/Resources/SourcesDataba
 | Name | Author / Organization | Source URL | License | Date Added | Where Used in Project | Modified? |
 |---|---|---|---|---|---|---|
 | Warning.wav (Facility Hazard Alert Sting) | Project Audio Import (Exact Author/Source URL UNVERIFIED — update before submission) | Assets/Sounds/VOX/Warning.wav (origin URL UNVERIFIED) | Verify original SFX license before distribution | 2026-11-15 | Assets/Sounds/VOX/Warning.wav -> baked lightly via Sting preset to Assets/Audio/Announcer/Processed/alert_sting.wav | Original untouched; baked copy trimmed, lightly reverbed (-1.5 dBFS mono 22050 Hz) |
+| Outpost Atmosphere & Door SFX (SpaceShip.mp3, MarsSound.wav, DoorOpen.wav, CloseDoor.wav) | Project Audio Import (Exact Author/Source URL UNVERIFIED — update before submission) | Assets/Sounds/Atmosphere/ (origin URL UNVERIFIED) | Verify original SFX license before distribution | 2026-11-15 | AudioManager in Outpost.unity: SpaceShip.mp3 (interior loop), MarsSound.wav (exterior Mars loop), DoorOpen.wav / CloseDoor.wav (facility & airlock doors) | Originals untouched; configured Unity AudioImporter compression/loadType (Streaming/CompressedInMemory/DecompressOnLoad) |
 
 ## Generated audio
 

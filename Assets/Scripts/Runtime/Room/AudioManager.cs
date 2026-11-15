@@ -105,6 +105,11 @@ namespace Outpost.Runtime.Room
                 bool exterior = IsExterior;
                 _targetHumVol = exterior ? 0f : (_hasSnapshot ? _baseHumVol : 0.22f);
                 _targetWindVol = exterior ? (_hasSnapshot ? _baseWindVol : 0.28f) : 0f;
+
+                if (_humSource != null && !_humSource.isPlaying && _humSource.clip != null)
+                    _humSource.Play();
+                if (_windSource != null && !_windSource.isPlaying && _windSource.clip != null)
+                    _windSource.Play();
             }
 
             float mult = muted ? 0f : masterVolume;
@@ -150,6 +155,7 @@ namespace Outpost.Runtime.Room
             _sfxSource = CreateAudioSource("Audio_SFX", null, loop: false);
 
             ApplyVolumesImmediate();
+            EnsureLoopsPlaying();
         }
 
         public void ApplySnapshot(SessionSnapshot snap)

@@ -305,6 +305,20 @@ MonoBehaviour:
       Assets/Audio/Announcer/Processed/alert_sting.wav
     ModifiedNotes: Original untouched; baked copy trimmed, lightly reverbed (-1.5
       dBFS mono 22050 Hz)
+  - Id: sfx-atmosphere-doors
+    Title: Outpost Atmosphere & Door SFX (SpaceShip.mp3, MarsSound.wav, DoorOpen.wav,
+      CloseDoor.wav)
+    Organization: "Project Audio Import (Exact Author/Source URL UNVERIFIED \u2014
+      update before submission)"
+    UrlText: Assets/Sounds/Atmosphere/ (origin URL UNVERIFIED)
+    UsedByConstantsAndEvents: 
+    Section: Sound effects
+    License: Verify original SFX license before distribution
+    DateAdded: 2026-11-15
+    WhereUsed: 'AudioManager in Outpost.unity: SpaceShip.mp3 (interior loop), MarsSound.wav
+      (exterior Mars loop), DoorOpen.wav / CloseDoor.wav (facility & airlock doors)'
+    ModifiedNotes: Originals untouched; configured Unity AudioImporter compression/loadType
+      (Streaming/CompressedInMemory/DecompressOnLoad)
   - Id: audio-generated-tts
     Title: ElevenLabs Voice Clips & Facility Announcer Lines
     Organization: 'ElevenLabs Speech Synthesis (Voices: Lauren, Jessica) / Project
