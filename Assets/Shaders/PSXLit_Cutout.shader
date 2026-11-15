@@ -36,6 +36,7 @@ Shader "Outpost/PSXLit_Cutout"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "PSXFacilityLighting.hlsl"
 
             struct Attributes
             {
@@ -50,8 +51,10 @@ Shader "Outpost/PSXLit_Cutout"
                 float4 positionCS : SV_POSITION;
                 float2 uvPersp    : TEXCOORD0;
                 float3 uvAffineW  : TEXCOORD1;
-                float3 vertexLit  : TEXCOORD2;
-                float  fogFactor  : TEXCOORD3;
+                float3 posWS      : TEXCOORD2;
+                float3 normalWS   : TEXCOORD3;
+                half3  vertTint   : TEXCOORD4;
+                float  fogFactor  : TEXCOORD5;
             };
 
             TEXTURE2D(_MainTex);
@@ -74,8 +77,6 @@ Shader "Outpost/PSXLit_Cutout"
             float _PSX_AffineAmount;
             float4 _PSX_FogColor;
             float _PSX_FogDensity;
-            float4 _PSX_PointLightPos[4];
-            float4 _PSX_PointLightColor[4];
 
             float4 ApplyVertexSnap(float4 clipPos)
             {
@@ -105,26 +106,9 @@ Shader "Outpost/PSXLit_Cutout"
                 float w = max(abs(posCS.w), 0.001);
                 OUT.uvAffineW = float3(uv * w, w);
 
-                half3 lit = max(half3(unity_AmbientSky.rgb), half3(0.08h, 0.07h, 0.08h));
-                Light mainLight = GetMainLight();
-                half mainNdotL = saturate(dot(normalWS, mainLight.direction));
-                lit += half3(mainLight.color) * mainNdotL * 0.45h;
-
-                [unroll]
-                for (int i = 0; i < 4; i++)
-                {
-                    float4 lp = _PSX_PointLightPos[i];
-                    float4 lc = _PSX_PointLightColor[i];
-                    float3 toL = lp.xyz - posWS;
-                    float distSq = dot(toL, toL);
-                    float rangeAtt = saturate(1.0 - distSq * lp.w);
-                    float atten = (rangeAtt * rangeAtt) / (1.0 + distSq * 0.55);
-                    float3 lDir = normalize(toL + float3(0.0, 0.0001, 0.0));
-                    half ndl = saturate(dot(normalWS, lDir)) * 0.80h + 0.20h;
-                    lit += half3(lc.rgb) * (ndl * half(atten) * half(lc.a));
-                }
-
-                OUT.vertexLit = lit * IN.color.rgb * _Color.rgb;
+                OUT.posWS = posWS;
+                OUT.normalWS = normalWS;
+                OUT.vertTint = IN.color.rgb * _Color.rgb;
 
                 float distCam = length(_WorldSpaceCameraPos.xyz - posWS);
                 float fogExp = exp(-pow(distCam * _PSX_FogDensity, 2.0));
@@ -143,7 +127,8 @@ Shader "Outpost/PSXLit_Cutout"
                 clip(alpha - _CutoutThreshold);
 
                 half3 emisTex = SAMPLE_TEXTURE2D(_EmissionMap, my_point_repeat_sampler, uv).rgb;
-                half3 col = tex.rgb * IN.vertexLit + emisTex * _EmissionColor.rgb * _EmissionStrength;
+                half3 surfaceLit = EvaluateFacilitySurfaceLit(IN.posWS, normalize(IN.normalWS), IN.vertTint);
+                half3 col = tex.rgb * surfaceLit + emisTex * _EmissionColor.rgb * _EmissionStrength;
                 col = lerp(col, half3(_PSX_FogColor.rgb), half(IN.fogFactor));
                 return half4(col, alpha);
             }

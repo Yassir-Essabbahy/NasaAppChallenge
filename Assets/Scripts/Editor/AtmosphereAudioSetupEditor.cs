@@ -18,6 +18,13 @@ namespace Outpost.Editor
         public const string MarsSoundPath = "Assets/Sounds/Atmosphere/MarsSound.wav";
         public const string DoorOpenPath = "Assets/Sounds/Atmosphere/DoorOpen.wav";
         public const string CloseDoorPath = "Assets/Sounds/Atmosphere/CloseDoor.wav";
+        public static readonly string[] StoneFootstepPaths =
+        {
+            "Assets/Sounds/Stone/Footstep Stone 1.ogg",
+            "Assets/Sounds/Stone/Footstep Stone 2.ogg",
+            "Assets/Sounds/Stone/Footstep Stone 3.ogg",
+            "Assets/Sounds/Stone/Footstep Stone 4.ogg"
+        };
 
         [MenuItem("Outpost/Link Atmosphere Audio")]
         public static void LinkAtmosphereAudio()
@@ -26,11 +33,17 @@ namespace Outpost.Editor
             ConfigureAudioImporter(MarsSoundPath, AudioClipLoadType.CompressedInMemory, 0.50f, preloadDefault: true);
             ConfigureAudioImporter(DoorOpenPath, AudioClipLoadType.DecompressOnLoad, 0.70f, preloadDefault: true);
             ConfigureAudioImporter(CloseDoorPath, AudioClipLoadType.DecompressOnLoad, 0.70f, preloadDefault: true);
+            foreach (string stonePath in StoneFootstepPaths)
+                ConfigureAudioImporter(stonePath, AudioClipLoadType.DecompressOnLoad, 0.70f, preloadDefault: true);
 
             AudioClip spaceClip = AssetDatabase.LoadAssetAtPath<AudioClip>(SpaceShipPath);
             AudioClip marsClip = AssetDatabase.LoadAssetAtPath<AudioClip>(MarsSoundPath);
             AudioClip doorOpenClip = AssetDatabase.LoadAssetAtPath<AudioClip>(DoorOpenPath);
             AudioClip doorCloseClip = AssetDatabase.LoadAssetAtPath<AudioClip>(CloseDoorPath);
+
+            var stoneClips = new AudioClip[StoneFootstepPaths.Length];
+            for (int i = 0; i < StoneFootstepPaths.Length; i++)
+                stoneClips[i] = AssetDatabase.LoadAssetAtPath<AudioClip>(StoneFootstepPaths[i]);
 
             if (spaceClip == null || marsClip == null || doorOpenClip == null || doorCloseClip == null)
             {
@@ -55,8 +68,18 @@ namespace Outpost.Editor
             so.FindProperty("windLoopClip").objectReferenceValue = marsClip;
             so.FindProperty("doorOpenClip").objectReferenceValue = doorOpenClip;
             so.FindProperty("doorCloseClip").objectReferenceValue = doorCloseClip;
+            AssignClipArray(so.FindProperty("exteriorFootstepClips"), stoneClips);
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(audioManager);
+
+            PlayerGate playerGate = Object.FindAnyObjectByType<PlayerGate>(FindObjectsInactive.Include);
+            if (playerGate != null)
+            {
+                SerializedObject pgSo = new SerializedObject(playerGate);
+                AssignClipArray(pgSo.FindProperty("exteriorFootstepClips"), stoneClips);
+                pgSo.ApplyModifiedPropertiesWithoutUndo();
+                EditorUtility.SetDirty(playerGate);
+            }
 
             DoorInteractable[] doors = Object.FindObjectsByType<DoorInteractable>(FindObjectsInactive.Include);
             int clearedOverrides = 0;
@@ -143,6 +166,14 @@ namespace Outpost.Editor
 
             if (dirty)
                 importer.SaveAndReimport();
+        }
+
+        private static void AssignClipArray(SerializedProperty prop, AudioClip[] clips)
+        {
+            if (prop == null || clips == null) return;
+            prop.arraySize = clips.Length;
+            for (int i = 0; i < clips.Length; i++)
+                prop.GetArrayElementAtIndex(i).objectReferenceValue = clips[i];
         }
     }
 }

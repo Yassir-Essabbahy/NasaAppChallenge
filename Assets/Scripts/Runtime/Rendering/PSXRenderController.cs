@@ -14,13 +14,16 @@ namespace Outpost.Runtime.Rendering
     [ExecuteAlways]
     public class PSXRenderController : MonoBehaviour
     {
-        private static readonly int PointLightPosProp = Shader.PropertyToID("_PSX_PointLightPos");
-        private static readonly int PointLightColorProp = Shader.PropertyToID("_PSX_PointLightColor");
+        private const int MaxPointLights = 16;
+        private static readonly int PointLightPosProp = Shader.PropertyToID("_PSX_FacilityLightPos");
+        private static readonly int PointLightColorProp = Shader.PropertyToID("_PSX_FacilityLightColor");
+        private static readonly int FacilityDarknessProp = Shader.PropertyToID("_PSX_FacilityDarkness");
 
         [Header("PSX Configuration & World References")]
         [SerializeField] private PSXSettings settings;
         [SerializeField] private Camera worldCamera;
         [SerializeField] private AccessibilitySettings accessibility;
+        [SerializeField] private bool enableFacilityInteriorDarkness = true;
 
         [Header("WorldView Overlay UI (Lowest Sorting Order)")]
         [SerializeField] private Canvas worldViewCanvas;
@@ -32,9 +35,9 @@ namespace Outpost.Runtime.Rendering
         private RenderTexture _rt;
         private int _rtWidth;
         private int _rtHeight;
-        private readonly List<Light> _pointLights = new List<Light>(16);
-        private readonly Vector4[] _lightPosArray = new Vector4[4];
-        private readonly Vector4[] _lightColArray = new Vector4[4];
+        private readonly List<Light> _pointLights = new List<Light>(24);
+        private readonly Vector4[] _lightPosArray = new Vector4[MaxPointLights];
+        private readonly Vector4[] _lightColArray = new Vector4[MaxPointLights];
         private float _nextLightScanTime = -1f;
 
         public PSXSettings Settings => settings;
@@ -93,6 +96,7 @@ namespace Outpost.Runtime.Rendering
                 settings.OnSettingsChanged -= HandleSettingsChanged;
             if (accessibility != null)
                 accessibility.OnSettingsChanged -= HandleSettingsChanged;
+            Shader.SetGlobalFloat(FacilityDarknessProp, 0f);
             EnsureDisplayCamera(false);
             ReleaseRenderTexture();
         }
@@ -133,6 +137,8 @@ namespace Outpost.Runtime.Rendering
             if (settings != null)
                 settings.ApplyGlobals(reduceFlicker);
 
+            Shader.SetGlobalFloat(FacilityDarknessProp, enableFacilityInteriorDarkness ? 1f : 0f);
+
             if (Time.unscaledTime >= _nextLightScanTime || _pointLights.Count == 0)
             {
                 RefreshLightCache();
@@ -140,15 +146,17 @@ namespace Outpost.Runtime.Rendering
             }
 
             Vector3 camPos = worldCamera != null ? worldCamera.transform.position : Vector3.zero;
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < MaxPointLights; i++)
             {
                 _lightPosArray[i] = Vector4.zero;
                 _lightColArray[i] = Vector4.zero;
             }
 
-            // Pick up to 4 brightest weighted active point lights for per-vertex PSX lighting
-            var bestScore = new float[4];
-            var bestIdx = new int[] { -1, -1, -1, -1 };
+            // Pick up to MaxPointLights brightest weighted active point lights for per-fragment PSX facility lighting
+            var bestScore = new float[MaxPointLights];
+            var bestIdx = new int[MaxPointLights];
+            for (int slot = 0; slot < MaxPointLights; slot++)
+                bestIdx[slot] = -1;
 
             for (int i = 0; i < _pointLights.Count; i++)
             {
@@ -157,13 +165,13 @@ namespace Outpost.Runtime.Rendering
                     continue;
 
                 float distSq = (l.transform.position - camPos).sqrMagnitude;
-                float score = (l.intensity * Mathf.Max(l.range, 0.5f)) / (1f + distSq * 0.12f);
+                float score = (l.intensity * Mathf.Max(l.range, 0.5f)) / (1f + distSq * 0.06f);
 
-                for (int slot = 0; slot < 4; slot++)
+                for (int slot = 0; slot < MaxPointLights; slot++)
                 {
                     if (score > bestScore[slot])
                     {
-                        for (int shift = 3; shift > slot; shift--)
+                        for (int shift = MaxPointLights - 1; shift > slot; shift--)
                         {
                             bestScore[shift] = bestScore[shift - 1];
                             bestIdx[shift] = bestIdx[shift - 1];
@@ -175,7 +183,7 @@ namespace Outpost.Runtime.Rendering
                 }
             }
 
-            for (int slot = 0; slot < 4; slot++)
+            for (int slot = 0; slot < MaxPointLights; slot++)
             {
                 int idx = bestIdx[slot];
                 if (idx < 0) continue;

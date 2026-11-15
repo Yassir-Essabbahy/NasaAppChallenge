@@ -24,6 +24,7 @@ namespace Outpost.Runtime.Room
         [SerializeField] private AudioManager audioManager;
         [SerializeField] private AccessibilitySettings accessibility;
         [SerializeField] private AudioClip[] footstepClips;
+        [SerializeField] private AudioClip[] exteriorFootstepClips;
         [SerializeField] private float footstepInterval = 0.48f;
 
         private FieldInfo _fiPlayerCanMove;
@@ -39,6 +40,7 @@ namespace Outpost.Runtime.Room
         private Vector3 _defaultJointLocalPos = new Vector3(0f, 0.75f, 0f);
         private float _stepTimer;
         private Canvas _controllerCanvasComponent;
+        private readonly RaycastHit[] _surfaceHitBuffer = new RaycastHit[4];
 
         public bool IsControlEnabled { get; private set; }
         public Camera PlayerCamera => playerCamera;
@@ -199,7 +201,9 @@ namespace Outpost.Runtime.Room
                     if (_stepTimer >= footstepInterval * rate)
                     {
                         _stepTimer = 0f;
-                        audioManager.PlayFootstep(footstepClips);
+                        bool onExterior = IsStandingOnExteriorSurface();
+                        AudioClip[] clips = onExterior ? exteriorFootstepClips : footstepClips;
+                        audioManager.PlayFootstep(clips, onExterior);
                     }
                 }
                 else
@@ -207,6 +211,56 @@ namespace Outpost.Runtime.Room
                     _stepTimer = footstepInterval * 0.7f;
                 }
             }
+        }
+
+        private bool IsStandingOnExteriorSurface()
+        {
+            Transform p = PlayerTransform;
+            if (p != null)
+            {
+                Vector3 rayOrigin = p.position + Vector3.up * 0.25f;
+                int hitCount = Physics.RaycastNonAlloc(rayOrigin, Vector3.down, _surfaceHitBuffer, 2.5f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+                float bestDist = float.MaxValue;
+                Collider bestCollider = null;
+
+                for (int i = 0; i < hitCount; i++)
+                {
+                    Collider col = _surfaceHitBuffer[i].collider;
+                    if (col == null) continue;
+                    if (col.transform == p || col.transform.IsChildOf(p)) continue;
+                    if (_surfaceHitBuffer[i].distance < bestDist)
+                    {
+                        bestDist = _surfaceHitBuffer[i].distance;
+                        bestCollider = col;
+                    }
+                }
+
+                if (bestCollider != null)
+                {
+                    string colName = bestCollider.name;
+                    if (colName.IndexOf("Mars", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        colName.IndexOf("Terrain", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        colName.IndexOf("Rock", StringComparison.OrdinalIgnoreCase) >= 0)
+                        return true;
+
+                    Transform cur = bestCollider.transform;
+                    while (cur != null)
+                    {
+                        if (cur.name == "MarsSurfaceWorld")
+                            return true;
+                        if (cur.name == "CommandModuleRoom" || cur.name == "HubCorridor" ||
+                            cur.name == "Room_Medbay" || cur.name == "Room_Greenhouse" ||
+                            cur.name == "Room_Storage" || cur.name == "Room_Airlock")
+                            return false;
+                        cur = cur.parent;
+                    }
+                }
+
+                if (p.position.z < -17.45f)
+                    return true;
+            }
+
+            return audioManager != null && audioManager.IsExterior;
         }
 
         private void HandleAccessibilityChanged()

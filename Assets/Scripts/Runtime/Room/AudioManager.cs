@@ -24,6 +24,7 @@ namespace Outpost.Runtime.Room
         [SerializeField] private AudioClip doorLockedClip;
         [SerializeField] private AudioClip airlockHissClip;
         [SerializeField] private AudioClip[] footstepClips;
+        [SerializeField] private AudioClip[] exteriorFootstepClips;
 
         [Header("Volume Settings")]
         [Range(0f, 1f)] [SerializeField] private float masterVolume = 0.75f;
@@ -39,9 +40,11 @@ namespace Outpost.Runtime.Room
         private AudioSource _alarmSource;
         private AudioSource _introDroneSource;
         private AudioSource _sfxSource;
+        private AudioSource _footstepSource;
         private AudioClip _procFootstepClip;
         private bool _endingOverride;
         private int _footstepIndex;
+        private int _lastExteriorFootstepIndex = -1;
 
         private float _targetHumVol = 0.14f;
         private float _targetHumPitch = 1.0f;
@@ -153,6 +156,9 @@ namespace Outpost.Runtime.Room
             _alarmSource = CreateAudioSource("Audio_CriticalAlarm", criticalAlarmLoopClip, loop: true);
             _introDroneSource = CreateAudioSource("Audio_IntroDrone", introDroneClip, loop: true);
             _sfxSource = CreateAudioSource("Audio_SFX", null, loop: false);
+            _sfxSource.volume = 1f;
+            _footstepSource = CreateAudioSource("Audio_Footsteps", null, loop: false);
+            _footstepSource.volume = 1f;
 
             ApplyVolumesImmediate();
             EnsureLoopsPlaying();
@@ -166,17 +172,17 @@ namespace Outpost.Runtime.Room
             float powerRatio = Mathf.Clamp01(snap.Power / 100f);
             if (snap.Power <= 0.01f)
             {
-                _baseHumVol = 0.03f;
+                _baseHumVol = 0.025f;
                 _targetHumPitch = 0.72f;
             }
             else if (snap.Power < 25f)
             {
-                _baseHumVol = 0.10f;
+                _baseHumVol = 0.08f;
                 _targetHumPitch = 0.85f;
             }
             else
             {
-                _baseHumVol = Mathf.Lerp(0.14f, 0.28f, powerRatio);
+                _baseHumVol = Mathf.Lerp(0.10f, 0.20f, powerRatio);
                 _targetHumPitch = Mathf.Lerp(0.92f, 1.06f, powerRatio);
             }
 
@@ -241,7 +247,8 @@ namespace Outpost.Runtime.Room
             EnsureInitialized();
             AudioClip clip = customClip != null ? customClip : doorOpenClip;
             if (muted || clip == null || _sfxSource == null) return;
-            _sfxSource.PlayOneShot(clip, 0.65f * masterVolume);
+            _sfxSource.volume = 1f;
+            _sfxSource.PlayOneShot(clip, 1.0f * masterVolume);
         }
 
         public void PlayDoorClose(AudioClip customClip = null)
@@ -249,7 +256,8 @@ namespace Outpost.Runtime.Room
             EnsureInitialized();
             AudioClip clip = customClip != null ? customClip : doorCloseClip;
             if (muted || clip == null || _sfxSource == null) return;
-            _sfxSource.PlayOneShot(clip, 0.65f * masterVolume);
+            _sfxSource.volume = 1f;
+            _sfxSource.PlayOneShot(clip, 1.0f * masterVolume);
         }
 
         public void PlayDoorLocked(AudioClip customClip = null)
@@ -292,21 +300,46 @@ namespace Outpost.Runtime.Room
             }
         }
 
-        public void PlayFootstep(AudioClip[] overrideClips = null)
+        public void PlayFootstep(AudioClip[] overrideClips = null, bool isExterior = false)
         {
             EnsureInitialized();
             if (muted) return;
 
             AudioClip chosen = null;
-            AudioClip[] pool = (overrideClips != null && overrideClips.Length > 0) ? overrideClips : footstepClips;
+            AudioClip[] pool = (overrideClips != null && overrideClips.Length > 0)
+                ? overrideClips
+                : (isExterior && exteriorFootstepClips != null && exteriorFootstepClips.Length > 0
+                    ? exteriorFootstepClips
+                    : footstepClips);
+
             if (pool != null && pool.Length > 0)
             {
-                chosen = pool[_footstepIndex % pool.Length];
-                _footstepIndex++;
+                if (isExterior && pool.Length > 1)
+                {
+                    int idx = Random.Range(0, pool.Length);
+                    if (idx == _lastExteriorFootstepIndex)
+                        idx = (idx + 1) % pool.Length;
+                    _lastExteriorFootstepIndex = idx;
+                    chosen = pool[idx];
+                }
+                else
+                {
+                    chosen = pool[_footstepIndex % pool.Length];
+                    _footstepIndex++;
+                }
             }
+
             if (chosen == null) chosen = _procFootstepClip;
-            if (chosen != null)
-                _sfxSource.PlayOneShot(chosen, 0.28f * masterVolume);
+            if (chosen == null) return;
+
+            AudioSource targetSource = _footstepSource != null ? _footstepSource : _sfxSource;
+            if (targetSource == null) return;
+
+            if (ReferenceEquals(targetSource, _footstepSource))
+                targetSource.pitch = isExterior ? Random.Range(0.94f, 1.06f) : 1.0f;
+
+            float baseGain = isExterior ? 0.42f : 0.28f;
+            targetSource.PlayOneShot(chosen, baseGain * masterVolume);
         }
 
         public void SetEndingState(bool active, bool won)
@@ -338,6 +371,7 @@ namespace Outpost.Runtime.Room
             _humSource.pitch = _targetHumPitch;
             _windSource.volume = _targetWindVol * mult;
             _alarmSource.volume = _targetAlarmVol * mult;
+            if (_sfxSource != null) _sfxSource.volume = 1f;
         }
 
         private AudioSource CreateAudioSource(string childName, AudioClip clip, bool loop)
