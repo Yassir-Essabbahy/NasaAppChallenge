@@ -22,6 +22,9 @@ namespace Outpost.Editor
             "Corridor kit",
             "UI icons",
             "Fonts",
+            "Sound effects",
+            "Generated audio",
+            "Processed audio (baked in-project)",
             "Packages",
             "Generated in-project",
             "Tools and AI assistance"

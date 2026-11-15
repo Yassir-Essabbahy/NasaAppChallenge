@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cdf1aeb9654bbd74b8366a47d685e491, type: 3}
+  m_Name: VOX_HeavyEcho
+  m_EditorClassIdentifier: Outpost.Runtime::Outpost.Runtime.Audio.VoxFxPreset
+  presetName: Heavy Echo
+  targetSampleRate: 22050
+  enableTrim: 1
+  trimThresholdDb: -45
+  trimPaddingMs: 30
+  enableBandPass: 1
+  highPassHz: 320
+  lowPassHz: 3200
+  enableGrit: 1
+  downsampleFactor: 2
+  bitDepth: 10
+  gritMix: 1
+  enableRingMod: 1
+  ringModHz: 70
+  ringModMix: 0.2
+  enableSaturation: 1
+  saturationDrive: 1.6
+  enableEcho: 1
+  echoTap1Ms: 90
+  echoTap1Gain: 0.4
+  echoTap2Ms: 180
+  echoTap2Gain: 0.24
+  echoLowPassHz: 2500
+  enableReverb: 1
+  reverbFeedback: 0.78
+  reverbDamping: 0.35
+  reverbWet: 0.35
+  reverbTailSec: 1
+  enableSquelch: 1
+  squelchStartMs: 70
+  squelchEndMs: 40
+  squelchLevelDb: -32
+  enableNormalize: 1
+  normalizeTargetDb: -1.5
+  fadeMs: 15
+  limiterCeilingDb: -1

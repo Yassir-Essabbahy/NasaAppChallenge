@@ -7,7 +7,7 @@ Generated cleanly from shared `SourcesDatabase` (`Assets/Resources/SourcesDataba
 
 | Name | Author / Organization | Source URL | License | Date Added | Where Used in Project | Modified? |
 |---|---|---|---|---|---|---|
-| Mars Global Color Map (Assets/Models/Mars.jpg) | NASA / USGS Astrogeology (UNVERIFIED - check source exact attribution) | UNVERIFIED - check before submission | Public Domain (assumed NASA/USGS — UNVERIFIED - check before submission) | 2026-11-14 | Archival dataset in Assets/Models/Mars.jpg (MarsSphere removed from sky/menu for Martian surface orbital accuracy) | Imported with Point filter, No Mipmaps, Max Size 2048, Wrap Repeat |
+| Mars Global Color Map (Assets/Models/Mars.jpg) | NASA / USGS Astrogeology (UNVERIFIED - check source exact attribution) | UNVERIFIED - check before submission | Public Domain (assumed NASA/USGS — UNVERIFIED - check before submission) | 2026-11-14 | Assets/Prefabs/MarsSphere.prefab; rotating Mars planet backdrop in MainMenu.unity (kept out of Martian surface sky in Outpost.unity for orbital accuracy) | Imported with Point filter, No Mipmaps, Max Size 2048, Wrap Repeat |
 | 25042_Perseverance.glb (Mars 2020 Perseverance Rover) | NASA / JPL-Caltech (UNVERIFIED - confirm catalog ID) | UNVERIFIED - check before submission | NASA Media Usage Guidelines / Public Domain (UNVERIFIED - check before submission) | 2026-11-14 | Assets/Prefabs/Prop_Rover.prefab; placed near Solar Array on Mars surface | Scaled uniformly to ~3.0m length, PSX Lit material conversion, BoxCollider added (199,309 tris; recommend decimation in Blender) |
 | Mars MOLA / HiRISE Heightmap (Pending RAW Import) | NASA / USGS Astrogeology | TO CONFIRM when added | TO CONFIRM when added | TO CONFIRM | BackdropTerrain (Outpost/Import NASA Heightmap (RAW)) | Pending user RAW export (GDAL gdal_translate -of ENVI) |
 
@@ -31,6 +31,24 @@ Generated cleanly from shared `SourcesDatabase` (`Assets/Resources/SourcesDataba
 | Name | Author / Organization | Source URL | License | Date Added | Where Used in Project | Modified? |
 |---|---|---|---|---|---|---|
 | Terminal & HUD Typography | TextMeshPro / Unity LegacyRuntime / Google Fonts (if ShareTech/Roboto/Orbitron installed — UNVERIFIED exact TTF source) | Check Assets/Fonts or FontTheme assets | SIL OFL 1.1 / Unity Built-in (verify before submission) | 2026-11-14 | Assets/Art/UI/TerminalTheme.asset, OutpostFlowCanvas, RoomHudCanvas | No |
+
+## Sound effects
+
+| Name | Author / Organization | Source URL | License | Date Added | Where Used in Project | Modified? |
+|---|---|---|---|---|---|---|
+| Warning.wav (Facility Hazard Alert Sting) | Project Audio Import (Exact Author/Source URL UNVERIFIED — update before submission) | Assets/Sounds/VOX/Warning.wav (origin URL UNVERIFIED) | Verify original SFX license before distribution | 2026-11-15 | Assets/Sounds/VOX/Warning.wav -> baked lightly via Sting preset to Assets/Audio/Announcer/Processed/alert_sting.wav | Original untouched; baked copy trimmed, lightly reverbed (-1.5 dBFS mono 22050 Hz) |
+
+## Generated audio
+
+| Name | Author / Organization | Source URL | License | Date Added | Where Used in Project | Modified? |
+|---|---|---|---|---|---|---|
+| ElevenLabs Voice Clips & Facility Announcer Lines | ElevenLabs Speech Synthesis (Voices: Lauren, Jessica) / Project Announcer Recordings | https://elevenlabs.io/ (License/Tier UNVERIFIED) | Check ElevenLabs plan commercial terms before distribution | 2026-11-15 | Assets/Sounds/VOX/ (8 ElevenLabs test voice clips + pending 11 canonical AnnouncerDatabase lines) | Originals kept intact and unmodified |
+
+## Processed audio (baked in-project)
+
+| Name | Author / Organization | Source URL | License | Date Added | Where Used in Project | Modified? |
+|---|---|---|---|---|---|---|
+| VOX FX Offline DSP Chain & Baked Facility Audio | In-project pure-C# DSP (VoxFxDsp.cs / VoxFxBaker.cs) | Internal project asset (Zero external plugins / zero AudioMixer dependency) | Original project work | 2026-11-15 | Assets/Audio/Announcer/Processed/ (22050 Hz mono PCM -> Vorbis 0.45): telephone bandpass, S&H bitcrush, 70Hz ring mod, tanh saturation, dark echo, Schroeder hall reverb, radio squelch | Offline idempotent bake with VOX Classic, Heavy Echo, Clean Radio, and Sting presets |
 
 ## Packages
 

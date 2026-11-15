@@ -134,8 +134,9 @@ MonoBehaviour:
     Section: NASA/USGS data and models
     License: "Public Domain (assumed NASA/USGS \u2014 UNVERIFIED - check before submission)"
     DateAdded: 2026-11-14
-    WhereUsed: Archival dataset in Assets/Models/Mars.jpg (MarsSphere removed from
-      sky/menu for Martian surface orbital accuracy)
+    WhereUsed: Assets/Prefabs/MarsSphere.prefab; rotating Mars planet backdrop in
+      MainMenu.unity (kept out of Martian surface sky in Outpost.unity for orbital
+      accuracy)
     ModifiedNotes: Imported with Point filter, No Mipmaps, Max Size 2048, Wrap Repeat
   - Id: nasa-perseverance-model
     Title: 25042_Perseverance.glb (Mars 2020 Perseverance Rover)
@@ -291,6 +292,44 @@ MonoBehaviour:
     WhereUsed: Assets/Art/UI/Icons/ (Icon_Oxygen, Icon_Water, Icon_Food, Icon_Signal,
       Icon_Log, Icon_Sources, Icon_Help, Icon_Goal)
     ModifiedNotes: Generated in matching teal/light-blue/yellow/coral 6px line style
+  - Id: sfx-warning-klaxon
+    Title: Warning.wav (Facility Hazard Alert Sting)
+    Organization: "Project Audio Import (Exact Author/Source URL UNVERIFIED \u2014
+      update before submission)"
+    UrlText: Assets/Sounds/VOX/Warning.wav (origin URL UNVERIFIED)
+    UsedByConstantsAndEvents: 
+    Section: Sound effects
+    License: Verify original SFX license before distribution
+    DateAdded: 2026-11-15
+    WhereUsed: Assets/Sounds/VOX/Warning.wav -> baked lightly via Sting preset to
+      Assets/Audio/Announcer/Processed/alert_sting.wav
+    ModifiedNotes: Original untouched; baked copy trimmed, lightly reverbed (-1.5
+      dBFS mono 22050 Hz)
+  - Id: audio-generated-tts
+    Title: ElevenLabs Voice Clips & Facility Announcer Lines
+    Organization: 'ElevenLabs Speech Synthesis (Voices: Lauren, Jessica) / Project
+      Announcer Recordings'
+    UrlText: https://elevenlabs.io/ (License/Tier UNVERIFIED)
+    UsedByConstantsAndEvents: 
+    Section: Generated audio
+    License: Check ElevenLabs plan commercial terms before distribution
+    DateAdded: 2026-11-15
+    WhereUsed: Assets/Sounds/VOX/ (8 ElevenLabs test voice clips + pending 11 canonical
+      AnnouncerDatabase lines)
+    ModifiedNotes: Originals kept intact and unmodified
+  - Id: audio-baked-vox-dsp
+    Title: VOX FX Offline DSP Chain & Baked Facility Audio
+    Organization: In-project pure-C# DSP (VoxFxDsp.cs / VoxFxBaker.cs)
+    UrlText: Internal project asset (Zero external plugins / zero AudioMixer dependency)
+    UsedByConstantsAndEvents: 
+    Section: Processed audio (baked in-project)
+    License: Original project work
+    DateAdded: 2026-11-15
+    WhereUsed: 'Assets/Audio/Announcer/Processed/ (22050 Hz mono PCM -> Vorbis 0.45):
+      telephone bandpass, S&H bitcrush, 70Hz ring mod, tanh saturation, dark echo,
+      Schroeder hall reverb, radio squelch'
+    ModifiedNotes: Offline idempotent bake with VOX Classic, Heavy Echo, Clean Radio,
+      and Sting presets
   - Id: tool-unity
     Title: Unity Editor (6000.x), Unity MCP (com.coplaydev.unity-mcp), Python & Antigravity
       AI Assistant

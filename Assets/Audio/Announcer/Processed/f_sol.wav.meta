@@ -1,0 +1,23 @@
+fileFormatVersion: 2
+guid: c5a6864a9b2198142bb9d47213be1d49
+AudioImporter:
+  externalObjects: {}
+  serializedVersion: 8
+  defaultSettings:
+    serializedVersion: 2
+    loadType: 1
+    sampleRateSetting: 0
+    sampleRateOverride: 44100
+    compressionFormat: 1
+    quality: 0.45
+    conversionMode: 0
+    preloadAudioData: 1
+  platformSettingOverrides: {}
+  forceToMono: 1
+  normalize: 1
+  loadInBackground: 0
+  ambisonic: 0
+  3D: 1
+  userData: v1|Assets/Sounds/VOX/f_sol.mp3|918138|639303404513804543|22050|1|-45|30|1|320|3200|1|2|10|1|1|70|0.3|1|1.6|1|90|0.28|180|0.14|2500|1|0.78|0.35|0.22|1|1|70|40|-32|1|-1.5|15|-1|
+  assetBundleName: 
+  assetBundleVariant: 

@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cdf1aeb9654bbd74b8366a47d685e491, type: 3}
+  m_Name: VOX_Sting
+  m_EditorClassIdentifier: Outpost.Runtime::Outpost.Runtime.Audio.VoxFxPreset
+  presetName: Sting
+  targetSampleRate: 22050
+  enableTrim: 1
+  trimThresholdDb: -45
+  trimPaddingMs: 20
+  enableBandPass: 0
+  highPassHz: 320
+  lowPassHz: 3200
+  enableGrit: 0
+  downsampleFactor: 1
+  bitDepth: 16
+  gritMix: 0
+  enableRingMod: 0
+  ringModHz: 70
+  ringModMix: 0
+  enableSaturation: 0
+  saturationDrive: 1
+  enableEcho: 0
+  echoTap1Ms: 90
+  echoTap1Gain: 0
+  echoTap2Ms: 180
+  echoTap2Gain: 0
+  echoLowPassHz: 2500
+  enableReverb: 1
+  reverbFeedback: 0.62
+  reverbDamping: 0.45
+  reverbWet: 0.08
+  reverbTailSec: 0.35
+  enableSquelch: 0
+  squelchStartMs: 70
+  squelchEndMs: 40
+  squelchLevelDb: -32
+  enableNormalize: 1
+  normalizeTargetDb: -1.5
+  fadeMs: 10
+  limiterCeilingDb: -1

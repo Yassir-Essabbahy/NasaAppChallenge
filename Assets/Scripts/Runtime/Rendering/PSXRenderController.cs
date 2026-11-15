@@ -234,7 +234,8 @@ namespace Outpost.Runtime.Rendering
                     useMipMap = false,
                     autoGenerateMips = false,
                     antiAliasing = 1,
-                    wrapMode = TextureWrapMode.Clamp
+                    wrapMode = TextureWrapMode.Clamp,
+                    hideFlags = HideFlags.DontSave
                 };
                 _rt.Create();
             }
@@ -308,8 +309,11 @@ namespace Outpost.Runtime.Rendering
 
         private void ReleaseRenderTexture()
         {
-            if (worldCamera != null && worldCamera.targetTexture == _rt)
+            if (worldCamera != null && worldCamera.targetTexture != null &&
+                (worldCamera.targetTexture == _rt || worldCamera.targetTexture.name.StartsWith("RT_WorldPSX_")))
+            {
                 worldCamera.targetTexture = null;
+            }
 
             if (_rt != null)
             {

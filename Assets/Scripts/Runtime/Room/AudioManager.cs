@@ -50,12 +50,16 @@ namespace Outpost.Runtime.Room
         private float _targetIntroDroneVol = 0f;
         private bool _initialized;
 
+        public const string PrefMasterVolume = "Outpost_MasterVolume";
+
         public float MasterVolume
         {
             get => masterVolume;
             set
             {
                 masterVolume = Mathf.Clamp01(value);
+                PlayerPrefs.SetFloat(PrefMasterVolume, masterVolume);
+                PlayerPrefs.Save();
                 ApplyVolumesImmediate();
             }
         }
@@ -80,12 +84,31 @@ namespace Outpost.Runtime.Room
             EnsureLoopsPlaying();
         }
 
+        private System.Func<bool> _exteriorPredicate;
+        private bool _isExterior;
+        private bool _hasSnapshot;
+        private float _baseHumVol = 0.22f;
+        private float _baseWindVol = 0.28f;
+
+        public bool IsExterior => _exteriorPredicate != null ? _exteriorPredicate() : _isExterior;
+
+        public void SetExteriorPredicate(System.Func<bool> predicate) => _exteriorPredicate = predicate;
+
+        public void SetExteriorState(bool exterior) => _isExterior = exterior;
+
         private void Update()
         {
             if (!_initialized) return;
 
+            if (!_endingOverride)
+            {
+                bool exterior = IsExterior;
+                _targetHumVol = exterior ? 0f : (_hasSnapshot ? _baseHumVol : 0.22f);
+                _targetWindVol = exterior ? (_hasSnapshot ? _baseWindVol : 0.28f) : 0f;
+            }
+
             float mult = muted ? 0f : masterVolume;
-            float dt = Time.unscaledDeltaTime * 4f;
+            float dt = Time.unscaledDeltaTime * 3.0f;
             _humSource.volume = Mathf.Lerp(_humSource.volume, _targetHumVol * mult, dt);
             _humSource.pitch = Mathf.Lerp(_humSource.pitch, _targetHumPitch, dt);
             _windSource.volume = Mathf.Lerp(_windSource.volume, _targetWindVol * mult, dt);
@@ -102,6 +125,8 @@ namespace Outpost.Runtime.Room
         {
             if (_initialized) return;
             _initialized = true;
+            if (PlayerPrefs.HasKey(PrefMasterVolume))
+                masterVolume = Mathf.Clamp01(PlayerPrefs.GetFloat(PrefMasterVolume, masterVolume));
 
             if (roomHumLoopClip == null) roomHumLoopClip = CreateHumClip();
             if (windLoopClip == null) windLoopClip = CreateWindClip();
@@ -135,22 +160,27 @@ namespace Outpost.Runtime.Room
             float powerRatio = Mathf.Clamp01(snap.Power / 100f);
             if (snap.Power <= 0.01f)
             {
-                _targetHumVol = 0.015f;
+                _baseHumVol = 0.03f;
                 _targetHumPitch = 0.72f;
             }
             else if (snap.Power < 25f)
             {
-                _targetHumVol = 0.05f;
+                _baseHumVol = 0.10f;
                 _targetHumPitch = 0.85f;
             }
             else
             {
-                _targetHumVol = Mathf.Lerp(0.08f, 0.22f, powerRatio);
+                _baseHumVol = Mathf.Lerp(0.14f, 0.28f, powerRatio);
                 _targetHumPitch = Mathf.Lerp(0.92f, 1.06f, powerRatio);
             }
 
             bool inStorm = snap.DustStormSolsRemaining > 0;
-            _targetWindVol = inStorm ? 0.22f : Mathf.Lerp(0.03f, 0.08f, snap.PanelDustPct / 100f);
+            _baseWindVol = inStorm ? 0.38f : Mathf.Lerp(0.22f, 0.30f, snap.PanelDustPct / 100f);
+            _hasSnapshot = true;
+
+            bool exterior = IsExterior;
+            _targetHumVol = exterior ? 0f : _baseHumVol;
+            _targetWindVol = exterior ? _baseWindVol : 0f;
 
             bool anyCrit = snap.Status == MissionStatus.InProgress && (
                 snap.Power < snap.StatusLightLowThreshold ||
@@ -205,7 +235,7 @@ namespace Outpost.Runtime.Room
             EnsureInitialized();
             AudioClip clip = customClip != null ? customClip : doorOpenClip;
             if (muted || clip == null || _sfxSource == null) return;
-            _sfxSource.PlayOneShot(clip, 0.50f * masterVolume);
+            _sfxSource.PlayOneShot(clip, 0.65f * masterVolume);
         }
 
         public void PlayDoorClose(AudioClip customClip = null)
@@ -213,7 +243,7 @@ namespace Outpost.Runtime.Room
             EnsureInitialized();
             AudioClip clip = customClip != null ? customClip : doorCloseClip;
             if (muted || clip == null || _sfxSource == null) return;
-            _sfxSource.PlayOneShot(clip, 0.50f * masterVolume);
+            _sfxSource.PlayOneShot(clip, 0.65f * masterVolume);
         }
 
         public void PlayDoorLocked(AudioClip customClip = null)

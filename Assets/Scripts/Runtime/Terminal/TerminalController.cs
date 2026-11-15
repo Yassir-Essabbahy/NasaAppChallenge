@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Outpost.Runtime.Audio;
 using Outpost.Runtime.Rendering;
 using Outpost.Runtime.Room;
 using Outpost.Sim;
@@ -208,6 +209,9 @@ namespace Outpost.Runtime.Terminal
         private float _toastTimer;
 
         private GameObject _debugPanel;
+        private GameObject _announcerDebugPanel;
+        private TextMeshProUGUI _announcerDebugStatusText;
+        private AnnouncerSystem _announcerSystem;
         private TextMeshProUGUI _debugFpsText;
         private float _smoothedFps = 60f;
         private float _fpsLabelTimer;
@@ -395,13 +399,25 @@ namespace Outpost.Runtime.Terminal
             _windowManager.OpenWindow(appId);
         }
 
+        public void SetAnnouncerSystem(AnnouncerSystem announcer)
+        {
+            _announcerSystem = announcer;
+            RefreshAnnouncerDebugStatus();
+        }
+
         public void ToggleDebugPanel()
         {
             if (_debugPanel == null) return;
             _lastDebugToggleFrame = Time.frameCount;
             bool next = !_debugPanel.activeSelf;
             _debugPanel.SetActive(next);
-            if (next) SyncPsxDebugSliders();
+            if (_announcerDebugPanel != null)
+                _announcerDebugPanel.SetActive(next);
+            if (next)
+            {
+                SyncPsxDebugSliders();
+                RefreshAnnouncerDebugStatus();
+            }
         }
 
         public void ShowModalBlockWarning()
@@ -2280,6 +2296,71 @@ namespace Outpost.Runtime.Terminal
 
             SyncPsxDebugSliders();
             _debugPanel.SetActive(false);
+
+            BuildAnnouncerDebugDrawer(debugParent);
+        }
+
+        private void BuildAnnouncerDebugDrawer(Transform debugParent)
+        {
+            var panel = TerminalUiBuilder.CreateFlatPanel("AnnouncerDebugPanel", debugParent, new Color(0.06f, 0.08f, 0.13f, 0.97f), theme.AccentHelp, 2f);
+            TerminalUiBuilder.SetAnchors(panel, 0.02f, 0.16f, 0.52f, 0.98f);
+            var canvas = panel.gameObject.AddComponent<Canvas>();
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = 100;
+            panel.gameObject.AddComponent<GraphicRaycaster>();
+            _announcerDebugPanel = panel.gameObject;
+            var inner = TerminalUiBuilder.GetInner(panel);
+
+            var title = TerminalUiBuilder.CreateCompactDebugText("VoxDbgTitle", inner, theme, 20f, theme.AccentHelp, TextAlignmentOptions.MidlineLeft, _textScaler);
+            title.text = "VOX ANNOUNCER DEBUG";
+            TerminalUiBuilder.SetAnchors(title.rectTransform, 0.03f, 0.94f, 0.58f, 0.99f);
+
+            _announcerDebugStatusText = TerminalUiBuilder.CreateCompactDebugText("VoxDbgStatus", inner, theme, 16f, theme.TextAmber, TextAlignmentOptions.MidlineRight, _textScaler);
+            _announcerDebugStatusText.text = "IDLE";
+            TerminalUiBuilder.SetAnchors(_announcerDebugStatusText.rectTransform, 0.58f, 0.94f, 0.97f, 0.99f);
+
+            int r = 0;
+            AddDebugPair(inner, r++, "PLAY RANDOM NOW", () =>
+            {
+                ResolveAnnouncer()?.PlayRandomNow(bypassSuppression: true);
+                RefreshAnnouncerDebugStatus();
+            }, "STOP ANNOUNCER", () =>
+            {
+                ResolveAnnouncer()?.StopCurrent();
+                RefreshAnnouncerDebugStatus();
+            });
+
+            var entries = AnnouncerDatabase.CanonicalLines;
+            for (int i = 0; i < entries.Length; i += 2)
+            {
+                string leftId = entries[i].id;
+                string rightId = (i + 1 < entries.Length) ? entries[i + 1].id : null;
+                string leftLbl = "Play " + leftId;
+                string rightLbl = rightId != null ? ("Play " + rightId) : "(unused)";
+                AddDebugPair(
+                    inner,
+                    r++,
+                    leftLbl,
+                    () => { ResolveAnnouncer()?.PlayLineById(leftId, bypassSuppression: true); RefreshAnnouncerDebugStatus(); },
+                    rightLbl,
+                    rightId != null ? (Action)(() => { ResolveAnnouncer()?.PlayLineById(rightId, bypassSuppression: true); RefreshAnnouncerDebugStatus(); }) : null);
+            }
+
+            _announcerDebugPanel.SetActive(false);
+        }
+
+        private AnnouncerSystem ResolveAnnouncer()
+        {
+            if (_announcerSystem == null)
+                _announcerSystem = FindAnyObjectByType<AnnouncerSystem>();
+            return _announcerSystem;
+        }
+
+        private void RefreshAnnouncerDebugStatus()
+        {
+            if (_announcerDebugStatusText == null) return;
+            var ann = ResolveAnnouncer();
+            _announcerDebugStatusText.text = ann != null ? ann.LastStatus : "NO ANNOUNCER";
         }
 
         private void SyncPsxDebugSliders()

@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
+using Outpost.Runtime.Audio;
 using Outpost.Runtime.Rendering;
 using Outpost.Runtime.Room;
 using Outpost.Sim;
@@ -9,6 +10,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace Outpost.Runtime.Terminal
@@ -37,6 +39,7 @@ namespace Outpost.Runtime.Terminal
 
         [Header("Flow Options")]
         [SerializeField] private bool startAtTitleScreen = true;
+        [SerializeField] private string mainMenuSceneName = "MainMenu";
 
         [Header("Title Wallpaper")]
         [SerializeField] private Texture2D titleWallpaperTexture;
@@ -53,6 +56,7 @@ namespace Outpost.Runtime.Terminal
         private RoomStateBinder _roomStateBinder;
         private PlayerGate _playerGate;
         private AudioManager _audioManager;
+        private AnnouncerSystem _announcerSystem;
         private AccessibilitySettings _accessibility;
         private AccessibilityTextScaler _textScaler;
 
@@ -82,6 +86,9 @@ namespace Outpost.Runtime.Terminal
         private GameObject _titleSettingsModal;
         private Slider _titleVolumeSlider;
         private TextMeshProUGUI _titleVolumeValText;
+        private Slider _titleVoxVolumeSlider;
+        private TextMeshProUGUI _titleVoxVolumeValText;
+        private TextMeshProUGUI _titleVoxMuteLabel;
         private TextMeshProUGUI _titleLargeTextLabel;
         private TextMeshProUGUI _titleReduceFlickerLabel;
         private TextMeshProUGUI _titlePsxEnabledLabel;
@@ -120,6 +127,9 @@ namespace Outpost.Runtime.Terminal
         private GameObject _pausePanel;
         private Slider _pauseVolumeSlider;
         private TextMeshProUGUI _pauseVolumeValText;
+        private Slider _pauseVoxVolumeSlider;
+        private TextMeshProUGUI _pauseVoxVolumeValText;
+        private TextMeshProUGUI _pauseVoxMuteLabel;
         private TextMeshProUGUI _pauseLargeTextLabel;
         private TextMeshProUGUI _pauseReduceFlickerLabel;
         private TextMeshProUGUI _pausePsxEnabledLabel;
@@ -146,6 +156,12 @@ namespace Outpost.Runtime.Terminal
         private readonly StringBuilder _sb = new StringBuilder(1024);
 
         public FlowState CurrentState => _state;
+
+        public void SetAnnouncerSystem(AnnouncerSystem announcer)
+        {
+            _announcerSystem = announcer;
+            RefreshPauseLabels();
+        }
 
         public void Initialize(
             GameSession session,
@@ -205,7 +221,12 @@ namespace Outpost.Runtime.Terminal
                     _terminalController.UseExternalEndingFlow = true;
                     _terminalController.SetDeferInitialEvent(true);
                 }
-                EnterTitleState();
+
+                // When dedicated MainMenu scene is registered in Build Settings, Outpost.unity launches straight into the intro/shift.
+                if (!string.IsNullOrEmpty(mainMenuSceneName) && Application.CanStreamedLevelBeLoaded(mainMenuSceneName))
+                    StartIntroSequence();
+                else
+                    EnterTitleState();
             }
             else
             {
@@ -980,6 +1001,7 @@ namespace Outpost.Runtime.Terminal
             _terminalController?.SetTerminalVisible(false);
 
             _audioManager?.SetEndingState(true, won);
+            _announcerSystem?.StopCurrent();
             _roomStateBinder?.SetEndingLightingOverride(true, won);
 
             if (_endingPanel != null) _endingPanel.SetActive(true);
@@ -1119,9 +1141,19 @@ namespace Outpost.Runtime.Terminal
         {
             StopActiveRoutine();
             Time.timeScale = 1f;
-            int nextSeed = _session?.CurrentSnapshot != null ? _session.CurrentSnapshot.Seed + 1 : 101;
             _audioManager?.StopIntroDrone(immediate: true);
             _audioManager?.SetEndingState(false, false);
+            _announcerSystem?.StopCurrent();
+
+            if (!string.IsNullOrEmpty(mainMenuSceneName) && Application.CanStreamedLevelBeLoaded(mainMenuSceneName))
+            {
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+                SceneManager.LoadScene(mainMenuSceneName);
+                return;
+            }
+
+            int nextSeed = _session?.CurrentSnapshot != null ? _session.CurrentSnapshot.Seed + 1 : 101;
             _roomStateBinder?.SetEndingLightingOverride(false, false);
             _session?.RestartMission(nextSeed);
             _terminalController?.ResetForNewRun(deferInitialEvent: true);
@@ -1284,44 +1316,50 @@ namespace Outpost.Runtime.Terminal
 
         private void PopulateCredits()
         {
-            _sb.Clear();
-            _sb.AppendLine($"<b>{Localization.Get("game.title")}</b>");
-            _sb.AppendLine(Localization.Get("credits.challenge"));
-            _sb.AppendLine(Localization.Get("credits.unity"));
-            _sb.AppendLine(Localization.Get("credits.fonts"));
-            _sb.AppendLine();
-            _sb.AppendLine("<b><color=#45E3D3>--- ASSETS, PACKAGES & TOOLS ---</color></b>");
+            _creditsBodyText.text = BuildCreditsBodyText(_sourcesDb, _sb);
+        }
 
-            if (_sourcesDb != null && _sourcesDb.AssetCredits != null)
+        public static string BuildCreditsBodyText(SourcesDatabase sourcesDb, StringBuilder sb = null)
+        {
+            sb ??= new StringBuilder(1024);
+            sb.Clear();
+            sb.AppendLine($"<b>{Localization.Get("game.title")}</b>");
+            sb.AppendLine(Localization.Get("credits.challenge"));
+            sb.AppendLine(Localization.Get("credits.unity"));
+            sb.AppendLine(Localization.Get("credits.fonts"));
+            sb.AppendLine();
+            sb.AppendLine("<b><color=#45E3D3>--- ASSETS, PACKAGES & TOOLS ---</color></b>");
+
+            if (sourcesDb != null && sourcesDb.AssetCredits != null)
             {
                 string lastSec = string.Empty;
-                for (int i = 0; i < _sourcesDb.AssetCredits.Count; i++)
+                for (int i = 0; i < sourcesDb.AssetCredits.Count; i++)
                 {
-                    var a = _sourcesDb.AssetCredits[i];
+                    var a = sourcesDb.AssetCredits[i];
                     if (a.Section != lastSec)
                     {
                         lastSec = a.Section;
-                        _sb.AppendLine($"<b><color=#7FDFFF>[{lastSec}]</color></b>");
+                        sb.AppendLine($"<b><color=#7FDFFF>[{lastSec}]</color></b>");
                     }
-                    _sb.AppendLine($"• {a.Title} — {a.Organization}");
+                    sb.AppendLine($"• {a.Title} — {a.Organization}");
                     if (!string.IsNullOrEmpty(a.License))
-                        _sb.AppendLine($"  License: {a.License} | Used: {a.WhereUsed}");
+                        sb.AppendLine($"  License: {a.License} | Used: {a.WhereUsed}");
                 }
             }
 
-            _sb.AppendLine();
-            _sb.AppendLine("<b><color=#F7C948>--- SCIENTIFIC SOURCES DATABASE ---</color></b>");
+            sb.AppendLine();
+            sb.AppendLine("<b><color=#F7C948>--- SCIENTIFIC SOURCES DATABASE ---</color></b>");
 
-            if (_sourcesDb != null && _sourcesDb.Entries != null)
+            if (sourcesDb != null && sourcesDb.Entries != null)
             {
-                for (int i = 0; i < _sourcesDb.Entries.Count; i++)
+                for (int i = 0; i < sourcesDb.Entries.Count; i++)
                 {
-                    var e = _sourcesDb.Entries[i];
-                    _sb.AppendLine($"• [{e.Id}] {e.Title} — {e.Organization}");
-                    _sb.AppendLine($"  {e.UrlText}");
+                    var e = sourcesDb.Entries[i];
+                    sb.AppendLine($"• [{e.Id}] {e.Title} — {e.Organization}");
+                    sb.AppendLine($"  {e.UrlText}");
                 }
             }
-            _creditsBodyText.text = _sb.ToString();
+            return sb.ToString();
         }
 
         // --- COROUTINE TYPEWRITER HELPERS ---
@@ -1492,18 +1530,17 @@ namespace Outpost.Runtime.Terminal
             _titlePanel.SetActive(false);
         }
 
-        private Button CreateSimpleTextMenuButton(string name, RectTransform parent, string label, float yMin, float yMax, Action onClick)
+        public static Button CreateSimpleTextMenuButton(string name, RectTransform parent, UITheme theme, AccessibilityTextScaler scaler, string label, float xMin, float yMin, float xMax, float yMax, float fontSize, Action onClick)
         {
             var rect = TerminalUiBuilder.CreateRect(name, parent);
-            TerminalUiBuilder.SetAnchors(rect, 0.088f, yMin, 0.36f, yMax);
+            TerminalUiBuilder.SetAnchors(rect, xMin, yMin, xMax, yMax);
 
-            // Transparent hit area with no visible box or border
             var hitImg = rect.gameObject.AddComponent<Image>();
             hitImg.color = Color.clear;
             hitImg.raycastTarget = true;
 
-            var txt = TerminalUiBuilder.CreateText("Label", rect, _theme, 36f, Color.white, TextAlignmentOptions.MidlineLeft, _textScaler);
-            txt.font = _theme.ResolveTitleFont();
+            var txt = TerminalUiBuilder.CreateText("Label", rect, theme, fontSize, Color.white, TextAlignmentOptions.MidlineLeft, scaler);
+            txt.font = theme.ResolveTitleFont();
             txt.fontStyle = FontStyles.Bold;
             txt.characterSpacing = 2.0f;
             txt.text = label;
@@ -1527,6 +1564,9 @@ namespace Outpost.Runtime.Terminal
             return btn;
         }
 
+        private Button CreateSimpleTextMenuButton(string name, RectTransform parent, string label, float yMin, float yMax, Action onClick) =>
+            CreateSimpleTextMenuButton(name, parent, _theme, _textScaler, label, 0.088f, yMin, 0.36f, yMax, 36f, onClick);
+
         private void BuildTitleSettingsModal(RectTransform root)
         {
             _titleSettingsModal = CreateFullscreenBg(root, "TitleSettingsModal", new Color(0.02f, 0.02f, 0.04f, 0.82f));
@@ -1545,6 +1585,9 @@ namespace Outpost.Runtime.Terminal
                 0.80f,
                 out _titleVolumeSlider,
                 out _titleVolumeValText,
+                out _titleVoxVolumeSlider,
+                out _titleVoxVolumeValText,
+                out _titleVoxMuteLabel,
                 out _titleLargeTextLabel,
                 out _titleReduceFlickerLabel,
                 out _titlePsxEnabledLabel,
@@ -1569,7 +1612,7 @@ namespace Outpost.Runtime.Terminal
             _titleSettingsModal.SetActive(false);
         }
 
-        private static void QuitApplication()
+        public static void QuitApplication()
         {
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
@@ -1821,7 +1864,7 @@ namespace Outpost.Runtime.Terminal
             TerminalUiBuilder.SetAnchors(title.rectTransform, 0f, 0.89f, 1f, 0.98f);
 
             var resumeBtn = TerminalUiBuilder.CreateButton("ResumeBtn", inner, Localization.Get("pause.resume"), _theme, _theme.ButtonAccentBg, _theme.BorderFocused, _theme.TextPrimary, 24f, ResumeFromPause, _textScaler);
-            TerminalUiBuilder.SetAnchors(resumeBtn.GetComponent<RectTransform>(), 0.10f, 0.78f, 0.90f, 0.87f);
+            TerminalUiBuilder.SetAnchors(resumeBtn.GetComponent<RectTransform>(), 0.10f, 0.79f, 0.90f, 0.87f);
 
             var restartBtn = TerminalUiBuilder.CreateButton("RestartBtn", inner, Localization.Get("pause.restart"), _theme, _theme.ButtonBg, _theme.BorderUnfocused, _theme.TextPrimary, 24f, () =>
             {
@@ -1829,13 +1872,16 @@ namespace Outpost.Runtime.Terminal
                 int seed = _session?.CurrentSnapshot != null ? _session.CurrentSnapshot.Seed : 101;
                 RestartMissionRun(seed, runIntro: false);
             }, _textScaler);
-            TerminalUiBuilder.SetAnchors(restartBtn.GetComponent<RectTransform>(), 0.10f, 0.67f, 0.90f, 0.76f);
+            TerminalUiBuilder.SetAnchors(restartBtn.GetComponent<RectTransform>(), 0.10f, 0.69f, 0.90f, 0.77f);
 
             BuildSharedSettingsControls(
                 inner,
-                0.65f,
+                0.67f,
                 out _pauseVolumeSlider,
                 out _pauseVolumeValText,
+                out _pauseVoxVolumeSlider,
+                out _pauseVoxVolumeValText,
+                out _pauseVoxMuteLabel,
                 out _pauseLargeTextLabel,
                 out _pauseReduceFlickerLabel,
                 out _pausePsxEnabledLabel,
@@ -1846,7 +1892,7 @@ namespace Outpost.Runtime.Terminal
                 _audioManager?.PlayUiClick();
                 QuitToTitle();
             }, _textScaler);
-            TerminalUiBuilder.SetAnchors(quitBtn.GetComponent<RectTransform>(), 0.10f, 0.06f, 0.90f, 0.17f);
+            TerminalUiBuilder.SetAnchors(quitBtn.GetComponent<RectTransform>(), 0.10f, 0.05f, 0.90f, 0.15f);
 
             _pausePanel.SetActive(false);
         }
@@ -1856,26 +1902,33 @@ namespace Outpost.Runtime.Terminal
             float topY,
             out Slider volumeSlider,
             out TextMeshProUGUI volumeValText,
+            out Slider voxVolumeSlider,
+            out TextMeshProUGUI voxVolumeValText,
+            out TextMeshProUGUI voxMuteLabel,
             out TextMeshProUGUI largeTextLabel,
             out TextMeshProUGUI reduceFlickerLabel,
             out TextMeshProUGUI psxEnabledLabel,
             out TextMeshProUGUI psxResLabel)
         {
-            float volLabelMin = topY - 0.06f;
-            float volSliderMin = topY - 0.12f;
-            float volSliderMax = topY - 0.07f;
-            float row1Min = topY - 0.24f;
-            float row1Max = topY - 0.15f;
-            float gfxMin = topY - 0.31f;
-            float gfxMax = topY - 0.26f;
-            float row2Min = topY - 0.42f;
-            float row2Max = topY - 0.32f;
+            float volLabelMin = topY - 0.05f;
+            float volSliderMin = topY - 0.105f;
+            float volSliderMax = topY - 0.06f;
+            float annLabelMin = topY - 0.165f;
+            float annLabelMax = topY - 0.115f;
+            float annSliderMin = topY - 0.22f;
+            float annSliderMax = topY - 0.175f;
+            float row1Min = topY - 0.32f;
+            float row1Max = topY - 0.24f;
+            float gfxMin = topY - 0.38f;
+            float gfxMax = topY - 0.335f;
+            float row2Min = topY - 0.48f;
+            float row2Max = topY - 0.39f;
 
-            var volLabel = TerminalUiBuilder.CreateText("VolLabel", inner, _theme, 22f, _theme.TextMuted, TextAlignmentOptions.MidlineLeft, _textScaler);
+            var volLabel = TerminalUiBuilder.CreateText("VolLabel", inner, _theme, 20f, _theme.TextMuted, TextAlignmentOptions.MidlineLeft, _textScaler);
             volLabel.text = Localization.Get("pause.volume");
             TerminalUiBuilder.SetAnchors(volLabel.rectTransform, 0.10f, volLabelMin, 0.65f, topY);
 
-            volumeValText = TerminalUiBuilder.CreateText("VolValue", inner, _theme, 22f, _theme.TextPrimary, TextAlignmentOptions.MidlineRight, _textScaler);
+            volumeValText = TerminalUiBuilder.CreateText("VolValue", inner, _theme, 20f, _theme.TextPrimary, TextAlignmentOptions.MidlineRight, _textScaler);
             TerminalUiBuilder.SetAnchors(volumeValText.rectTransform, 0.65f, volLabelMin, 0.90f, topY);
 
             volumeSlider = CreateFlatSlider("VolSlider", inner);
@@ -1885,6 +1938,47 @@ namespace Outpost.Runtime.Terminal
                 if (_audioManager != null) _audioManager.MasterVolume = v;
                 RefreshPauseLabels();
             });
+
+            var annLabel = TerminalUiBuilder.CreateText("VoxVolLabel", inner, _theme, 20f, _theme.TextMuted, TextAlignmentOptions.MidlineLeft, _textScaler);
+            annLabel.text = "ANNOUNCER (VOX)";
+            TerminalUiBuilder.SetAnchors(annLabel.rectTransform, 0.10f, annLabelMin, 0.65f, annLabelMax);
+
+            voxVolumeValText = TerminalUiBuilder.CreateText("VoxVolValue", inner, _theme, 20f, _theme.TextPrimary, TextAlignmentOptions.MidlineRight, _textScaler);
+            TerminalUiBuilder.SetAnchors(voxVolumeValText.rectTransform, 0.65f, annLabelMin, 0.90f, annLabelMax);
+
+            voxVolumeSlider = CreateFlatSlider("VoxVolSlider", inner);
+            TerminalUiBuilder.SetAnchors(voxVolumeSlider.GetComponent<RectTransform>(), 0.10f, annSliderMin, 0.68f, annSliderMax);
+            voxVolumeSlider.onValueChanged.AddListener(v =>
+            {
+                if (_announcerSystem != null)
+                {
+                    _announcerSystem.AnnouncerVolume = v;
+                }
+                else
+                {
+                    PlayerPrefs.SetFloat(AnnouncerSystem.PrefVolume, Mathf.Clamp01(v));
+                    PlayerPrefs.Save();
+                }
+                RefreshPauseLabels();
+            });
+
+            var voxMuteBtn = TerminalUiBuilder.CreateButton("VoxMuteBtn", inner, "", _theme, _theme.ButtonBg, _theme.BorderUnfocused, _theme.TextPrimary, 19f, () =>
+            {
+                _audioManager?.PlayUiClick();
+                if (_announcerSystem != null)
+                {
+                    _announcerSystem.IsMuted = !_announcerSystem.IsMuted;
+                }
+                else
+                {
+                    bool nextMuted = PlayerPrefs.GetInt(AnnouncerSystem.PrefMuted, 0) == 0;
+                    PlayerPrefs.SetInt(AnnouncerSystem.PrefMuted, nextMuted ? 1 : 0);
+                    PlayerPrefs.Save();
+                }
+                RefreshPauseLabels();
+            }, _textScaler);
+            TerminalUiBuilder.SetAnchors(voxMuteBtn.GetComponent<RectTransform>(), 0.70f, annSliderMin - 0.004f, 0.90f, annSliderMax + 0.004f);
+            voxMuteLabel = voxMuteBtn.GetComponentInChildren<TextMeshProUGUI>();
 
             var largeBtn = TerminalUiBuilder.CreateButton("LargerTextBtn", inner, "", _theme, _theme.ButtonBg, _theme.BorderUnfocused, _theme.TextPrimary, 22f, () =>
             {
@@ -1968,23 +2062,30 @@ namespace Outpost.Runtime.Terminal
         private void RefreshPauseLabels()
         {
             float vol = _audioManager != null ? _audioManager.MasterVolume : 0.75f;
+            float voxVol = _announcerSystem != null ? _announcerSystem.AnnouncerVolume : PlayerPrefs.GetFloat(AnnouncerSystem.PrefVolume, 0.85f);
+            bool voxMuted = _announcerSystem != null ? _announcerSystem.IsMuted : (PlayerPrefs.GetInt(AnnouncerSystem.PrefMuted, 0) == 1);
             bool largeOn = _accessibility != null && _accessibility.LargerText;
             bool flickerOn = _accessibility != null && _accessibility.ReduceFlicker;
             bool psxOn = _psxSettings != null && _psxSettings.enabled;
             string resLbl = _psxSettings != null ? _psxSettings.GetPresetLabel() : "MED (480x270)";
 
-            ApplySettingsValues(vol, largeOn, flickerOn, psxOn, resLbl, _pauseVolumeSlider, _pauseVolumeValText, _pauseLargeTextLabel, _pauseReduceFlickerLabel, _pausePsxEnabledLabel, _pausePsxResLabel);
-            ApplySettingsValues(vol, largeOn, flickerOn, psxOn, resLbl, _titleVolumeSlider, _titleVolumeValText, _titleLargeTextLabel, _titleReduceFlickerLabel, _titlePsxEnabledLabel, _titlePsxResLabel);
+            ApplySettingsValues(vol, voxVol, voxMuted, largeOn, flickerOn, psxOn, resLbl, _pauseVolumeSlider, _pauseVolumeValText, _pauseVoxVolumeSlider, _pauseVoxVolumeValText, _pauseVoxMuteLabel, _pauseLargeTextLabel, _pauseReduceFlickerLabel, _pausePsxEnabledLabel, _pausePsxResLabel);
+            ApplySettingsValues(vol, voxVol, voxMuted, largeOn, flickerOn, psxOn, resLbl, _titleVolumeSlider, _titleVolumeValText, _titleVoxVolumeSlider, _titleVoxVolumeValText, _titleVoxMuteLabel, _titleLargeTextLabel, _titleReduceFlickerLabel, _titlePsxEnabledLabel, _titlePsxResLabel);
         }
 
         private static void ApplySettingsValues(
             float vol,
+            float voxVol,
+            bool voxMuted,
             bool largeOn,
             bool flickerOn,
             bool psxOn,
             string resLbl,
             Slider volumeSlider,
             TextMeshProUGUI volumeValText,
+            Slider voxVolumeSlider,
+            TextMeshProUGUI voxVolumeValText,
+            TextMeshProUGUI voxMuteLabel,
             TextMeshProUGUI largeTextLabel,
             TextMeshProUGUI reduceFlickerLabel,
             TextMeshProUGUI psxEnabledLabel,
@@ -1992,6 +2093,9 @@ namespace Outpost.Runtime.Terminal
         {
             if (volumeSlider != null) volumeSlider.SetValueWithoutNotify(vol);
             if (volumeValText != null) volumeValText.text = $"{Mathf.RoundToInt(vol * 100f)}%";
+            if (voxVolumeSlider != null) voxVolumeSlider.SetValueWithoutNotify(voxVol);
+            if (voxVolumeValText != null) voxVolumeValText.text = voxMuted ? "MUTED" : $"{Mathf.RoundToInt(voxVol * 100f)}%";
+            if (voxMuteLabel != null) voxMuteLabel.text = voxMuted ? "UNMUTE" : "MUTE";
             if (largeTextLabel != null)
                 largeTextLabel.text = $"{Localization.Get("pause.larger_text")}: {(largeOn ? "ON" : "OFF")}";
             if (reduceFlickerLabel != null)

@@ -4,6 +4,7 @@
     "references": [
         "Outpost.Sim",
         "Outpost.Runtime",
+        "Outpost.Editor",
         "Unity.TextMeshPro",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"

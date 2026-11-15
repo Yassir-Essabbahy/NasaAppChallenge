@@ -1,3 +1,4 @@
+using Outpost.Runtime.Audio;
 using Outpost.Runtime.Rendering;
 using Outpost.Runtime.Room;
 using Outpost.Sim;
@@ -33,6 +34,10 @@ namespace Outpost.Runtime.Terminal
         [SerializeField] private FirstPersonRoomController firstPersonController;
         [SerializeField] private MissionFlowController missionFlowController;
         [SerializeField] private PSXRenderController psxRenderController;
+        [SerializeField] private AnnouncerDatabase announcerDatabase;
+        [SerializeField] private AnnouncerSystem announcerSystem;
+        [SerializeField] private AnnouncerSubtitleHud announcerSubtitleHud;
+        [SerializeField] private AirlockController airlockController;
 
         public GameSession Session { get; private set; }
 
@@ -104,6 +109,51 @@ namespace Outpost.Runtime.Terminal
                     introSequenceData,
                     psxSettings);
             }
+
+            SetupAnnouncerSystem();
+        }
+
+        private void SetupAnnouncerSystem()
+        {
+            if (announcerDatabase == null)
+                announcerDatabase = Resources.Load<AnnouncerDatabase>("AnnouncerDatabase");
+            if (announcerSystem == null)
+                announcerSystem = FindAnyObjectByType<AnnouncerSystem>();
+            if (announcerSystem == null)
+                announcerSystem = gameObject.AddComponent<AnnouncerSystem>();
+
+            if (announcerSubtitleHud == null)
+                announcerSubtitleHud = FindAnyObjectByType<AnnouncerSubtitleHud>();
+            if (announcerSubtitleHud == null)
+            {
+                var hudGo = new GameObject("AnnouncerSubtitleCanvas");
+                hudGo.transform.SetParent(transform, false);
+                announcerSubtitleHud = hudGo.AddComponent<AnnouncerSubtitleHud>();
+            }
+            announcerSubtitleHud.Initialize(theme, accessibilitySettings);
+
+            if (airlockController == null)
+                airlockController = FindAnyObjectByType<AirlockController>();
+
+            announcerSystem.Initialize(
+                announcerDatabase,
+                announcerSubtitleHud,
+                hasPlayerControl: () =>
+                    missionFlowController == null ||
+                    !enableTitleIntroFlow ||
+                    missionFlowController.CurrentState == MissionFlowController.FlowState.Gameplay,
+                isSuppressed: () =>
+                    (missionFlowController != null && enableTitleIntroFlow && missionFlowController.CurrentState != MissionFlowController.FlowState.Gameplay) ||
+                    (terminalController != null && terminalController.IsModalBlockingLeanBack) ||
+                    (Session?.CurrentSnapshot != null && (Session.CurrentSnapshot.Status != MissionStatus.InProgress || Session.CurrentSnapshot.AlertSeverity >= 2)),
+                isExteriorOrAirlock: () =>
+                    airlockController != null && (airlockController.IsDepressurized || airlockController.IsCycling));
+
+            audioManager?.SetExteriorPredicate(() =>
+                airlockController != null && airlockController.IsDepressurized);
+
+            terminalController?.SetAnnouncerSystem(announcerSystem);
+            missionFlowController?.SetAnnouncerSystem(announcerSystem);
         }
     }
 }
