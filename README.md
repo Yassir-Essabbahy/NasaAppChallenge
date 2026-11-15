@@ -2,7 +2,7 @@
 
 **One-line tagline:** Step into a retro-futuristic Martian habitat, manage life support through dust storms and solar flares, and keep four astronauts alive until rescue on Sol 7.
 
-**Play it:** [Play on itch.io](ITCH_URL_TODO) *(WebGL link — `ITCH_URL_TODO`)*
+**Play it:** [Play on itch.io](https://yassir001.itch.io/mars-outpost-last-shift) *(WebGL link — `ITCH_URL_TODO`)*
 
 ## Summary
 
