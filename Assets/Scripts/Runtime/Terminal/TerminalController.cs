@@ -63,10 +63,7 @@ namespace Outpost.Runtime.Terminal
         private int _lastDebugToggleFrame = -1;
 
         // Top Bar
-        private RectTransform _alertBarPanel;
-        private Image _alertBarInner;
-        private Image _alertBarIcon;
-        private TextMeshProUGUI _alertBarText;
+        private TextMeshProUGUI _solBadgeText;
         private TextMeshProUGUI _solClockText;
         private TextMeshProUGUI _apHeaderText;
 
@@ -74,7 +71,7 @@ namespace Outpost.Runtime.Terminal
         private GameObject _readOnlyBanner;
         private TextMeshProUGUI _readOnlyBannerText;
 
-        // Left Column: 5 Supply Tiles + Floating Change Popups
+        // Outpost Resources table rows
         private struct SupplyTileUi
         {
             public RectTransform Panel;
@@ -88,6 +85,9 @@ namespace Outpost.Runtime.Terminal
             public Image TrendArrow;
             public TextMeshProUGUI TrendText;
             public TextMeshProUGUI DeltaPopupText;
+            public TooltipTrigger Tooltip;
+            public string SystemLabel;
+            public string GlossaryDef;
             public float PopupTimer;
             public float FlashTimer;
             public float LastValue;
@@ -95,38 +95,51 @@ namespace Outpost.Runtime.Terminal
         }
         private readonly SupplyTileUi[] _supplyTiles = new SupplyTileUi[5];
 
-        // Right Column: 4 Crew Cards
+        // Crew Status table rows
         private struct CrewCardUi
         {
             public RectTransform Panel;
+            public Image AvatarBoxBg;
             public TextMeshProUGUI NameText;
             public TextMeshProUGUI RoleText;
             public TextMeshProUGUI StatusTagText;
-            public Image[] HeartPips;
             public TextMeshProUGUI HpText;
-            public Image MoodIcon;
-            public TextMeshProUGUI MoodText;
+            public TooltipTrigger Tooltip;
         }
         private readonly CrewCardUi[] _crewCards = new CrewCardUi[4];
 
-        // Top App Dock (8 Apps + Help)
+        // Left Sidebar Navigation (Overview + 8 Apps)
+        private RectTransform _overviewNavPanel;
+        private Image _overviewNavInner;
+        private Image _overviewNavIcon;
+        private TextMeshProUGUI _overviewNavLabel;
         private readonly RectTransform[] _iconPanels = new RectTransform[9];
+        private readonly Image[] _iconInners = new Image[9];
+        private readonly Image[] _iconImgs = new Image[9];
+        private readonly TextMeshProUGUI[] _iconLabels = new TextMeshProUGUI[9];
         private readonly TextMeshProUGUI[] _iconBadges = new TextMeshProUGUI[8];
         private TerminalAppId? _pulsingApp;
 
-        // Center Column: Mission Goal, Next Step, Onboarding, HELIOS
+        // Center Column: Mission Goal, Outpost Alert, Checklist / HELIOS Brief
         private TextMeshProUGUI _goalTitleText;
         private readonly Image[] _solTrackPips = new Image[7];
         private readonly TextMeshProUGUI[] _solTrackLabels = new TextMeshProUGUI[7];
 
         private RectTransform _nextStepCard;
+        private Image _nextStepInner;
+        private Image _alertCardIcon;
+        private TextMeshProUGUI _alertCardTitle;
         private TextMeshProUGUI _nextStepBodyText;
         private Button _nextStepBtn;
+        private Image _nextStepBtnBg;
         private TextMeshProUGUI _nextStepBtnLabel;
         private TerminalAppId? _nextStepTargetApp;
         private bool _nextStepOpensEvent;
 
         private RectTransform _onboardingCard;
+        private Image _bottomCardIcon;
+        private TextMeshProUGUI _bottomCardTitle;
+        private GameObject _checklistGroup;
         private bool _onboardingDone;
         private bool _onboardStep1Done;
         private bool _onboardStep2Done;
@@ -135,7 +148,6 @@ namespace Outpost.Runtime.Terminal
         private readonly TextMeshProUGUI[] _onboardLabels = new TextMeshProUGUI[3];
 
         private GameObject _heliosBubble;
-        private Image _heliosIcon;
         private TextMeshProUGUI _heliosText;
         private Button _hintsToggleBtn;
         private TextMeshProUGUI _hintsToggleLabel;
@@ -438,17 +450,21 @@ namespace Outpost.Runtime.Terminal
                     _cachedSolNumber = _session.CurrentSnapshot.CurrentSol;
                     int hh = (totalMins / 60) % 24;
                     int mm = totalMins % 60;
-                    _solClockText.text = $"{Localization.Format("mc.sol_progress", _cachedSolNumber, _session.CurrentSnapshot.TotalSols)}  {hh:00}:{mm:00}";
+                    if (_solBadgeText != null)
+                        _solBadgeText.text = Localization.Format("mc.sol_progress", _cachedSolNumber, _session.CurrentSnapshot.TotalSols);
+                    if (_solClockText != null)
+                        _solClockText.text = $"{hh:00}:{mm:00}";
                 }
             }
 
             if (_pulsingApp.HasValue)
             {
                 int idx = (int)_pulsingApp.Value;
-                if (idx >= 0 && idx < 8 && _iconPanels[idx] != null)
+                bool isFocused = _windowManager != null && _windowManager.FocusedApp.HasValue && _windowManager.FocusedApp.Value == _pulsingApp.Value;
+                if (!isFocused && idx >= 0 && idx < 8 && _iconPanels[idx] != null)
                 {
                     float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 5f);
-                    Color c = Color.Lerp(theme.BorderUnfocused, theme.GuidedPulseColor, pulse);
+                    Color c = Color.Lerp(new Color(0.15f, 0.25f, 0.34f, 1f), theme.GuidedPulseColor, pulse);
                     TerminalUiBuilder.SetBorderColor(_iconPanels[idx], c);
                 }
             }
@@ -587,8 +603,10 @@ namespace Outpost.Runtime.Terminal
             _solMinutesElapsed = 0f;
             _lastDisplayedMinute = -1;
             _cachedSolNumber = sol;
-            if (_solClockText != null && _session?.CurrentSnapshot != null)
-                _solClockText.text = $"{Localization.Format("mc.sol_progress", sol, _session.CurrentSnapshot.TotalSols)}  06:00";
+            if (_solBadgeText != null && _session?.CurrentSnapshot != null)
+                _solBadgeText.text = Localization.Format("mc.sol_progress", sol, _session.CurrentSnapshot.TotalSols);
+            if (_solClockText != null)
+                _solClockText.text = "06:00";
         }
 
         private void MarkOnboardingStep1()
@@ -619,40 +637,27 @@ namespace Outpost.Runtime.Terminal
         {
             if (!_built || s == null) return;
 
-            // 1. Top Alert Bar + Airlock/Hazard Lock Awareness
-            bool hazardCrit = s.AlertSeverity == 2 || s.SolarFlareActive;
-            bool airlockLocked = s.SolarFlareActive || s.DustStormSolsRemaining > 0;
-            Color alertCol = hazardCrit ? theme.StatusCrit : (s.AlertSeverity == 1 || airlockLocked ? theme.StatusWarn : theme.StatusOk);
-            string alertWord = hazardCrit ? Localization.Get("status.word.danger")
-                : (s.AlertSeverity == 1 ? Localization.Get("status.word.low") : Localization.Get("status.word.good"));
-            TerminalUiBuilder.SetBorderColor(_alertBarPanel, alertCol);
-            _alertBarInner.color = hazardCrit ? new Color(0.28f, 0.08f, 0.11f, 0.96f)
-                : ((s.AlertSeverity == 1 || airlockLocked) ? new Color(0.24f, 0.17f, 0.06f, 0.96f) : theme.PanelBg);
-            _alertBarText.color = (s.AlertSeverity == 0 && !airlockLocked) ? theme.TextPrimary : alertCol;
-            string lockTag = airlockLocked ? "  [EVA LOCKED]" : string.Empty;
-            _alertBarText.text = $"{alertWord}:  {s.AlertText}{lockTag}";
-            if (_alertBarIcon != null)
+            // 1. Header Status Pill (Sol + AP)
+            if (_solBadgeText != null)
+                _solBadgeText.text = Localization.Format("mc.sol_progress", s.CurrentSol, s.TotalSols);
+            if (_apHeaderText != null)
             {
-                TerminalIconId barIcon = hazardCrit ? TerminalIconId.Hazard
-                    : (airlockLocked ? TerminalIconId.Lock
-                    : (s.AlertSeverity == 1 ? TerminalIconId.Warning : TerminalIconId.Scan));
-                _alertBarIcon.sprite = TerminalUiArt.GetIcon(barIcon);
-                _alertBarIcon.color = alertCol;
+                string apColor = s.ActionPoints > 0 ? "#F7C948" : "#7FA1B8";
+                _apHeaderText.text = $"Action Points: <color={apColor}><b>{s.ActionPoints} / {s.MaxActionPoints}</b></color>";
             }
 
-            _apHeaderText.text = Localization.Format("ui.ap_count", s.ActionPoints, s.MaxActionPoints);
-            _apHeaderText.color = s.ActionPoints > 0 ? theme.TextAmber : theme.TextMuted;
-
-            // 2. Left Column: 5 Status Tiles
+            // 2. Right Column Top: 5 Outpost Resources Rows
             UpdateSupplyTile(0, s.Power, s.NetPowerDelta, s.StatusLightOkThreshold, s.StatusLightLowThreshold, showRate: true);
             UpdateSupplyTile(1, s.Oxygen, s.NetOxygenDelta, s.StatusLightOkThreshold, s.StatusLightLowThreshold, showRate: true);
             UpdateSupplyTile(2, s.Water, s.NetWaterDelta, s.StatusLightOkThreshold, s.StatusLightLowThreshold, showRate: true);
             UpdateSupplyTile(3, s.Food, s.NetFoodDelta, s.StatusLightOkThreshold, s.StatusLightLowThreshold, showRate: true);
             UpdateSupplyTile(4, s.Shielding, 0f, 45f, 20f, showRate: false);
 
-            // 3. Center Column: Mission Goal & 7-Sol Track
+            // 3. Center Column: Mission Goal & 7-Sol Progress Strip
             _goalTitleText.text = s.SolsRemainingForRescue > 0
-                ? Localization.Format("mc.goal_header", s.SolsRemainingForRescue)
+                ? Localization.Get("mc.goal_survive_headline") is string g && g != "mc.goal_survive_headline"
+                    ? g
+                    : "Survive until rescue."
                 : Localization.Get("mc.goal_last_sol");
             for (int i = 0; i < 7; i++)
             {
@@ -660,79 +665,119 @@ namespace Outpost.Runtime.Terminal
                 if (solNum < s.CurrentSol)
                 {
                     _solTrackPips[i].color = theme.StatusOk;
-                    _solTrackLabels[i].color = theme.TaskbarBg;
+                    _solTrackLabels[i].color = new Color(0.03f, 0.08f, 0.12f, 1f);
                 }
                 else if (solNum == s.CurrentSol)
                 {
                     _solTrackPips[i].color = theme.TextAmber;
-                    _solTrackLabels[i].color = theme.TaskbarBg;
+                    _solTrackLabels[i].color = new Color(0.03f, 0.08f, 0.12f, 1f);
                 }
                 else
                 {
-                    _solTrackPips[i].color = theme.BarTrackBg;
+                    _solTrackPips[i].color = new Color(0.07f, 0.14f, 0.21f, 1f);
                     _solTrackLabels[i].color = theme.TextMuted;
                 }
             }
 
-            // 4. HELIOS Hint & NEXT STEP Card
+            // 4. Center Middle: Outpost Alert / Next Step Card
             var eval = HintEngine.Evaluate(s);
-            _nextStepBodyText.text = eval.NextStepText;
-            _nextStepBtnLabel.text = eval.NextStepButtonText;
-            _nextStepTargetApp = eval.TargetApp;
-            _nextStepOpensEvent = !eval.TargetApp.HasValue && s.ActiveEvent != null && !s.ActiveEvent.IsResolved;
-            TerminalUiBuilder.SetBorderColor(_nextStepCard, eval.IsUrgent ? theme.StatusWarn : theme.BorderFocused);
+            bool hasPendingEvent = s.ActiveEvent != null && !s.ActiveEvent.IsResolved;
+            bool hazardCrit = s.AlertSeverity == 2 || s.SolarFlareActive;
+            bool airlockLocked = s.SolarFlareActive || s.DustStormSolsRemaining > 0;
+            bool showAlertStyle = hasPendingEvent || eval.IsUrgent || s.AlertSeverity >= 1 || airlockLocked;
 
-            if (_heliosBubble != null)
+            Color cardBg;
+            Color cardBorder;
+            Color accentCol;
+            TerminalIconId cardIconId;
+            if (hazardCrit)
             {
-                _heliosBubble.SetActive(_hintsEnabled);
-                if (_hintsEnabled)
-                    _heliosText.text = eval.HeliosHintText;
-                if (_heliosIcon != null)
-                {
-                    bool danger = s.AlertSeverity >= 2 || s.SolarFlareActive;
-                    TerminalIconId hIconId = danger ? TerminalIconId.Hazard
-                        : (eval.IsUrgent ? TerminalIconId.Warning : TerminalIconId.Help);
-                    _heliosIcon.sprite = TerminalUiArt.GetIcon(hIconId);
-                    _heliosIcon.color = danger ? theme.StatusCrit : (eval.IsUrgent ? theme.StatusWarn : theme.AccentHelp);
-                }
+                cardBg = new Color(0.29f, 0.09f, 0.12f, 0.96f);
+                cardBorder = theme.StatusCrit;
+                accentCol = theme.StatusCrit;
+                cardIconId = TerminalIconId.Hazard;
             }
+            else if (showAlertStyle)
+            {
+                cardBg = new Color(0.25f, 0.17f, 0.04f, 0.96f);
+                cardBorder = new Color(0.85f, 0.61f, 0.14f, 1f);
+                accentCol = theme.StatusWarn;
+                cardIconId = (!hasPendingEvent && s.AlertSeverity == 0 && airlockLocked) ? TerminalIconId.Lock : TerminalIconId.Warning;
+            }
+            else
+            {
+                cardBg = new Color(0.04f, 0.12f, 0.17f, 0.95f);
+                cardBorder = new Color(0.16f, 0.44f, 0.50f, 1f);
+                accentCol = theme.StatusOk;
+                cardIconId = TerminalIconId.Scan;
+            }
+
+            TerminalUiBuilder.SetBorderColor(_nextStepCard, cardBorder);
+            if (_nextStepInner != null) _nextStepInner.color = cardBg;
+            if (_alertCardIcon != null)
+            {
+                _alertCardIcon.sprite = TerminalUiArt.GetIcon(cardIconId);
+                _alertCardIcon.color = (cardIconId == TerminalIconId.Warning || cardIconId == TerminalIconId.Hazard)
+                    ? Color.white
+                    : accentCol;
+            }
+            if (_alertCardTitle != null)
+            {
+                _alertCardTitle.text = hazardCrit ? "CRITICAL ALERT"
+                    : (showAlertStyle ? "OUTPOST ALERT" : "SYSTEMS NOMINAL");
+                _alertCardTitle.color = accentCol;
+            }
+
+            string lockSuffix = airlockLocked ? " [EVA LOCKED]" : string.Empty;
+            string bodyCopy = hasPendingEvent
+                ? "An urgent outpost situation needs your decision."
+                : $"{eval.NextStepText}";
+            _nextStepBodyText.text = $"{bodyCopy}{lockSuffix}";
+            _nextStepTargetApp = eval.TargetApp;
+            _nextStepOpensEvent = !eval.TargetApp.HasValue && hasPendingEvent;
+
+            if (_nextStepBtnLabel != null)
+            {
+                _nextStepBtnLabel.text = _nextStepOpensEvent ? "VIEW ALERT" : eval.NextStepButtonText.ToUpperInvariant();
+                _nextStepBtnLabel.color = new Color(0.04f, 0.08f, 0.12f, 1f);
+            }
+            if (_nextStepBtnBg != null)
+            {
+                _nextStepBtnBg.color = hazardCrit ? theme.StatusCrit : (showAlertStyle ? theme.StatusWarn : new Color(0.14f, 0.88f, 0.78f, 1f));
+                TerminalUiBuilder.SetBorderColor(_nextStepBtn.GetComponent<RectTransform>(), Color.Lerp(_nextStepBtnBg.color, Color.white, 0.28f));
+            }
+
+            // 5. Center Bottom: First Shift Checklist (Sol 1) / HELIOS Brief (Sol 2+)
+            RefreshOnboardingUi(s.CurrentSol, eval.HeliosHintText);
+
             if (_hintsToggleLabel != null)
                 _hintsToggleLabel.text = _hintsEnabled ? Localization.Get("helios.hints_on") : Localization.Get("helios.hints_off");
 
-            // Onboarding checklist visibility
-            RefreshOnboardingUi(s.CurrentSol);
-
-            // 5. Right Column: 4 Crew Cards
+            // 6. Right Bottom: 4 Crew Status Rows
             for (int i = 0; i < 4 && i < s.Crew.Count; i++)
             {
                 UpdateCrewCard(i, s.Crew[i]);
             }
 
-            // 6. Forecast & End Sol Button
-            _forecastStripText.text = s.ForecastSummaryLine;
+            // 7. Footer Hint / Forecast & End Sol Button
+            _forecastStripText.text = $"<color=#7FDFFF><b>Hint:</b></color> {s.ForecastSummaryLine}";
             if (!IsReadOnlyMode)
             {
-                bool eventBlocksEndSol = !_deferInitialEvent && s.ActiveEvent != null && !s.ActiveEvent.IsResolved;
+                bool eventBlocksEndSol = !_deferInitialEvent && hasPendingEvent;
                 _endSolBtn.gameObject.SetActive(true);
                 _endSolBtn.interactable = s.Status == MissionStatus.InProgress && !eventBlocksEndSol;
-                _endSolLabel.text = eventBlocksEndSol ? Localization.Get("next.event_btn") : Localization.Get("ui.end_sol");
+                _endSolLabel.text = eventBlocksEndSol ? "RESOLVE EVENT" : "END SOL";
             }
             else
             {
                 _endSolBtn.gameObject.SetActive(false);
             }
 
-            // 7. Desktop Unread Badges & Guided Highlight
+            // 8. Left Sidebar Unread Badges & Active Selection
             _iconBadges[(int)TerminalAppId.Comms].text = s.UnreadCommsCount > 0 ? $"[{s.UnreadCommsCount}]" : "";
             _iconBadges[(int)TerminalAppId.CommandersLog].text = s.UnreadLogCount > 0 ? $"[{s.UnreadLogCount}]" : "";
 
             _pulsingApp = s.GuidedHighlightApp;
-            for (int i = 0; i < 8; i++)
-            {
-                if (!_pulsingApp.HasValue || (int)_pulsingApp.Value != i)
-                    TerminalUiBuilder.SetBorderColor(_iconPanels[i], theme.GetAppAccent((TerminalAppId)i));
-            }
-
             _windowManager.RefreshOpenWindows(s);
             RefreshTaskbarWindows();
         }
@@ -749,14 +794,14 @@ namespace Outpost.Runtime.Terminal
                 {
                     tile.FlashTimer = 0.45f;
                     if (tile.FlashOverlay != null)
-                        tile.FlashOverlay.color = diff > 0 ? new Color(theme.StatusOk.r, theme.StatusOk.g, theme.StatusOk.b, 0.25f)
-                            : new Color(theme.StatusCrit.r, theme.StatusCrit.g, theme.StatusCrit.b, 0.25f);
+                        tile.FlashOverlay.color = diff > 0 ? new Color(theme.StatusOk.r, theme.StatusOk.g, theme.StatusOk.b, 0.20f)
+                            : new Color(theme.StatusCrit.r, theme.StatusCrit.g, theme.StatusCrit.b, 0.22f);
                     if (tile.DeltaPopupText != null)
                     {
                         tile.PopupTimer = 0.85f;
                         tile.DeltaPopupText.color = diff > 0 ? theme.StatusOk : theme.StatusCrit;
                         tile.DeltaPopupText.text = $"{diff:+0;-0;0}%";
-                        tile.DeltaPopupText.rectTransform.anchoredPosition = new Vector2(0f, 18f);
+                        tile.DeltaPopupText.rectTransform.anchoredPosition = new Vector2(0f, 4f);
                         tile.DeltaPopupText.gameObject.SetActive(true);
                     }
                 }
@@ -784,38 +829,17 @@ namespace Outpost.Runtime.Terminal
 
             tile.ValueText.text = $"{value:0}%";
             tile.StatusWordText.text = word;
-            tile.StatusWordText.color = theme.TaskbarBg;
+            tile.StatusWordText.color = new Color(0.03f, 0.08f, 0.12f, 1f);
             tile.StatusBadgeBg.color = col;
             if (tile.BarAnimator != null)
                 tile.BarAnimator.SetTarget(value / 100f, col);
 
-            if (!showRate)
+            if (tile.Tooltip != null)
             {
-                tile.TrendArrow.sprite = TerminalUiArt.GetIcon(TerminalIconId.Shield);
-                tile.TrendArrow.color = col;
-                tile.TrendText.color = theme.TextMuted;
-                tile.TrendText.text = Localization.Get("mc.steady");
-            }
-            else if (deltaPerSol > 0.2f)
-            {
-                tile.TrendArrow.sprite = TerminalUiArt.GetIcon(TerminalIconId.ArrowUp);
-                tile.TrendArrow.color = theme.StatusOk;
-                tile.TrendText.color = theme.StatusOk;
-                tile.TrendText.text = $"{deltaPerSol:+0.0;-0.0;0}{Localization.Get("mc.per_sol")}";
-            }
-            else if (deltaPerSol < -0.2f)
-            {
-                tile.TrendArrow.sprite = TerminalUiArt.GetIcon(TerminalIconId.ArrowDown);
-                tile.TrendArrow.color = theme.StatusCrit;
-                tile.TrendText.color = theme.StatusWarn;
-                tile.TrendText.text = $"{deltaPerSol:+0.0;-0.0;0}{Localization.Get("mc.per_sol")}";
-            }
-            else
-            {
-                tile.TrendArrow.sprite = TerminalUiArt.GetIcon(TerminalIconId.ArrowRight);
-                tile.TrendArrow.color = theme.TextMuted;
-                tile.TrendText.color = theme.TextMuted;
-                tile.TrendText.text = Localization.Get("mc.steady");
+                string rateNote = !showRate
+                    ? Localization.Get("mc.steady")
+                    : (Mathf.Abs(deltaPerSol) > 0.2f ? $"{deltaPerSol:+0.0;-0.0;0}{Localization.Get("mc.per_sol")}" : Localization.Get("mc.steady"));
+                tile.Tooltip.SetRawText($"{tile.SystemLabel} ({value:0}%, {rateNote})", tile.GlossaryDef);
             }
         }
 
@@ -834,40 +858,40 @@ namespace Outpost.Runtime.Terminal
 
             card.StatusTagText.text = c.StatusTag;
             card.StatusTagText.color = stateCol;
-            TerminalUiBuilder.SetBorderColor(card.Panel, !c.IsAlive ? theme.StatusCrit : theme.BorderUnfocused);
-
-            int filledHearts = c.IsAlive ? Mathf.Clamp(Mathf.CeilToInt(c.Health / 20f), 1, 5) : 0;
-            for (int h = 0; h < card.HeartPips.Length; h++)
-                card.HeartPips[h].color = h < filledHearts ? theme.AccentCrew : new Color(0.22f, 0.27f, 0.36f, 0.7f);
-
             card.HpText.text = $"{c.Health:0} HP";
-            card.HpText.color = stateCol;
-
-            string moodWord = !c.IsAlive || c.Morale < 25f ? Localization.Get("status.word.danger")
-                : (c.Morale < 55f ? Localization.Get("status.word.low") : Localization.Get("status.word.good"));
-            Color moodCol = !c.IsAlive || c.Morale < 25f ? theme.StatusCrit : (c.Morale < 55f ? theme.StatusWarn : theme.StatusOk);
-            card.MoodIcon.sprite = TerminalUiArt.GetIcon(!c.IsAlive || c.Morale < 25f ? TerminalIconId.MoodCrit : (c.Morale < 55f ? TerminalIconId.MoodWarn : TerminalIconId.MoodGood));
-            card.MoodIcon.color = moodCol;
-            card.MoodText.text = $"{Localization.Get("ui.morale")} {c.Morale:0} ({moodWord})";
-            card.MoodText.color = moodCol;
+            card.HpText.color = theme.TextPrimary;
+            if (card.AvatarBoxBg != null)
+                card.AvatarBoxBg.color = !c.IsAlive ? new Color(0.28f, 0.10f, 0.12f, 1f) : new Color(0.07f, 0.16f, 0.24f, 1f);
+            if (card.Tooltip != null)
+                card.Tooltip.SetRawText($"{c.Name} ({c.Role})", $"HP: {c.Health:0}  |  Morale: {c.Morale:0}  |  Radiation Dose: {c.DoseMsv:0.0} mSv");
         }
 
-        private void RefreshOnboardingUi(int currentSol = 1)
+        private void RefreshOnboardingUi(int currentSol = 1, string heliosTip = null)
         {
             if (_onboardingCard == null || _nextStepCard == null) return;
             bool showChecklist = !_onboardingDone && currentSol == 1;
-            _onboardingCard.gameObject.SetActive(showChecklist);
+            if (_checklistGroup != null) _checklistGroup.SetActive(showChecklist);
+            if (_heliosBubble != null) _heliosBubble.SetActive(!showChecklist && _hintsEnabled);
 
             if (showChecklist)
             {
-                TerminalUiBuilder.SetAnchors(_nextStepCard, 0f, 0.34f, 0.56f, 0.695f);
+                if (_bottomCardIcon != null)
+                {
+                    _bottomCardIcon.sprite = TerminalUiArt.GetIcon(TerminalIconId.Log);
+                    _bottomCardIcon.color = new Color(0.498f, 0.875f, 1f, 1f);
+                }
+                if (_bottomCardTitle != null)
+                {
+                    _bottomCardTitle.text = Localization.Get("onboard.title").ToUpperInvariant();
+                    _bottomCardTitle.color = new Color(0.498f, 0.875f, 1f, 1f);
+                }
                 bool[] states = { _onboardStep1Done, _onboardStep2Done, _onboardStep3Done };
                 for (int i = 0; i < 3; i++)
                 {
                     if (_onboardChecks[i] != null)
                     {
-                        _onboardChecks[i].sprite = TerminalUiArt.GetIcon(states[i] ? TerminalIconId.Check : TerminalIconId.ArrowRight);
-                        _onboardChecks[i].color = states[i] ? theme.StatusOk : theme.TextMuted;
+                        _onboardChecks[i].sprite = TerminalUiArt.GetIcon(states[i] ? TerminalIconId.Check : TerminalIconId.CheckBox);
+                        _onboardChecks[i].color = states[i] ? theme.StatusOk : new Color(0.35f, 0.68f, 0.78f, 1f);
                     }
                     if (_onboardLabels[i] != null)
                         _onboardLabels[i].color = states[i] ? theme.StatusOk : theme.TextPrimary;
@@ -875,31 +899,65 @@ namespace Outpost.Runtime.Terminal
             }
             else
             {
-                TerminalUiBuilder.SetAnchors(_nextStepCard, 0f, 0.34f, 1f, 0.695f);
+                if (_bottomCardIcon != null)
+                {
+                    _bottomCardIcon.sprite = TerminalUiArt.GetIcon(TerminalIconId.Help);
+                    _bottomCardIcon.color = theme.AccentHelp;
+                }
+                if (_bottomCardTitle != null)
+                {
+                    _bottomCardTitle.text = _hintsEnabled ? "HELIOS OPERATIONS BRIEF" : "SYSTEMS SUMMARY";
+                    _bottomCardTitle.color = theme.AccentHelp;
+                }
+                if (_heliosText != null)
+                    _heliosText.text = !string.IsNullOrEmpty(heliosTip)
+                        ? heliosTip
+                        : (_session?.CurrentSnapshot != null ? HintEngine.Evaluate(_session.CurrentSnapshot).HeliosHintText : "");
             }
         }
 
         private void RefreshTaskbarWindows()
         {
-            var order = _windowManager.OpenOrder;
-            var focused = _windowManager.FocusedApp;
-            for (int i = 0; i < WindowManager.MaxOpenWindows; i++)
+            var focused = _windowManager != null ? _windowManager.FocusedApp : null;
+
+            // Update Left Sidebar Active Highlight (Overview vs Focused App)
+            bool overviewActive = !focused.HasValue;
+            Color activeBg = new Color(0.08f, 0.36f, 0.37f, 0.96f);
+            Color activeBorder = new Color(0.27f, 0.89f, 0.83f, 1f);
+            Color idleBg = new Color(0.045f, 0.09f, 0.14f, 0.94f);
+            Color idleBorder = new Color(0.14f, 0.24f, 0.33f, 1f);
+
+            if (_overviewNavPanel != null)
             {
-                if (i < order.Count)
-                {
-                    var appId = order[i];
-                    _taskWinBtns[i].gameObject.SetActive(true);
-                    bool isFocus = focused.HasValue && focused.Value == appId;
-                    Color accent = theme.GetAppAccent(appId);
-                    TerminalUiBuilder.SetBorderColor(_taskWinPanels[i], isFocus ? accent : theme.BorderUnfocused);
-                    _taskWinLabels[i].color = isFocus ? theme.TextPrimary : theme.TextMuted;
-                    _taskWinLabels[i].text = GetAppShortName(appId);
-                }
-                else
-                {
-                    _taskWinBtns[i].gameObject.SetActive(false);
-                }
+                TerminalUiBuilder.SetBorderColor(_overviewNavPanel, overviewActive ? activeBorder : idleBorder);
+                if (_overviewNavInner != null) _overviewNavInner.color = overviewActive ? activeBg : idleBg;
+                if (_overviewNavIcon != null) _overviewNavIcon.color = overviewActive ? Color.white : new Color(0.75f, 0.94f, 0.98f, 1f);
+                if (_overviewNavLabel != null) _overviewNavLabel.color = overviewActive ? Color.white : new Color(0.84f, 0.92f, 0.97f, 1f);
             }
+
+            for (int i = 0; i < 8; i++)
+            {
+                if (_iconPanels[i] == null) continue;
+                bool isFocus = focused.HasValue && (int)focused.Value == i;
+                bool isOpen = _windowManager != null && ContainsOpenOrder((TerminalAppId)i);
+                Color bCol = isFocus ? activeBorder : (isOpen ? new Color(0.24f, 0.56f, 0.62f, 1f) : idleBorder);
+                if (!(_pulsingApp.HasValue && (int)_pulsingApp.Value == i && !isFocus))
+                    TerminalUiBuilder.SetBorderColor(_iconPanels[i], bCol);
+                if (_iconInners[i] != null)
+                    _iconInners[i].color = isFocus ? activeBg : (isOpen ? new Color(0.06f, 0.15f, 0.22f, 0.96f) : idleBg);
+                if (_iconImgs[i] != null)
+                    _iconImgs[i].color = isFocus ? Color.white : new Color(0.75f, 0.94f, 0.98f, 1f);
+                if (_iconLabels[i] != null)
+                    _iconLabels[i].color = isFocus ? Color.white : new Color(0.84f, 0.92f, 0.97f, 1f);
+            }
+        }
+
+        private bool ContainsOpenOrder(TerminalAppId appId)
+        {
+            var order = _windowManager.OpenOrder;
+            for (int i = 0; i < order.Count; i++)
+                if (order[i] == appId) return true;
+            return false;
         }
 
         private void ShowIncomingEvent(SessionSnapshot s)
@@ -964,7 +1022,7 @@ namespace Outpost.Runtime.Terminal
             if (_eventBannerIcon != null)
             {
                 _eventBannerIcon.sprite = TerminalUiArt.GetIcon(iconId);
-                _eventBannerIcon.color = tint;
+                _eventBannerIcon.color = Color.white;
             }
             if (_eventBannerSubtitle != null)
             {
@@ -1103,112 +1161,221 @@ namespace Outpost.Runtime.Terminal
             TerminalUiBuilder.OnHideTooltipRequested += HideTooltip;
             Apps.PowerGridAppWindow.OnPlayerAdjustedPower += HandlePowerSliderAdjusted;
 
-            // Wallpaper: Mars horizon gradient with tiny distant sun + subtle readable dark-slate veil
-            var wpRect = TerminalUiBuilder.CreateRect("Wallpaper", terminalRoot);
+            // 0. Rugged Tablet Hardware Chassis Bezel + Glass Screen Surface
+            var bezelPanel = TerminalUiBuilder.CreateFlatPanel("TabletBezel", terminalRoot, new Color(0.085f, 0.105f, 0.135f, 1f), new Color(0.20f, 0.25f, 0.31f, 1f), 4f);
+            TerminalUiBuilder.SetStretch(bezelPanel);
+            var bezelInner = TerminalUiBuilder.GetInner(bezelPanel);
+
+            // Bezel Hardware Details (top center amber LED, bottom left dual LEDs, bottom stamp)
+            var topLed = TerminalUiBuilder.CreateRect("BezelTopLed", bezelInner);
+            topLed.anchorMin = new Vector2(0.5f, 1f);
+            topLed.anchorMax = new Vector2(0.5f, 1f);
+            topLed.offsetMin = new Vector2(-42f, -15f);
+            topLed.offsetMax = new Vector2(42f, -9f);
+            var topLedImg = topLed.gameObject.AddComponent<Image>();
+            topLedImg.sprite = TerminalUiArt.GetRoundedRect8px();
+            topLedImg.type = Image.Type.Sliced;
+            topLedImg.color = new Color(1.00f, 0.65f, 0.18f, 1f);
+            topLedImg.raycastTarget = false;
+
+            for (int l = 0; l < 2; l++)
+            {
+                var led = TerminalUiBuilder.CreateRect($"BezelBotLed_{l}", bezelInner);
+                led.anchorMin = new Vector2(0f, 0f);
+                led.anchorMax = new Vector2(0f, 0f);
+                led.offsetMin = new Vector2(128f + l * 30f, 8f);
+                led.offsetMax = new Vector2(150f + l * 30f, 14f);
+                var lImg = led.gameObject.AddComponent<Image>();
+                lImg.sprite = TerminalUiArt.GetRoundedRect8px();
+                lImg.type = Image.Type.Sliced;
+                lImg.color = new Color(1.00f, 0.62f, 0.16f, 0.95f);
+                lImg.raycastTarget = false;
+            }
+
+            var bezelStamp = TerminalUiBuilder.CreateCompactDebugText("BezelStamp", bezelInner, theme, 14f, new Color(0.45f, 0.54f, 0.62f, 0.9f), TextAlignmentOptions.Center, _textScaler);
+            bezelStamp.fontStyle = FontStyles.Bold;
+            bezelStamp.text = "///   MARS OUTPOST - OPS TERM v2.1   ///";
+            bezelStamp.raycastTarget = false;
+            bezelStamp.rectTransform.anchorMin = new Vector2(0.25f, 0f);
+            bezelStamp.rectTransform.anchorMax = new Vector2(0.75f, 0f);
+            bezelStamp.rectTransform.offsetMin = new Vector2(0f, 2f);
+            bezelStamp.rectTransform.offsetMax = new Vector2(0f, 22f);
+
+            var screenPanel = TerminalUiBuilder.CreateFlatPanel("ScreenSurface", bezelInner, new Color(0.028f, 0.062f, 0.095f, 1f), new Color(0.14f, 0.25f, 0.34f, 1f), 2f);
+            screenPanel.anchorMin = Vector2.zero;
+            screenPanel.anchorMax = Vector2.one;
+            screenPanel.offsetMin = new Vector2(22f, 26f);
+            screenPanel.offsetMax = new Vector2(-22f, -22f);
+            var screen = TerminalUiBuilder.GetInner(screenPanel);
+
+            // Subtle Mars horizon ambient texture inside glass screen
+            var wpRect = TerminalUiBuilder.CreateRect("Wallpaper", screen);
             TerminalUiBuilder.SetStretch(wpRect);
             var wpImg = wpRect.gameObject.AddComponent<Image>();
             wpImg.sprite = TerminalUiArt.GetMarsWallpaperSprite(theme);
-            wpImg.color = Color.white;
+            wpImg.color = new Color(0.30f, 0.52f, 0.65f, 0.10f);
             wpImg.raycastTarget = false;
 
-            var veilRect = TerminalUiBuilder.CreateRect("WallpaperVeil", terminalRoot);
-            TerminalUiBuilder.SetStretch(veilRect);
-            var veilImg = veilRect.gameObject.AddComponent<Image>();
-            veilImg.color = new Color(0.055f, 0.086f, 0.149f, 0.56f);
-            veilImg.raycastTarget = false;
+            // 1. Top Header Bar (Emblem + OUTPOST TERMINAL + Sol / Clock / Action Points Pill)
+            var topHeader = TerminalUiBuilder.CreateRect("TopHeaderBar", screen);
+            topHeader.anchorMin = new Vector2(0f, 1f);
+            topHeader.anchorMax = new Vector2(1f, 1f);
+            topHeader.offsetMin = new Vector2(18f, -84f);
+            topHeader.offsetMax = new Vector2(-18f, -8f);
 
-            // 1. Top Alert Bar + Sol Clock + AP Counter (top 60px)
-            _alertBarPanel = TerminalUiBuilder.CreateFlatPanel("AlertBar", terminalRoot, theme.PanelBg, theme.StatusOk, 2f, true);
-            _alertBarPanel.anchorMin = new Vector2(0f, 1f);
-            _alertBarPanel.anchorMax = new Vector2(0.70f, 1f);
-            _alertBarPanel.offsetMin = new Vector2(14f, -64f);
-            _alertBarPanel.offsetMax = new Vector2(-6f, -10f);
-            _alertBarInner = TerminalUiBuilder.GetInner(_alertBarPanel).GetComponent<Image>();
-            _alertBarIcon = TerminalUiBuilder.CreateIcon("AlertIcon", _alertBarInner.transform, TerminalIconId.Warning, theme.StatusOk);
-            TerminalUiBuilder.SetAnchors(_alertBarIcon.rectTransform, 0.01f, 0.14f, 0.052f, 0.86f);
-            _alertBarText = TerminalUiBuilder.CreateText("AlertText", _alertBarInner.transform, theme, theme.BodyFontSize, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
-            _alertBarText.fontStyle = FontStyles.Bold;
-            TerminalUiBuilder.SetAnchors(_alertBarText.rectTransform, 0.058f, 0f, 1f, 1f, 4f, 0f, 10f, 0f);
+            var emblemRect = TerminalUiBuilder.CreateRect("AgencyBadge", topHeader);
+            emblemRect.anchorMin = new Vector2(0f, 0.5f);
+            emblemRect.anchorMax = new Vector2(0f, 0.5f);
+            emblemRect.offsetMin = new Vector2(4f, -26f);
+            emblemRect.offsetMax = new Vector2(56f, 26f);
+            var emblemImg = emblemRect.gameObject.AddComponent<Image>();
+            emblemImg.sprite = TerminalUiArt.GetNasaBadgeSprite();
+            emblemImg.preserveAspect = true;
+            emblemImg.raycastTarget = false;
 
-            var statusPill = TerminalUiBuilder.CreateFlatPanel("TopStatusPill", terminalRoot, theme.PanelBg, theme.BorderUnfocused, 2f, true);
-            statusPill.anchorMin = new Vector2(0.70f, 1f);
-            statusPill.anchorMax = new Vector2(1f, 1f);
-            statusPill.offsetMin = new Vector2(6f, -64f);
-            statusPill.offsetMax = new Vector2(-14f, -10f);
+            var emblemDiv = TerminalUiBuilder.CreateRect("EmblemDivider", topHeader);
+            emblemDiv.anchorMin = new Vector2(0f, 0.16f);
+            emblemDiv.anchorMax = new Vector2(0f, 0.84f);
+            emblemDiv.offsetMin = new Vector2(72f, 0f);
+            emblemDiv.offsetMax = new Vector2(74f, 0f);
+            emblemDiv.gameObject.AddComponent<Image>().color = new Color(0.18f, 0.30f, 0.40f, 1f);
+
+            var termTitle = TerminalUiBuilder.CreateText("TerminalBrandTitle", topHeader, theme, 34f, new Color(0.95f, 0.98f, 1f, 1f), TextAlignmentOptions.MidlineLeft, _textScaler);
+            termTitle.fontStyle = FontStyles.Bold;
+            termTitle.textWrappingMode = TextWrappingModes.NoWrap;
+            termTitle.text = "OUTPOST TERMINAL";
+            termTitle.rectTransform.anchorMin = new Vector2(0f, 0f);
+            termTitle.rectTransform.anchorMax = new Vector2(0f, 1f);
+            termTitle.rectTransform.offsetMin = new Vector2(90f, 0f);
+            termTitle.rectTransform.offsetMax = new Vector2(510f, 0f);
+
+            var termSub = TerminalUiBuilder.CreateCompactDebugText("TerminalBrandSub", topHeader, theme, 15f, new Color(0.56f, 0.72f, 0.83f, 1f), TextAlignmentOptions.MidlineLeft, _textScaler);
+            termSub.fontStyle = FontStyles.Bold;
+            termSub.text = "MARS OUTPOST\nSURVIVAL MANAGEMENT";
+            termSub.rectTransform.anchorMin = new Vector2(0f, 0f);
+            termSub.rectTransform.anchorMax = new Vector2(0f, 1f);
+            termSub.rectTransform.offsetMin = new Vector2(520f, 2f);
+            termSub.rectTransform.offsetMax = new Vector2(735f, -2f);
+
+            var slashTicks = TerminalUiBuilder.CreateCompactDebugText("SlashTicks", topHeader, theme, 24f, new Color(0.19f, 0.31f, 0.40f, 0.9f), TextAlignmentOptions.Center, _textScaler);
+            slashTicks.fontStyle = FontStyles.Bold;
+            slashTicks.text = "/////";
+            slashTicks.rectTransform.anchorMin = new Vector2(0f, 0f);
+            slashTicks.rectTransform.anchorMax = new Vector2(0f, 1f);
+            slashTicks.rectTransform.offsetMin = new Vector2(738f, 0f);
+            slashTicks.rectTransform.offsetMax = new Vector2(810f, 0f);
+
+            // Top Right Status Pill: [Cal] Sol X of 7 | [Clock] 06:00 | Action Points: 3 / 3
+            var statusPill = TerminalUiBuilder.CreateFlatPanel("TopStatusPill", topHeader, new Color(0.048f, 0.098f, 0.145f, 0.96f), new Color(0.18f, 0.31f, 0.42f, 1f), 2f);
+            statusPill.anchorMin = new Vector2(0.475f, 0.12f);
+            statusPill.anchorMax = new Vector2(1f, 0.88f);
+            statusPill.offsetMin = new Vector2(20f, 0f);
+            statusPill.offsetMax = Vector2.zero;
             var pillInner = TerminalUiBuilder.GetInner(statusPill);
 
-            _solClockText = TerminalUiBuilder.CreateText("SolClock", pillInner, theme, theme.BodyFontSize, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
-            _solClockText.fontStyle = FontStyles.Bold;
-            TerminalUiBuilder.SetAnchors(_solClockText.rectTransform, 0f, 0f, 0.54f, 1f, 14f);
+            var calIcon = TerminalUiBuilder.CreateIcon("CalIcon", pillInner, TerminalIconId.Calendar, new Color(0.76f, 0.90f, 0.98f, 1f));
+            TerminalUiBuilder.SetAnchors(calIcon.rectTransform, 0.02f, 0.22f, 0.068f, 0.78f);
 
-            _apHeaderText = TerminalUiBuilder.CreateText("ApHeader", pillInner, theme, theme.BodyFontSize, theme.TextAmber, TextAlignmentOptions.MidlineRight, _textScaler);
+            _solBadgeText = TerminalUiBuilder.CreateText("SolBadgeText", pillInner, theme, 24f, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
+            _solBadgeText.fontStyle = FontStyles.Bold;
+            TerminalUiBuilder.SetAnchors(_solBadgeText.rectTransform, 0.075f, 0f, 0.30f, 1f);
+
+            var div1 = TerminalUiBuilder.CreateRect("PillDiv1", pillInner);
+            TerminalUiBuilder.SetAnchors(div1, 0.305f, 0.18f, 0.308f, 0.82f);
+            div1.gameObject.AddComponent<Image>().color = new Color(0.18f, 0.31f, 0.42f, 1f);
+
+            var clkIcon = TerminalUiBuilder.CreateIcon("ClockIcon", pillInner, TerminalIconId.Clock, new Color(0.76f, 0.90f, 0.98f, 1f));
+            TerminalUiBuilder.SetAnchors(clkIcon.rectTransform, 0.325f, 0.22f, 0.372f, 0.78f);
+
+            _solClockText = TerminalUiBuilder.CreateText("SolClock", pillInner, theme, 24f, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
+            _solClockText.fontStyle = FontStyles.Bold;
+            TerminalUiBuilder.SetAnchors(_solClockText.rectTransform, 0.382f, 0f, 0.56f, 1f);
+
+            var div2 = TerminalUiBuilder.CreateRect("PillDiv2", pillInner);
+            TerminalUiBuilder.SetAnchors(div2, 0.565f, 0.18f, 0.568f, 0.82f);
+            div2.gameObject.AddComponent<Image>().color = new Color(0.18f, 0.31f, 0.42f, 1f);
+
+            _apHeaderText = TerminalUiBuilder.CreateText("ApHeader", pillInner, theme, 24f, theme.TextPrimary, TextAlignmentOptions.MidlineRight, _textScaler);
             _apHeaderText.fontStyle = FontStyles.Bold;
-            TerminalUiBuilder.SetAnchors(_apHeaderText.rectTransform, 0.54f, 0f, 1f, 1f, 0f, 0f, 14f, 0f);
+            TerminalUiBuilder.SetAnchors(_apHeaderText.rectTransform, 0.575f, 0f, 0.98f, 1f);
             TerminalUiBuilder.AttachTooltip(_apHeaderText, "gloss.ap.term", "gloss.ap.def");
 
+            // Thin horizontal divider line below header
+            var hdrLine = TerminalUiBuilder.CreateRect("HeaderBottomLine", screen);
+            hdrLine.anchorMin = new Vector2(0f, 1f);
+            hdrLine.anchorMax = new Vector2(1f, 1f);
+            hdrLine.offsetMin = new Vector2(18f, -90f);
+            hdrLine.offsetMax = new Vector2(-18f, -88f);
+            hdrLine.gameObject.AddComponent<Image>().color = new Color(0.11f, 0.22f, 0.31f, 1f);
+
             // Read-Only Banner (shown only on Corridor/Airlock Wall Tablets)
-            var roPanel = TerminalUiBuilder.CreateFlatPanel("ReadOnlyBanner", terminalRoot, new Color(0.18f, 0.25f, 0.38f, 0.98f), theme.AccentSources, 2f, true);
-            roPanel.anchorMin = new Vector2(0.18f, 1f);
-            roPanel.anchorMax = new Vector2(0.82f, 1f);
-            roPanel.offsetMin = new Vector2(0f, -110f);
-            roPanel.offsetMax = new Vector2(0f, -68f);
+            var roPanel = TerminalUiBuilder.CreateFlatPanel("ReadOnlyBanner", screen, new Color(0.10f, 0.22f, 0.33f, 0.98f), theme.AccentSources, 2f, true);
+            roPanel.anchorMin = new Vector2(0.24f, 1f);
+            roPanel.anchorMax = new Vector2(0.76f, 1f);
+            roPanel.offsetMin = new Vector2(0f, -128f);
+            roPanel.offsetMax = new Vector2(0f, -92f);
             _readOnlyBanner = roPanel.gameObject;
-            _readOnlyBannerText = TerminalUiBuilder.CreateText("ReadOnlyText", TerminalUiBuilder.GetInner(roPanel), theme, theme.BodyFontSize, theme.TextAmber, TextAlignmentOptions.Center, _textScaler);
+            _readOnlyBannerText = TerminalUiBuilder.CreateText("ReadOnlyText", TerminalUiBuilder.GetInner(roPanel), theme, 24f, theme.TextAmber, TextAlignmentOptions.Center, _textScaler);
             _readOnlyBannerText.fontStyle = FontStyles.Bold;
             _readOnlyBannerText.text = Localization.Get("mc.readonly_banner");
-            TerminalUiBuilder.SetStretch(_readOnlyBannerText.rectTransform, 6f);
+            TerminalUiBuilder.SetStretch(_readOnlyBannerText.rectTransform, 4f);
             _readOnlyBanner.SetActive(false);
 
-            // 2. Left Column: 5 Supply Status Tiles
-            var leftCol = TerminalUiBuilder.CreateRect("LeftSuppliesCol", terminalRoot);
-            leftCol.anchorMin = new Vector2(0f, 0f);
-            leftCol.anchorMax = new Vector2(0.245f, 1f);
-            leftCol.offsetMin = new Vector2(14f, 134f);
-            leftCol.offsetMax = new Vector2(-6f, -72f);
-            BuildSupplyTilesColumn(leftCol);
+            // 2. Left Navigation Sidebar (Overview + 8 Apps)
+            var leftSidebar = TerminalUiBuilder.CreateRect("DesktopAppDock", screen);
+            leftSidebar.anchorMin = new Vector2(0f, 0f);
+            leftSidebar.anchorMax = new Vector2(0.205f, 1f);
+            leftSidebar.offsetMin = new Vector2(18f, 88f);
+            leftSidebar.offsetMax = new Vector2(-6f, -98f);
+            BuildDesktopAppDock(leftSidebar);
 
-            // 3. Right Column: 4 Crew Cards
-            var rightCol = TerminalUiBuilder.CreateRect("RightCrewCol", terminalRoot);
-            rightCol.anchorMin = new Vector2(0.755f, 0f);
-            rightCol.anchorMax = new Vector2(1f, 1f);
-            rightCol.offsetMin = new Vector2(6f, 134f);
-            rightCol.offsetMax = new Vector2(-14f, -72f);
-            BuildCrewCardsColumn(rightCol);
+            // 3. Main Content Container (Center Overview + Right Status Cards)
+            var contentArea = TerminalUiBuilder.CreateRect("MainContentArea", screen);
+            contentArea.anchorMin = new Vector2(0.205f, 0f);
+            contentArea.anchorMax = new Vector2(1f, 1f);
+            contentArea.offsetMin = new Vector2(10f, 88f);
+            contentArea.offsetMax = new Vector2(-18f, -98f);
 
-            // 4. Center Column: Mission Control Home (Desktop Icons, Goal, Next Step, Checklist, HELIOS)
-            var centerCol = TerminalUiBuilder.CreateRect("CenterHomeCol", terminalRoot);
-            centerCol.anchorMin = new Vector2(0.245f, 0f);
-            centerCol.anchorMax = new Vector2(0.755f, 1f);
-            centerCol.offsetMin = new Vector2(8f, 134f);
-            centerCol.offsetMax = new Vector2(-8f, -72f);
+            // 3A. Center Column: OVERVIEW (Mission Goal + Outpost Alert + First Shift Checklist / HELIOS)
+            var centerCol = TerminalUiBuilder.CreateRect("CenterHomeCol", contentArea);
+            TerminalUiBuilder.SetAnchors(centerCol, 0f, 0f, 0.535f, 1f);
             BuildCenterHomeColumn(centerCol);
 
-            // 5. Floating Window Layer (sits over center+right so left 5 tiles & bottom end-sol stay accessible)
-            var windowLayer = TerminalUiBuilder.CreateRect("WindowLayer", terminalRoot);
-            windowLayer.anchorMin = new Vector2(0.245f, 0f);
+            // 3B. Right Column: OUTPOST RESOURCES + CREW STATUS
+            var rightCol = TerminalUiBuilder.CreateRect("RightStatusCol", contentArea);
+            TerminalUiBuilder.SetAnchors(rightCol, 0.550f, 0f, 1f, 1f);
+            var resourcesBox = TerminalUiBuilder.CreateRect("LeftSuppliesCol", rightCol);
+            TerminalUiBuilder.SetAnchors(resourcesBox, 0f, 0.495f, 1f, 1f);
+            BuildSupplyTilesColumn(resourcesBox);
+
+            var crewBox = TerminalUiBuilder.CreateRect("RightCrewCol", rightCol);
+            TerminalUiBuilder.SetAnchors(crewBox, 0f, 0f, 1f, 0.475f);
+            BuildCrewCardsColumn(crewBox);
+
+            // 4. Floating Window Layer (cleanly sits over MainContentArea beside Left Sidebar)
+            var windowLayer = TerminalUiBuilder.CreateRect("WindowLayer", screen);
+            windowLayer.anchorMin = new Vector2(0.205f, 0f);
             windowLayer.anchorMax = new Vector2(1f, 1f);
-            windowLayer.offsetMin = new Vector2(6f, 134f);
-            windowLayer.offsetMax = new Vector2(-14f, -72f);
+            windowLayer.offsetMin = new Vector2(10f, 88f);
+            windowLayer.offsetMax = new Vector2(-18f, -98f);
             CreateAllAppWindows(windowLayer);
 
-            // 6. Forecast Strip (directly above END SOL & taskbar)
-            var forecastPanel = TerminalUiBuilder.CreateFlatPanel("ForecastStrip", terminalRoot, theme.TaskbarBg, theme.BorderUnfocused, 2f);
-            forecastPanel.anchorMin = new Vector2(0f, 0f);
-            forecastPanel.anchorMax = new Vector2(1f, 0f);
-            forecastPanel.offsetMin = new Vector2(14f, 82f);
-            forecastPanel.offsetMax = new Vector2(-14f, 128f);
-            _forecastStripText = TerminalUiBuilder.CreateText("ForecastText", TerminalUiBuilder.GetInner(forecastPanel), theme, theme.BodyFontSize, theme.TextAmber, TextAlignmentOptions.MidlineLeft, _textScaler);
-            TerminalUiBuilder.SetAnchors(_forecastStripText.rectTransform, 0f, 0f, 1f, 1f, 14f, 0f, 14f, 0f);
+            // 5. Bottom Footer Strip Divider + Controls (Hint, Hints/Help, Leave Terminal, END SOL)
+            var footerLine = TerminalUiBuilder.CreateRect("FooterTopLine", screen);
+            footerLine.anchorMin = new Vector2(0f, 0f);
+            footerLine.anchorMax = new Vector2(1f, 0f);
+            footerLine.offsetMin = new Vector2(18f, 80f);
+            footerLine.offsetMax = new Vector2(-18f, 82f);
+            footerLine.gameObject.AddComponent<Image>().color = new Color(0.11f, 0.22f, 0.31f, 1f);
 
-            // 7. Bottom Taskbar & Big Friendly END SOL button
-            var taskbar = TerminalUiBuilder.CreateFlatPanel("Taskbar", terminalRoot, theme.TaskbarBg, theme.BorderUnfocused, 2f);
+            var taskbar = TerminalUiBuilder.CreateRect("Taskbar", screen);
             taskbar.anchorMin = new Vector2(0f, 0f);
             taskbar.anchorMax = new Vector2(1f, 0f);
-            taskbar.offsetMin = new Vector2(14f, 8f);
-            taskbar.offsetMax = new Vector2(-14f, 78f);
-            BuildTaskbar(TerminalUiBuilder.GetInner(taskbar));
+            taskbar.offsetMin = new Vector2(18f, 8f);
+            taskbar.offsetMax = new Vector2(-18f, 76f);
+            BuildTaskbar(taskbar);
 
-            // 8. Modals, Help, Tooltip, Debug & Toast
+            // 6. Modals, Help, Tooltip, Debug & Toast
             BuildEventModal();
             BuildConfirmEndSolModal();
             BuildTransitionOverlay();
@@ -1221,41 +1388,60 @@ namespace Outpost.Runtime.Terminal
 
         private void BuildSupplyTilesColumn(RectTransform parent)
         {
-            var hdr = TerminalUiBuilder.CreateText("SuppliesHdr", parent, theme, theme.HeaderFontSize, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
-            hdr.fontStyle = FontStyles.Bold;
-            hdr.text = Localization.Get("mc.systems_header");
-            TerminalUiBuilder.SetAnchors(hdr.rectTransform, 0f, 0.95f, 1f, 1f, 4f);
+            var panel = TerminalUiBuilder.CreateFlatPanel("OutpostResourcesPanel", parent, new Color(0.038f, 0.082f, 0.125f, 0.95f), new Color(0.14f, 0.26f, 0.35f, 1f), 2f, true);
+            TerminalUiBuilder.SetStretch(panel);
+            var pInner = TerminalUiBuilder.GetInner(panel);
 
-            (string labelKey, TerminalIconId icon, Color accent, TerminalAppId targetApp, string glossTerm, string glossDef)[] defs =
+            var hdrIcon = TerminalUiBuilder.CreateIcon("ResourcesHdrIcon", pInner, TerminalIconId.Gauge, new Color(0.35f, 0.85f, 0.88f, 1f));
+            TerminalUiBuilder.SetAnchors(hdrIcon.rectTransform, 0.028f, 0.855f, 0.085f, 0.965f);
+
+            var hdr = TerminalUiBuilder.CreateText("SuppliesHdr", pInner, theme, 24f, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
+            hdr.fontStyle = FontStyles.Bold;
+            hdr.text = "OUTPOST RESOURCES";
+            TerminalUiBuilder.SetAnchors(hdr.rectTransform, 0.095f, 0.84f, 0.97f, 0.985f);
+
+            var hdrDiv = TerminalUiBuilder.CreateRect("ResourcesHdrDiv", pInner);
+            TerminalUiBuilder.SetAnchors(hdrDiv, 0.025f, 0.83f, 0.975f, 0.836f);
+            hdrDiv.gameObject.AddComponent<Image>().color = new Color(0.12f, 0.23f, 0.32f, 1f);
+
+            (string label, TerminalIconId icon, Color accent, TerminalAppId targetApp, string glossTerm, string glossDef)[] defs =
             {
-                ("mc.status.power", TerminalIconId.Bolt, theme.AccentPower, TerminalAppId.PowerGrid, "gloss.power.term", "gloss.power.def"),
-                ("mc.status.oxygen", TerminalIconId.Oxygen, theme.AccentLifeSupport, TerminalAppId.LifeSupport, "gloss.o2.term", "gloss.o2.def"),
-                ("mc.status.water", TerminalIconId.Water, theme.AccentLifeSupport, TerminalAppId.LifeSupport, "gloss.water.term", "gloss.water.def"),
-                ("mc.status.food", TerminalIconId.Food, theme.AccentGreenhouse, TerminalAppId.Greenhouse, "gloss.food.term", "gloss.food.def"),
-                ("mc.status.shield", TerminalIconId.Shield, theme.AccentRadiation, TerminalAppId.Radiation, "gloss.shield.term", "gloss.shield.def")
+                ("Battery", TerminalIconId.Bolt, new Color(0.32f, 0.90f, 0.84f, 1f), TerminalAppId.PowerGrid, "gloss.power.term", "gloss.power.def"),
+                ("Oxygen",  TerminalIconId.Oxygen, new Color(0.45f, 0.88f, 0.96f, 1f), TerminalAppId.LifeSupport, "gloss.o2.term", "gloss.o2.def"),
+                ("Water",   TerminalIconId.Water, new Color(0.42f, 0.86f, 1.00f, 1f), TerminalAppId.LifeSupport, "gloss.water.term", "gloss.water.def"),
+                ("Food",    TerminalIconId.Food, new Color(0.32f, 0.89f, 0.82f, 1f), TerminalAppId.Greenhouse, "gloss.food.term", "gloss.food.def"),
+                ("Shield",  TerminalIconId.Shield, new Color(0.45f, 0.88f, 0.94f, 1f), TerminalAppId.Radiation, "gloss.shield.term", "gloss.shield.def")
             };
 
             for (int i = 0; i < 5; i++)
             {
                 var def = defs[i];
-                float top = 0.945f - i * 0.189f;
-                float bot = top - 0.178f;
+                float top = 0.805f - i * 0.158f;
+                float bot = top - 0.146f;
 
-                var card = TerminalUiBuilder.CreateFlatPanel($"SupplyTile_{i}", parent, theme.PanelBg, theme.BorderUnfocused, 2f, true);
-                TerminalUiBuilder.SetAnchors(card, 0f, bot, 1f, top);
-                var inner = TerminalUiBuilder.GetInner(card);
+                var row = TerminalUiBuilder.CreateRect($"SupplyTile_{i}", pInner);
+                TerminalUiBuilder.SetAnchors(row, 0.02f, bot, 0.98f, top);
+                var rowBg = row.gameObject.AddComponent<Image>();
+                rowBg.sprite = TerminalUiArt.GetRoundedRect8px();
+                rowBg.type = Image.Type.Sliced;
+                rowBg.color = new Color(0.055f, 0.11f, 0.16f, 0.45f);
 
-                var btn = card.gameObject.AddComponent<Button>();
-                btn.targetGraphic = inner.GetComponent<Image>();
+                var btn = row.gameObject.AddComponent<Button>();
+                btn.targetGraphic = rowBg;
+                var cols = btn.colors;
+                cols.normalColor = new Color(1f, 1f, 1f, 0.65f);
+                cols.highlightedColor = new Color(1.5f, 1.8f, 2.0f, 1f);
+                cols.pressedColor = new Color(0.85f, 0.95f, 1f, 1f);
+                btn.colors = cols;
                 btn.onClick.AddListener(() =>
                 {
                     OnUiSoundRequested?.Invoke();
                     OpenApp(def.targetApp);
                 });
-                card.gameObject.AddComponent<ButtonHoverFeedback>();
-                TerminalUiBuilder.AttachTooltip(card, def.glossTerm, def.glossDef);
+                row.gameObject.AddComponent<ButtonHoverFeedback>();
+                var tt = TerminalUiBuilder.AttachTooltip(row, def.glossTerm, def.glossDef);
 
-                var flashRect = TerminalUiBuilder.CreateRect("Flash", inner);
+                var flashRect = TerminalUiBuilder.CreateRect("Flash", row);
                 TerminalUiBuilder.SetStretch(flashRect);
                 var flashImg = flashRect.gameObject.AddComponent<Image>();
                 flashImg.sprite = TerminalUiArt.GetRoundedRect8px();
@@ -1263,33 +1449,18 @@ namespace Outpost.Runtime.Terminal
                 flashImg.color = new Color(1f, 1f, 1f, 0f);
                 flashImg.raycastTarget = false;
 
-                var icon = TerminalUiBuilder.CreateIcon("Icon", inner, def.icon, def.accent);
-                TerminalUiBuilder.SetAnchors(icon.rectTransform, 0.03f, 0.56f, 0.16f, 0.92f);
+                var icon = TerminalUiBuilder.CreateIcon("Icon", row, def.icon, def.accent);
+                TerminalUiBuilder.SetAnchors(icon.rectTransform, 0.015f, 0.18f, 0.075f, 0.82f);
 
-                var title = TerminalUiBuilder.CreateText("Title", inner, theme, theme.BodyFontSize, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
+                var title = TerminalUiBuilder.CreateText("Title", row, theme, 24f, new Color(0.88f, 0.95f, 0.98f, 1f), TextAlignmentOptions.MidlineLeft, _textScaler);
                 title.fontStyle = FontStyles.Bold;
-                title.text = Localization.Get(def.labelKey);
-                TerminalUiBuilder.SetAnchors(title.rectTransform, 0.18f, 0.56f, 0.54f, 0.94f);
+                title.text = def.label;
+                TerminalUiBuilder.SetAnchors(title.rectTransform, 0.09f, 0f, 0.30f, 1f);
 
-                var val = TerminalUiBuilder.CreateText("Val", inner, theme, 30f, theme.TextPrimary, TextAlignmentOptions.MidlineRight, _textScaler);
-                val.fontStyle = FontStyles.Bold;
-                TerminalUiBuilder.SetAnchors(val.rectTransform, 0.52f, 0.56f, 0.74f, 0.94f);
-
-                var badgeRect = TerminalUiBuilder.CreateRect("StatusBadge", inner);
-                TerminalUiBuilder.SetAnchors(badgeRect, 0.76f, 0.62f, 0.97f, 0.90f);
-                var badgeBg = badgeRect.gameObject.AddComponent<Image>();
-                badgeBg.sprite = TerminalUiArt.GetRoundedRect8px();
-                badgeBg.type = Image.Type.Sliced;
-                badgeBg.color = theme.StatusOk;
-
-                var statusWord = TerminalUiBuilder.CreateText("StatusWord", badgeRect, theme, 24f, theme.TaskbarBg, TextAlignmentOptions.Center, _textScaler);
-                statusWord.fontStyle = FontStyles.Bold;
-                TerminalUiBuilder.SetStretch(statusWord.rectTransform);
-
-                // Smooth 150ms bar
-                var track = TerminalUiBuilder.CreateFlatPanel("Track", inner, theme.BarTrackBg, theme.BorderUnfocused, 1f);
-                TerminalUiBuilder.SetAnchors(track, 0.03f, 0.34f, 0.97f, 0.52f);
-                var tInner = TerminalUiBuilder.GetInner(track);
+                // Smooth progress bar track
+                var trackRect = TerminalUiBuilder.CreateFlatPanel("Track", row, new Color(0.024f, 0.052f, 0.085f, 1f), new Color(0.11f, 0.22f, 0.30f, 1f), 1f);
+                TerminalUiBuilder.SetAnchors(trackRect, 0.31f, 0.32f, 0.69f, 0.68f);
+                var tInner = TerminalUiBuilder.GetInner(trackRect);
                 var fillRect = TerminalUiBuilder.CreateRect("Fill", tInner);
                 var fillImg = fillRect.gameObject.AddComponent<Image>();
                 fillImg.sprite = TerminalUiArt.GetRoundedRect8px();
@@ -1301,278 +1472,327 @@ namespace Outpost.Runtime.Terminal
                 fillRect.offsetMax = Vector2.zero;
                 var anim = fillRect.gameObject.AddComponent<SmoothBarFill>();
 
-                // Bottom row: Trend arrow + rate/sol + Help tooltip badge
-                var trendArrow = TerminalUiBuilder.CreateIcon("TrendArrow", inner, TerminalIconId.ArrowRight, theme.TextMuted);
-                TerminalUiBuilder.SetAnchors(trendArrow.rectTransform, 0.03f, 0.06f, 0.11f, 0.30f);
+                var val = TerminalUiBuilder.CreateText("Val", row, theme, 24f, theme.TextPrimary, TextAlignmentOptions.MidlineRight, _textScaler);
+                val.fontStyle = FontStyles.Bold;
+                TerminalUiBuilder.SetAnchors(val.rectTransform, 0.695f, 0f, 0.815f, 1f);
 
-                var trendTxt = TerminalUiBuilder.CreateText("TrendText", inner, theme, theme.BodyFontSize, theme.TextMuted, TextAlignmentOptions.MidlineLeft, _textScaler);
-                TerminalUiBuilder.SetAnchors(trendTxt.rectTransform, 0.13f, 0.04f, 0.85f, 0.32f);
+                var badgeRect = TerminalUiBuilder.CreateRect("StatusBadge", row);
+                TerminalUiBuilder.SetAnchors(badgeRect, 0.83f, 0.16f, 0.985f, 0.84f);
+                var badgeBg = badgeRect.gameObject.AddComponent<Image>();
+                badgeBg.sprite = TerminalUiArt.GetRoundedRect8px();
+                badgeBg.type = Image.Type.Sliced;
+                badgeBg.color = theme.StatusOk;
 
-                // Floating delta popup
-                var popupTxt = TerminalUiBuilder.CreateText("DeltaPopup", inner, theme, 24f, theme.StatusOk, TextAlignmentOptions.Center, _textScaler);
+                var statusWord = TerminalUiBuilder.CreateCompactDebugText("StatusWord", badgeRect, theme, 20f, new Color(0.03f, 0.08f, 0.12f, 1f), TextAlignmentOptions.Center, _textScaler);
+                statusWord.fontStyle = FontStyles.Bold;
+                TerminalUiBuilder.SetStretch(statusWord.rectTransform);
+
+                var popupTxt = TerminalUiBuilder.CreateCompactDebugText("DeltaPopup", row, theme, 20f, theme.StatusOk, TextAlignmentOptions.Center, _textScaler);
                 popupTxt.fontStyle = FontStyles.Bold;
-                TerminalUiBuilder.SetAnchors(popupTxt.rectTransform, 0.45f, 0.50f, 0.78f, 0.98f);
+                TerminalUiBuilder.SetAnchors(popupTxt.rectTransform, 0.56f, 0f, 0.72f, 1f);
                 popupTxt.gameObject.SetActive(false);
 
                 _supplyTiles[i] = new SupplyTileUi
                 {
-                    Panel = card,
-                    InnerImg = inner.GetComponent<Image>(),
+                    Panel = row,
+                    InnerImg = rowBg,
                     FlashOverlay = flashImg,
                     ValueText = val,
                     StatusWordText = statusWord,
                     StatusBadgeBg = badgeBg,
                     FillImage = fillImg,
                     BarAnimator = anim,
-                    TrendArrow = trendArrow,
-                    TrendText = trendTxt,
-                    DeltaPopupText = popupTxt
+                    DeltaPopupText = popupTxt,
+                    Tooltip = tt,
+                    SystemLabel = def.label,
+                    GlossaryDef = Localization.Get(def.glossDef)
                 };
             }
         }
 
         private void BuildCrewCardsColumn(RectTransform parent)
         {
-            var hdr = TerminalUiBuilder.CreateText("CrewHdr", parent, theme, theme.HeaderFontSize, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
+            var panel = TerminalUiBuilder.CreateFlatPanel("CrewStatusPanel", parent, new Color(0.038f, 0.082f, 0.125f, 0.95f), new Color(0.14f, 0.26f, 0.35f, 1f), 2f, true);
+            TerminalUiBuilder.SetStretch(panel);
+            var pInner = TerminalUiBuilder.GetInner(panel);
+
+            var hdrIcon = TerminalUiBuilder.CreateIcon("CrewHdrIcon", pInner, TerminalIconId.Crew, new Color(0.35f, 0.85f, 0.88f, 1f));
+            TerminalUiBuilder.SetAnchors(hdrIcon.rectTransform, 0.028f, 0.85f, 0.085f, 0.965f);
+
+            var hdr = TerminalUiBuilder.CreateText("CrewHdr", pInner, theme, 24f, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
             hdr.fontStyle = FontStyles.Bold;
-            hdr.text = Localization.Get("mc.crew_header");
-            TerminalUiBuilder.SetAnchors(hdr.rectTransform, 0f, 0.95f, 1f, 1f, 4f);
+            hdr.text = "CREW STATUS";
+            TerminalUiBuilder.SetAnchors(hdr.rectTransform, 0.095f, 0.835f, 0.97f, 0.985f);
+
+            var hdrDiv = TerminalUiBuilder.CreateRect("CrewHdrDiv", pInner);
+            TerminalUiBuilder.SetAnchors(hdrDiv, 0.025f, 0.825f, 0.975f, 0.831f);
+            hdrDiv.gameObject.AddComponent<Image>().color = new Color(0.12f, 0.23f, 0.32f, 1f);
 
             for (int i = 0; i < 4; i++)
             {
-                float top = 0.945f - i * 0.236f;
-                float bot = top - 0.222f;
+                float top = 0.805f - i * 0.195f;
+                float bot = top - 0.184f;
 
-                var card = TerminalUiBuilder.CreateFlatPanel($"CrewCard_{i}", parent, theme.PanelBg, theme.BorderUnfocused, 2f, true);
-                TerminalUiBuilder.SetAnchors(card, 0f, bot, 1f, top);
-                var inner = TerminalUiBuilder.GetInner(card);
+                var row = TerminalUiBuilder.CreateRect($"CrewCard_{i}", pInner);
+                TerminalUiBuilder.SetAnchors(row, 0.02f, bot, 0.98f, top);
+                var rowBg = row.gameObject.AddComponent<Image>();
+                rowBg.color = new Color(0.055f, 0.11f, 0.16f, 0.35f);
 
-                var btn = card.gameObject.AddComponent<Button>();
-                btn.targetGraphic = inner.GetComponent<Image>();
+                var btn = row.gameObject.AddComponent<Button>();
+                btn.targetGraphic = rowBg;
+                var cols = btn.colors;
+                cols.normalColor = new Color(1f, 1f, 1f, 0.55f);
+                cols.highlightedColor = new Color(1.5f, 1.8f, 2.0f, 1f);
+                btn.colors = cols;
                 btn.onClick.AddListener(() =>
                 {
                     OnUiSoundRequested?.Invoke();
                     OpenApp(TerminalAppId.Crew);
                 });
-                card.gameObject.AddComponent<ButtonHoverFeedback>();
+                row.gameObject.AddComponent<ButtonHoverFeedback>();
+                var tt = row.gameObject.AddComponent<TooltipTrigger>();
 
-                var avatar = TerminalUiBuilder.CreateIcon("Avatar", inner, TerminalIconId.Crew, theme.AccentCrew);
-                TerminalUiBuilder.SetAnchors(avatar.rectTransform, 0.03f, 0.62f, 0.16f, 0.93f);
+                var avatarBox = TerminalUiBuilder.CreateFlatPanel("AvatarBox", row, new Color(0.07f, 0.16f, 0.24f, 1f), new Color(0.28f, 0.65f, 0.72f, 1f), 1.5f);
+                TerminalUiBuilder.SetAnchors(avatarBox, 0.015f, 0.14f, 0.105f, 0.86f);
+                var avatarInner = TerminalUiBuilder.GetInner(avatarBox);
+                var avatarIcon = TerminalUiBuilder.CreateIcon("PlusIcon", avatarInner, TerminalIconId.PlusBox, new Color(0.55f, 0.90f, 1f, 1f));
+                TerminalUiBuilder.SetStretch(avatarIcon.rectTransform, 4f);
 
-                var nameTxt = TerminalUiBuilder.CreateText("Name", inner, theme, 25f, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
+                var nameTxt = TerminalUiBuilder.CreateText("Name", row, theme, 24f, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
                 nameTxt.fontStyle = FontStyles.Bold;
-                TerminalUiBuilder.SetAnchors(nameTxt.rectTransform, 0.18f, 0.68f, 0.72f, 0.96f);
+                TerminalUiBuilder.SetAnchors(nameTxt.rectTransform, 0.13f, 0.42f, 0.58f, 0.96f);
 
-                var roleTxt = TerminalUiBuilder.CreateText("Role", inner, theme, theme.BodyFontSize, theme.TextMuted, TextAlignmentOptions.MidlineLeft, _textScaler);
-                TerminalUiBuilder.SetAnchors(roleTxt.rectTransform, 0.18f, 0.48f, 0.68f, 0.70f);
+                var roleTxt = TerminalUiBuilder.CreateCompactDebugText("Role", row, theme, 18f, new Color(0.56f, 0.72f, 0.83f, 1f), TextAlignmentOptions.MidlineLeft, _textScaler);
+                TerminalUiBuilder.SetAnchors(roleTxt.rectTransform, 0.13f, 0.04f, 0.58f, 0.48f);
 
-                var statusTxt = TerminalUiBuilder.CreateText("StatusTag", inner, theme, theme.BodyFontSize, theme.StatusOk, TextAlignmentOptions.MidlineRight, _textScaler);
+                var statusTxt = TerminalUiBuilder.CreateText("StatusTag", row, theme, 24f, theme.StatusOk, TextAlignmentOptions.Center, _textScaler);
                 statusTxt.fontStyle = FontStyles.Bold;
-                TerminalUiBuilder.SetAnchors(statusTxt.rectTransform, 0.66f, 0.68f, 0.97f, 0.96f);
+                TerminalUiBuilder.SetAnchors(statusTxt.rectTransform, 0.58f, 0f, 0.79f, 1f);
 
-                // 5 heart pips
-                var hearts = new Image[5];
-                for (int h = 0; h < 5; h++)
-                {
-                    var heart = TerminalUiBuilder.CreateIcon($"Heart_{h}", inner, TerminalIconId.Heart, theme.AccentCrew);
-                    float hx0 = 0.04f + h * 0.085f;
-                    TerminalUiBuilder.SetAnchors(heart.rectTransform, hx0, 0.25f, hx0 + 0.072f, 0.45f);
-                    hearts[h] = heart;
-                }
-
-                var hpTxt = TerminalUiBuilder.CreateText("HpText", inner, theme, theme.BodyFontSize, theme.TextPrimary, TextAlignmentOptions.MidlineRight, _textScaler);
+                var hpTxt = TerminalUiBuilder.CreateText("HpText", row, theme, 24f, theme.TextPrimary, TextAlignmentOptions.MidlineRight, _textScaler);
                 hpTxt.fontStyle = FontStyles.Bold;
-                TerminalUiBuilder.SetAnchors(hpTxt.rectTransform, 0.50f, 0.24f, 0.97f, 0.46f);
+                TerminalUiBuilder.SetAnchors(hpTxt.rectTransform, 0.79f, 0f, 0.985f, 1f);
 
-                var moodIcon = TerminalUiBuilder.CreateIcon("MoodIcon", inner, TerminalIconId.MoodGood, theme.StatusOk);
-                TerminalUiBuilder.SetAnchors(moodIcon.rectTransform, 0.04f, 0.04f, 0.13f, 0.23f);
-
-                var moodTxt = TerminalUiBuilder.CreateText("MoodText", inner, theme, theme.BodyFontSize, theme.StatusOk, TextAlignmentOptions.MidlineLeft, _textScaler);
-                TerminalUiBuilder.SetAnchors(moodTxt.rectTransform, 0.15f, 0.03f, 0.97f, 0.24f);
+                if (i < 3)
+                {
+                    var div = TerminalUiBuilder.CreateRect($"CrewDiv_{i}", pInner);
+                    TerminalUiBuilder.SetAnchors(div, 0.03f, bot - 0.008f, 0.97f, bot - 0.003f);
+                    div.gameObject.AddComponent<Image>().color = new Color(0.11f, 0.21f, 0.30f, 0.85f);
+                }
 
                 _crewCards[i] = new CrewCardUi
                 {
-                    Panel = card,
+                    Panel = row,
+                    AvatarBoxBg = avatarInner.GetComponent<Image>(),
                     NameText = nameTxt,
                     RoleText = roleTxt,
                     StatusTagText = statusTxt,
-                    HeartPips = hearts,
                     HpText = hpTxt,
-                    MoodIcon = moodIcon,
-                    MoodText = moodTxt
+                    Tooltip = tt
                 };
             }
         }
 
         private void BuildCenterHomeColumn(RectTransform parent)
         {
-            // 1. Desktop App Icons Row (8 apps + Help icon)
-            var dock = TerminalUiBuilder.CreateRect("DesktopAppDock", parent);
-            TerminalUiBuilder.SetAnchors(dock, 0f, 0.855f, 1f, 1f);
-            BuildDesktopAppDock(dock);
+            // Eyebrow Header: OVERVIEW + divider line
+            var eyebrow = TerminalUiBuilder.CreateCompactDebugText("OverviewEyebrow", parent, theme, 20f, new Color(0.75f, 0.88f, 0.95f, 1f), TextAlignmentOptions.MidlineLeft, _textScaler);
+            eyebrow.fontStyle = FontStyles.Bold;
+            eyebrow.text = "OVERVIEW";
+            TerminalUiBuilder.SetAnchors(eyebrow.rectTransform, 0.005f, 0.95f, 1f, 1f);
 
-            // 2. Mission Goal + 7-Sol Progress Track
-            var goalCard = TerminalUiBuilder.CreateFlatPanel("MissionGoalCard", parent, theme.PanelRaisedBg, theme.BorderFocused, 2f, true);
-            TerminalUiBuilder.SetAnchors(goalCard, 0f, 0.705f, 1f, 0.845f);
+            var eyeDiv = TerminalUiBuilder.CreateRect("OverviewDiv", parent);
+            TerminalUiBuilder.SetAnchors(eyeDiv, 0f, 0.942f, 1f, 0.946f);
+            eyeDiv.gameObject.AddComponent<Image>().color = new Color(0.12f, 0.24f, 0.33f, 1f);
+
+            // 1. MISSION GOAL Card
+            var goalCard = TerminalUiBuilder.CreateFlatPanel("MissionGoalCard", parent, new Color(0.035f, 0.125f, 0.165f, 0.96f), new Color(0.18f, 0.70f, 0.68f, 1f), 2f, true);
+            TerminalUiBuilder.SetAnchors(goalCard, 0f, 0.675f, 1f, 0.925f);
             var gInner = TerminalUiBuilder.GetInner(goalCard);
 
-            var goalIcon = TerminalUiBuilder.CreateIcon("GoalIcon", gInner, TerminalIconId.Goal, theme.BorderFocused);
-            TerminalUiBuilder.SetAnchors(goalIcon.rectTransform, 0.015f, 0.52f, 0.068f, 0.93f);
+            var goalIcon = TerminalUiBuilder.CreateIcon("GoalIcon", gInner, TerminalIconId.Goal, theme.StatusOk);
+            TerminalUiBuilder.SetAnchors(goalIcon.rectTransform, 0.035f, 0.68f, 0.095f, 0.90f);
 
-            _goalTitleText = TerminalUiBuilder.CreateText("GoalTitle", gInner, theme, theme.HeaderFontSize, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
+            var goalHdr = TerminalUiBuilder.CreateText("GoalHdr", gInner, theme, 24f, theme.StatusOk, TextAlignmentOptions.MidlineLeft, _textScaler);
+            goalHdr.fontStyle = FontStyles.Bold;
+            goalHdr.text = "MISSION GOAL";
+            TerminalUiBuilder.SetAnchors(goalHdr.rectTransform, 0.11f, 0.66f, 0.96f, 0.92f);
+
+            _goalTitleText = TerminalUiBuilder.CreateText("GoalTitle", gInner, theme, 34f, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
             _goalTitleText.fontStyle = FontStyles.Bold;
-            TerminalUiBuilder.SetAnchors(_goalTitleText.rectTransform, 0.078f, 0.50f, 0.98f, 0.95f);
+            TerminalUiBuilder.SetAnchors(_goalTitleText.rectTransform, 0.038f, 0.24f, 0.96f, 0.66f);
 
             for (int i = 0; i < 7; i++)
             {
-                float x0 = 0.02f + i * 0.138f;
-                float x1 = x0 + 0.128f;
+                float x0 = 0.038f + i * 0.133f;
+                float x1 = x0 + 0.120f;
                 var pip = TerminalUiBuilder.CreateRect($"SolPip_{i + 1}", gInner);
-                TerminalUiBuilder.SetAnchors(pip, x0, 0.10f, x1, 0.44f);
+                TerminalUiBuilder.SetAnchors(pip, x0, 0.06f, x1, 0.21f);
                 var pImg = pip.gameObject.AddComponent<Image>();
                 pImg.sprite = TerminalUiArt.GetRoundedRect8px();
                 pImg.type = Image.Type.Sliced;
-                pImg.color = theme.BarTrackBg;
+                pImg.color = new Color(0.07f, 0.14f, 0.21f, 1f);
                 _solTrackPips[i] = pImg;
 
-                var pTxt = TerminalUiBuilder.CreateText("Lbl", pip, theme, 24f, theme.TextMuted, TextAlignmentOptions.Center, _textScaler);
+                var pTxt = TerminalUiBuilder.CreateCompactDebugText("Lbl", pip, theme, 16f, theme.TextMuted, TextAlignmentOptions.Center, _textScaler);
                 pTxt.fontStyle = FontStyles.Bold;
-                pTxt.text = i == 6 ? Localization.Format("ui.sol_pip_last", i + 1) : Localization.Format("ui.sol_pip", i + 1);
+                pTxt.text = i == 6 ? $"S{i + 1}*" : $"S{i + 1}";
                 TerminalUiBuilder.SetStretch(pTxt.rectTransform);
                 _solTrackLabels[i] = pTxt;
             }
 
-            // 3A. NEXT STEP Card
-            _nextStepCard = TerminalUiBuilder.CreateFlatPanel("NextStepCard", parent, theme.PanelBg, theme.BorderFocused, 2f, true);
-            TerminalUiBuilder.SetAnchors(_nextStepCard, 0f, 0.34f, 0.56f, 0.695f);
+            // 2. OUTPOST ALERT Card (Next Step / Active Event CTA)
+            _nextStepCard = TerminalUiBuilder.CreateFlatPanel("NextStepCard", parent, new Color(0.25f, 0.17f, 0.04f, 0.96f), new Color(0.85f, 0.61f, 0.14f, 1f), 2f, true);
+            TerminalUiBuilder.SetAnchors(_nextStepCard, 0f, 0.370f, 1f, 0.648f);
             var nsInner = TerminalUiBuilder.GetInner(_nextStepCard);
+            _nextStepInner = nsInner.GetComponent<Image>();
 
-            var nsHdr = TerminalUiBuilder.CreateText("NextStepHdr", nsInner, theme, theme.HeaderFontSize, theme.TextAmber, TextAlignmentOptions.MidlineLeft, _textScaler);
-            nsHdr.fontStyle = FontStyles.Bold;
-            nsHdr.text = Localization.Get("mc.next_step_title");
-            TerminalUiBuilder.SetAnchors(nsHdr.rectTransform, 0.04f, 0.74f, 0.96f, 0.96f);
+            _alertCardIcon = TerminalUiBuilder.CreateIcon("AlertCardIcon", nsInner, TerminalIconId.Warning, theme.StatusWarn);
+            TerminalUiBuilder.SetAnchors(_alertCardIcon.rectTransform, 0.035f, 0.28f, 0.14f, 0.72f);
 
-            _nextStepBodyText = TerminalUiBuilder.CreateText("NextStepBody", nsInner, theme, theme.BodyFontSize, theme.TextPrimary, TextAlignmentOptions.TopLeft, _textScaler);
-            TerminalUiBuilder.SetAnchors(_nextStepBodyText.rectTransform, 0.04f, 0.30f, 0.96f, 0.74f);
+            _alertCardTitle = TerminalUiBuilder.CreateText("NextStepHdr", nsInner, theme, 26f, theme.StatusWarn, TextAlignmentOptions.MidlineLeft, _textScaler);
+            _alertCardTitle.fontStyle = FontStyles.Bold;
+            _alertCardTitle.text = "OUTPOST ALERT";
+            TerminalUiBuilder.SetAnchors(_alertCardTitle.rectTransform, 0.165f, 0.58f, 0.68f, 0.88f);
 
-            _nextStepBtn = TerminalUiBuilder.CreateButton("NextStepBtn", nsInner, Localization.Get("next.power_btn"), theme, theme.ButtonAccentBg, theme.StatusOk, theme.TextPrimary, theme.BodyFontSize, OnNextStepActionClicked, _textScaler);
+            _nextStepBodyText = TerminalUiBuilder.CreateText("NextStepBody", nsInner, theme, 24f, new Color(0.95f, 0.92f, 0.86f, 1f), TextAlignmentOptions.TopLeft, _textScaler);
+            TerminalUiBuilder.SetAnchors(_nextStepBodyText.rectTransform, 0.165f, 0.10f, 0.68f, 0.58f);
+
+            _nextStepBtn = TerminalUiBuilder.CreateButton("NextStepBtn", nsInner, "VIEW ALERT", theme, theme.StatusWarn, new Color(1f, 0.88f, 0.52f, 1f), new Color(0.04f, 0.08f, 0.12f, 1f), 24f, OnNextStepActionClicked, _textScaler);
             _nextStepBtnLabel = _nextStepBtn.GetComponentInChildren<TextMeshProUGUI>();
-            TerminalUiBuilder.SetAnchors(_nextStepBtn.GetComponent<RectTransform>(), 0.04f, 0.06f, 0.96f, 0.27f);
+            if (_nextStepBtnLabel != null)
+                _nextStepBtnBg = _nextStepBtnLabel.transform.parent.GetComponent<Image>();
+            TerminalUiBuilder.SetAnchors(_nextStepBtn.GetComponent<RectTransform>(), 0.695f, 0.24f, 0.965f, 0.76f);
 
-            // 3B. Sol 1 Onboarding 3-Step Checklist Card
-            _onboardingCard = TerminalUiBuilder.CreateFlatPanel("OnboardingCard", parent, theme.PanelRaisedBg, theme.AccentLog, 2f, true);
-            TerminalUiBuilder.SetAnchors(_onboardingCard, 0.58f, 0.34f, 1f, 0.695f);
+            // 3. FIRST SHIFT CHECKLIST / HELIOS OPERATIONS BRIEF Card
+            _onboardingCard = TerminalUiBuilder.CreateFlatPanel("OnboardingCard", parent, new Color(0.038f, 0.095f, 0.145f, 0.95f), new Color(0.16f, 0.34f, 0.44f, 1f), 2f, true);
+            TerminalUiBuilder.SetAnchors(_onboardingCard, 0f, 0f, 1f, 0.345f);
             var obInner = TerminalUiBuilder.GetInner(_onboardingCard);
 
-            var obHdr = TerminalUiBuilder.CreateText("ObHdr", obInner, theme, theme.HeaderFontSize, theme.AccentLog, TextAlignmentOptions.MidlineLeft, _textScaler);
-            obHdr.fontStyle = FontStyles.Bold;
-            obHdr.text = Localization.Get("onboard.title");
-            TerminalUiBuilder.SetAnchors(obHdr.rectTransform, 0.05f, 0.74f, 0.95f, 0.96f);
+            _bottomCardIcon = TerminalUiBuilder.CreateIcon("ObIcon", obInner, TerminalIconId.Log, new Color(0.498f, 0.875f, 1f, 1f));
+            TerminalUiBuilder.SetAnchors(_bottomCardIcon.rectTransform, 0.035f, 0.72f, 0.095f, 0.92f);
+
+            _bottomCardTitle = TerminalUiBuilder.CreateText("ObHdr", obInner, theme, 24f, new Color(0.498f, 0.875f, 1f, 1f), TextAlignmentOptions.MidlineLeft, _textScaler);
+            _bottomCardTitle.fontStyle = FontStyles.Bold;
+            _bottomCardTitle.text = "FIRST SHIFT CHECKLIST";
+            TerminalUiBuilder.SetAnchors(_bottomCardTitle.rectTransform, 0.11f, 0.70f, 0.96f, 0.94f);
+
+            var checklistGroup = TerminalUiBuilder.CreateRect("ChecklistGroup", obInner);
+            TerminalUiBuilder.SetAnchors(checklistGroup, 0.035f, 0.06f, 0.96f, 0.68f);
+            _checklistGroup = checklistGroup.gameObject;
 
             string[] obKeys = { "onboard.step1", "onboard.step2", "onboard.step3" };
             for (int i = 0; i < 3; i++)
             {
-                float rowTop = 0.70f - i * 0.21f;
-                float rowBot = rowTop - 0.19f;
-                var chk = TerminalUiBuilder.CreateIcon($"Check_{i}", obInner, TerminalIconId.ArrowRight, theme.TextMuted);
-                TerminalUiBuilder.SetAnchors(chk.rectTransform, 0.05f, rowBot + 0.03f, 0.14f, rowTop - 0.03f);
+                float rowTop = 1f - i * 0.33f;
+                float rowBot = rowTop - 0.30f;
+                var chk = TerminalUiBuilder.CreateIcon($"Check_{i}", checklistGroup, TerminalIconId.CheckBox, new Color(0.35f, 0.68f, 0.78f, 1f));
+                TerminalUiBuilder.SetAnchors(chk.rectTransform, 0.01f, rowBot + 0.03f, 0.09f, rowTop - 0.03f);
                 _onboardChecks[i] = chk;
 
-                var lbl = TerminalUiBuilder.CreateText($"StepLbl_{i}", obInner, theme, theme.BodyFontSize, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
+                var lbl = TerminalUiBuilder.CreateText($"StepLbl_{i}", checklistGroup, theme, 24f, theme.TextPrimary, TextAlignmentOptions.MidlineLeft, _textScaler);
                 lbl.text = Localization.Get(obKeys[i]);
-                TerminalUiBuilder.SetAnchors(lbl.rectTransform, 0.16f, rowBot, 0.97f, rowTop);
+                TerminalUiBuilder.SetAnchors(lbl.rectTransform, 0.11f, rowBot, 0.99f, rowTop);
                 _onboardLabels[i] = lbl;
             }
 
-            // 4. HELIOS Assistant Corner Bubble
-            var heliosPanel = TerminalUiBuilder.CreateFlatPanel("HeliosBubble", parent, theme.PanelRaisedBg, theme.AccentHelp, 2f, true);
-            TerminalUiBuilder.SetAnchors(heliosPanel, 0f, 0.01f, 1f, 0.32f);
-            _heliosBubble = heliosPanel.gameObject;
-            var hInner = TerminalUiBuilder.GetInner(heliosPanel);
-
-            _heliosIcon = TerminalUiBuilder.CreateIcon("HeliosBot", hInner, TerminalIconId.Help, theme.AccentHelp);
-            TerminalUiBuilder.SetAnchors(_heliosIcon.rectTransform, 0.02f, 0.16f, 0.12f, 0.84f);
-
-            var hName = TerminalUiBuilder.CreateText("HeliosName", hInner, theme, theme.HeaderFontSize, theme.AccentHelp, TextAlignmentOptions.MidlineLeft, _textScaler);
-            hName.fontStyle = FontStyles.Bold;
-            hName.text = Localization.Get("helios.name");
-            TerminalUiBuilder.SetAnchors(hName.rectTransform, 0.14f, 0.64f, 0.96f, 0.94f);
-
-            _heliosText = TerminalUiBuilder.CreateText("HeliosTip", hInner, theme, 26f, theme.TextPrimary, TextAlignmentOptions.TopLeft, _textScaler);
-            TerminalUiBuilder.SetAnchors(_heliosText.rectTransform, 0.14f, 0.08f, 0.97f, 0.64f);
+            var heliosWrap = TerminalUiBuilder.CreateRect("HeliosBubble", obInner);
+            TerminalUiBuilder.SetAnchors(heliosWrap, 0.04f, 0.08f, 0.96f, 0.66f);
+            _heliosBubble = heliosWrap.gameObject;
+            _heliosText = TerminalUiBuilder.CreateText("HeliosTip", heliosWrap, theme, 24f, theme.TextPrimary, TextAlignmentOptions.TopLeft, _textScaler);
+            TerminalUiBuilder.SetStretch(_heliosText.rectTransform);
+            _heliosBubble.SetActive(false);
         }
 
         private void BuildDesktopAppDock(RectTransform parent)
         {
-            (TerminalAppId appId, string shortKey, string tipTitle, string tipBody)[] appDefs =
+            Color idleBg = new Color(0.045f, 0.09f, 0.14f, 0.94f);
+            Color idleBorder = new Color(0.14f, 0.24f, 0.33f, 1f);
+
+            const int totalSlots = 9; // Overview + 8 Apps
+            float step = 1f / totalSlots;
+            float gap = 0.010f;
+
+            // Slot 0: Overview
+            float ovTop = 1f;
+            float ovBot = 1f - step + gap;
+            _overviewNavPanel = TerminalUiBuilder.CreateFlatPanel("Nav_Overview", parent, new Color(0.08f, 0.36f, 0.37f, 0.96f), new Color(0.27f, 0.89f, 0.83f, 1f), 2f, false);
+            TerminalUiBuilder.SetAnchors(_overviewNavPanel, 0f, ovBot, 1f, ovTop);
+            var ovInner = TerminalUiBuilder.GetInner(_overviewNavPanel);
+            _overviewNavInner = ovInner.GetComponent<Image>();
+
+            var ovBtn = _overviewNavPanel.gameObject.AddComponent<Button>();
+            ovBtn.targetGraphic = _overviewNavInner;
+            _overviewNavPanel.gameObject.AddComponent<ButtonHoverFeedback>();
+            ovBtn.onClick.AddListener(() =>
             {
-                (TerminalAppId.PowerGrid, "dock.power", "app.power", "gloss.power.def"),
-                (TerminalAppId.LifeSupport, "dock.lifesupport", "app.lifesupport", "gloss.o2.def"),
-                (TerminalAppId.Greenhouse, "dock.greenhouse", "app.greenhouse", "gloss.food.def"),
-                (TerminalAppId.Radiation, "dock.radiation", "app.radiation", "gloss.rad.def"),
-                (TerminalAppId.Crew, "dock.crew", "app.crew", "gloss.ap.def"),
-                (TerminalAppId.Comms, "dock.comms", "app.comms", "gloss.dsn.def"),
-                (TerminalAppId.CommandersLog, "dock.log", "app.log", "log.friendly_intro"),
-                (TerminalAppId.Sources, "dock.sources", "app.sources", "sources.friendly_intro")
+                OnUiSoundRequested?.Invoke();
+                _windowManager?.CloseAll();
+                RefreshTaskbarWindows();
+            });
+            _overviewNavIcon = TerminalUiBuilder.CreateIcon("AppIcon", ovInner, TerminalIconId.Home, Color.white);
+            TerminalUiBuilder.SetAnchors(_overviewNavIcon.rectTransform, 0.05f, 0.20f, 0.18f, 0.80f);
+            _overviewNavLabel = TerminalUiBuilder.CreateText("Name", ovInner, theme, 24f, Color.white, TextAlignmentOptions.MidlineLeft, _textScaler);
+            _overviewNavLabel.fontStyle = FontStyles.Bold;
+            _overviewNavLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            _overviewNavLabel.text = "Overview";
+            TerminalUiBuilder.SetAnchors(_overviewNavLabel.rectTransform, 0.205f, 0f, 0.95f, 1f);
+
+            // Slots 1..8: Apps
+            (TerminalAppId appId, string navLabel, TerminalIconId icon, string tipTitle, string tipBody)[] appDefs =
+            {
+                (TerminalAppId.PowerGrid,     "Power",          TerminalIconId.Bolt,    "app.power",       "gloss.power.def"),
+                (TerminalAppId.LifeSupport,   "Air & Water",    TerminalIconId.Water,   "app.lifesupport", "gloss.o2.def"),
+                (TerminalAppId.Greenhouse,    "Food",           TerminalIconId.Food,    "app.greenhouse",  "gloss.food.def"),
+                (TerminalAppId.Radiation,     "Shield",         TerminalIconId.Shield,  "app.radiation",   "gloss.rad.def"),
+                (TerminalAppId.Crew,          "Crew",           TerminalIconId.Crew,    "app.crew",        "gloss.ap.def"),
+                (TerminalAppId.Comms,         "Communications", TerminalIconId.Signal,  "app.comms",       "gloss.dsn.def"),
+                (TerminalAppId.CommandersLog, "Log",            TerminalIconId.Log,     "app.log",         "log.friendly_intro"),
+                (TerminalAppId.Sources,       "Sources",        TerminalIconId.Sources, "app.sources",     "sources.friendly_intro")
             };
 
-            const int totalSlots = 9; // 8 apps + Help
-            float slotW = 1f / totalSlots;
-            for (int i = 0; i < totalSlots; i++)
+            for (int i = 0; i < appDefs.Length; i++)
             {
-                float x0 = i * slotW + 0.004f;
-                float x1 = (i + 1) * slotW - 0.004f;
+                int slotIdx = i + 1;
+                float top = 1f - slotIdx * step;
+                float bot = top - step + gap;
 
-                bool isHelp = i == 8;
-                Color accent = isHelp ? theme.AccentHelp : theme.GetAppAccent(appDefs[i].appId);
-                string btnName = isHelp ? "Icon_Help" : $"Icon_{appDefs[i].appId}";
-
-                var panel = TerminalUiBuilder.CreateFlatPanel(btnName, parent, theme.PanelBg, accent, 2f, true);
-                TerminalUiBuilder.SetAnchors(panel, x0, 0.02f, x1, 0.98f);
+                var def = appDefs[i];
+                var panel = TerminalUiBuilder.CreateFlatPanel($"Icon_{def.appId}", parent, idleBg, idleBorder, 2f, false);
+                TerminalUiBuilder.SetAnchors(panel, 0f, bot, 1f, top);
                 var inner = TerminalUiBuilder.GetInner(panel);
+                var innerImg = inner.GetComponent<Image>();
 
                 var btn = panel.gameObject.AddComponent<Button>();
-                btn.targetGraphic = inner.GetComponent<Image>();
+                btn.targetGraphic = innerImg;
                 panel.gameObject.AddComponent<ButtonHoverFeedback>();
+                TerminalUiBuilder.AttachTooltip(panel, def.tipTitle, def.tipBody);
 
-                if (isHelp)
+                var appId = def.appId;
+                btn.onClick.AddListener(() =>
                 {
-                    TerminalUiBuilder.AttachTooltip(panel, "ui.help", "help.howto_header");
-                    btn.onClick.AddListener(() =>
-                    {
-                        OnUiSoundRequested?.Invoke();
-                        _helpModal.SetActive(true);
-                        _helpModal.transform.SetAsLastSibling();
-                    });
-                }
-                else
-                {
-                    var appId = appDefs[i].appId;
-                    TerminalUiBuilder.AttachTooltip(panel, appDefs[i].tipTitle, appDefs[i].tipBody);
-                    btn.onClick.AddListener(() =>
-                    {
-                        OnUiSoundRequested?.Invoke();
-                        OpenApp(appId);
-                    });
-                }
+                    OnUiSoundRequested?.Invoke();
+                    OpenApp(appId);
+                });
 
-                var icon = TerminalUiBuilder.CreateIcon("AppIcon", inner,
-                    isHelp ? TerminalIconId.Help : AppIdToIcon(appDefs[i].appId), accent);
-                TerminalUiBuilder.SetAnchors(icon.rectTransform, 0.22f, 0.36f, 0.78f, 0.90f);
+                var icon = TerminalUiBuilder.CreateIcon("AppIcon", inner, def.icon, new Color(0.75f, 0.94f, 0.98f, 1f));
+                TerminalUiBuilder.SetAnchors(icon.rectTransform, 0.05f, 0.20f, 0.18f, 0.80f);
 
-                var label = TerminalUiBuilder.CreateText("Name", inner, theme, 24f, theme.TextPrimary, TextAlignmentOptions.Center, _textScaler);
+                var label = TerminalUiBuilder.CreateText("Name", inner, theme, 24f, new Color(0.84f, 0.92f, 0.97f, 1f), TextAlignmentOptions.MidlineLeft, _textScaler);
                 label.fontStyle = FontStyles.Bold;
-                label.text = isHelp ? Localization.Get("ui.help") : Localization.Get(appDefs[i].shortKey);
-                TerminalUiBuilder.SetAnchors(label.rectTransform, 0.02f, 0.03f, 0.98f, 0.36f);
+                label.textWrappingMode = TextWrappingModes.NoWrap;
+                label.text = def.navLabel;
+                TerminalUiBuilder.SetAnchors(label.rectTransform, 0.205f, 0f, 0.89f, 1f);
 
-                _iconPanels[i] = panel;
-                if (!isHelp)
-                {
-                    var badge = TerminalUiBuilder.CreateText("Badge", inner, theme, 24f, theme.TextAmber, TextAlignmentOptions.TopRight, _textScaler);
-                    badge.fontStyle = FontStyles.Bold;
-                    TerminalUiBuilder.SetAnchors(badge.rectTransform, 0.40f, 0.65f, 0.96f, 0.98f);
-                    _iconBadges[i] = badge;
-                }
+                var badge = TerminalUiBuilder.CreateCompactDebugText("Badge", inner, theme, 18f, theme.TextAmber, TextAlignmentOptions.MidlineRight, _textScaler);
+                badge.fontStyle = FontStyles.Bold;
+                TerminalUiBuilder.SetAnchors(badge.rectTransform, 0.84f, 0f, 0.96f, 1f);
+
+                _iconPanels[(int)appId] = panel;
+                _iconInners[(int)appId] = innerImg;
+                _iconImgs[(int)appId] = icon;
+                _iconLabels[(int)appId] = label;
+                _iconBadges[(int)appId] = badge;
             }
         }
 
@@ -1581,10 +1801,10 @@ namespace Outpost.Runtime.Terminal
             switch (id)
             {
                 case TerminalAppId.PowerGrid: return TerminalIconId.Bolt;
-                case TerminalAppId.LifeSupport: return TerminalIconId.Gauge;
+                case TerminalAppId.LifeSupport: return TerminalIconId.Water;
                 case TerminalAppId.Greenhouse: return TerminalIconId.Food;
                 case TerminalAppId.Radiation: return TerminalIconId.Shield;
-                case TerminalAppId.Crew: return TerminalIconId.PlusBox;
+                case TerminalAppId.Crew: return TerminalIconId.Crew;
                 case TerminalAppId.Comms: return TerminalIconId.Signal;
                 case TerminalAppId.CommandersLog: return TerminalIconId.Log;
                 case TerminalAppId.Sources: return TerminalIconId.Sources;
@@ -1632,27 +1852,15 @@ namespace Outpost.Runtime.Terminal
 
         private void BuildTaskbar(RectTransform parent)
         {
-            for (int i = 0; i < WindowManager.MaxOpenWindows; i++)
-            {
-                int slot = i;
-                float x0 = 0.005f + i * 0.110f;
-                float x1 = x0 + 0.105f;
-                var btn = TerminalUiBuilder.CreateButton($"TaskWin_{i}", parent, "", theme, theme.PanelBg, theme.BorderUnfocused, theme.TextPrimary, theme.BodyFontSize, () =>
-                {
-                    OnUiSoundRequested?.Invoke();
-                    if (slot < _windowManager.OpenOrder.Count)
-                        _windowManager.FocusWindow(_windowManager.OpenOrder[slot]);
-                }, _textScaler);
-                var rect = btn.GetComponent<RectTransform>();
-                TerminalUiBuilder.SetAnchors(rect, x0, 0.08f, x1, 0.92f);
-                _taskWinBtns[i] = btn;
-                _taskWinPanels[i] = rect;
-                _taskWinLabels[i] = btn.GetComponentInChildren<TextMeshProUGUI>();
-                btn.gameObject.SetActive(false);
-            }
+            // Left Footer: Info Icon + "Hint: ..." forecast line
+            var hintIcon = TerminalUiBuilder.CreateIcon("HintIcon", parent, TerminalIconId.Help, new Color(0.50f, 0.86f, 0.96f, 1f));
+            TerminalUiBuilder.SetAnchors(hintIcon.rectTransform, 0.002f, 0.22f, 0.025f, 0.78f);
 
-            // Hints On/Off toggle
-            _hintsToggleBtn = TerminalUiBuilder.CreateButton("HintsToggleBtn", parent, Localization.Get("helios.hints_on"), theme, theme.ButtonBg, theme.AccentHelp, theme.TextPrimary, theme.BodyFontSize, () =>
+            _forecastStripText = TerminalUiBuilder.CreateText("ForecastText", parent, theme, 24f, new Color(0.84f, 0.91f, 0.96f, 1f), TextAlignmentOptions.MidlineLeft, _textScaler);
+            TerminalUiBuilder.SetAnchors(_forecastStripText.rectTransform, 0.032f, 0f, 0.485f, 1f);
+
+            // Subtle compact utility toggles (Hints + Help)
+            _hintsToggleBtn = TerminalUiBuilder.CreateButton("HintsToggleBtn", parent, Localization.Get("helios.hints_on"), theme, new Color(0.055f, 0.11f, 0.16f, 1f), new Color(0.16f, 0.28f, 0.38f, 1f), new Color(0.75f, 0.88f, 0.96f, 1f), 24f, () =>
             {
                 OnUiSoundRequested?.Invoke();
                 _hintsEnabled = !_hintsEnabled;
@@ -1661,37 +1869,42 @@ namespace Outpost.Runtime.Terminal
                 if (_session?.CurrentSnapshot != null) RefreshAll(_session.CurrentSnapshot);
             }, _textScaler);
             _hintsToggleLabel = _hintsToggleBtn.GetComponentInChildren<TextMeshProUGUI>();
-            TerminalUiBuilder.SetAnchors(_hintsToggleBtn.GetComponent<RectTransform>(), 0.45f, 0.08f, 0.56f, 0.92f);
+            TerminalUiBuilder.SetAnchors(_hintsToggleBtn.GetComponent<RectTransform>(), 0.492f, 0.12f, 0.578f, 0.88f);
 
-            // Help button
-            var helpBtn = TerminalUiBuilder.CreateButton("HelpTaskBtn", parent, Localization.Get("ui.help"), theme, theme.ButtonBg, theme.AccentHelp, theme.TextPrimary, theme.BodyFontSize, () =>
+            var helpBtn = TerminalUiBuilder.CreateButton("HelpTaskBtn", parent, "?", theme, new Color(0.055f, 0.11f, 0.16f, 1f), new Color(0.16f, 0.28f, 0.38f, 1f), theme.StatusOk, 24f, () =>
             {
                 OnUiSoundRequested?.Invoke();
                 _helpModal.SetActive(true);
                 _helpModal.transform.SetAsLastSibling();
             }, _textScaler);
-            TerminalUiBuilder.SetAnchors(helpBtn.GetComponent<RectTransform>(), 0.568f, 0.08f, 0.648f, 0.92f);
+            TerminalUiBuilder.SetAnchors(helpBtn.GetComponent<RectTransform>(), 0.583f, 0.12f, 0.618f, 0.88f);
+            TerminalUiBuilder.AttachTooltip(helpBtn, "ui.help", "help.howto_header");
 
-            // Leave Terminal button
-            _leaveTerminalBtn = TerminalUiBuilder.CreateButton("LeaveTerminalBtn", parent, Localization.Get("ui.leave_terminal"), theme, theme.ButtonBg, theme.BorderUnfocused, theme.TextAmber, theme.BodyFontSize, () =>
+            // Leave Terminal [ESC] sleek dark slate button
+            _leaveTerminalBtn = TerminalUiBuilder.CreateButton("LeaveTerminalBtn", parent, "LEAVE TERMINAL [ESC]", theme, new Color(0.06f, 0.115f, 0.165f, 1f), new Color(0.20f, 0.34f, 0.44f, 1f), new Color(0.90f, 0.95f, 0.99f, 1f), 24f, () =>
             {
                 OnUiSoundRequested?.Invoke();
                 OnLeaveTerminalRequested?.Invoke();
             }, _textScaler);
-            TerminalUiBuilder.SetAnchors(_leaveTerminalBtn.GetComponent<RectTransform>(), 0.656f, 0.08f, 0.822f, 0.92f);
+            var leaveLbl = _leaveTerminalBtn.GetComponentInChildren<TextMeshProUGUI>();
+            if (leaveLbl != null) leaveLbl.textWrappingMode = TextWrappingModes.NoWrap;
+            TerminalUiBuilder.SetAnchors(_leaveTerminalBtn.GetComponent<RectTransform>(), 0.625f, 0.10f, 0.835f, 0.90f);
             _leaveTerminalBtn.gameObject.SetActive(_showLeaveButton);
 
-            // Big friendly END SOL button with Icon_NextHex
-            _endSolBtn = TerminalUiBuilder.CreateButton("EndSolBtn", parent, Localization.Get("ui.end_sol"), theme, theme.ButtonAccentBg, theme.StatusOk, theme.TextPrimary, theme.HeaderFontSize, OnEndSolClicked, _textScaler, true);
-            TerminalUiBuilder.SetAnchors(_endSolBtn.GetComponent<RectTransform>(), 0.830f, 0.04f, 0.995f, 0.96f);
+            // Prominent Cyan-Teal END SOL CTA Button
+            _endSolBtn = TerminalUiBuilder.CreateButton("EndSolBtn", parent, "END SOL", theme, new Color(0.12f, 0.86f, 0.76f, 1f), new Color(0.45f, 1f, 0.94f, 1f), new Color(0.03f, 0.08f, 0.12f, 1f), 28f, OnEndSolClicked, _textScaler, true);
+            TerminalUiBuilder.SetAnchors(_endSolBtn.GetComponent<RectTransform>(), 0.842f, 0.06f, 1f, 0.94f);
             _endSolLabel = _endSolBtn.GetComponentInChildren<TextMeshProUGUI>();
             var endInner = _endSolLabel != null ? _endSolLabel.transform.parent as RectTransform : null;
             if (endInner != null)
             {
-                var nextIcon = TerminalUiBuilder.CreateIcon("NextHexIcon", endInner, TerminalIconId.NextHex, theme.TextPrimary);
-                TerminalUiBuilder.SetAnchors(nextIcon.rectTransform, 0.05f, 0.18f, 0.24f, 0.82f);
+                var nextIcon = TerminalUiBuilder.CreateIcon("NextHexIcon", endInner, TerminalIconId.PlayArrow, new Color(0.03f, 0.08f, 0.12f, 1f));
+                TerminalUiBuilder.SetAnchors(nextIcon.rectTransform, 0.11f, 0.24f, 0.25f, 0.76f);
                 if (_endSolLabel != null)
-                    TerminalUiBuilder.SetAnchors(_endSolLabel.rectTransform, 0.25f, 0f, 0.97f, 1f);
+                {
+                    _endSolLabel.textWrappingMode = TextWrappingModes.NoWrap;
+                    TerminalUiBuilder.SetAnchors(_endSolLabel.rectTransform, 0.25f, 0f, 0.95f, 1f);
+                }
             }
         }
 

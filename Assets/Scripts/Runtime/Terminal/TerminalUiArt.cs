@@ -34,7 +34,12 @@ namespace Outpost.Runtime.Terminal
         Gauge,
         NextHex,
         Hazard,
-        Goal
+        Goal,
+        Home,
+        CheckBox,
+        Calendar,
+        Clock,
+        PlayArrow
     }
 
     /// <summary>
@@ -45,9 +50,10 @@ namespace Outpost.Runtime.Terminal
         private static Sprite _roundedRect8px;
         private static Sprite _dropShadow;
         private static Sprite _marsWallpaper;
+        private static Sprite _nasaBadge;
         private static UITheme _activeTheme;
         private static IconLibrary _fallbackLibrary;
-        private static readonly Sprite[] Icons = new Sprite[32];
+        private static readonly Sprite[] Icons = new Sprite[40];
 
         public static string GetIconKey(TerminalIconId id)
         {
@@ -543,11 +549,115 @@ namespace Outpost.Runtime.Terminal
                     Line(12, 23, 20, 14, 2.8f);
                     Line(20, 14, 36, 33, 2.8f);
                     break;
+
+                case TerminalIconId.Home:
+                    Line(8, 25, 24, 39, 2.6f);
+                    Line(24, 39, 40, 25, 2.6f);
+                    Line(13, 27, 13, 10, 2.6f);
+                    Line(35, 27, 35, 10, 2.6f);
+                    Line(13, 10, 20, 10, 2.6f);
+                    Line(28, 10, 35, 10, 2.6f);
+                    Line(20, 10, 20, 20, 2.4f);
+                    Line(28, 10, 28, 20, 2.4f);
+                    Line(20, 20, 28, 20, 2.4f);
+                    break;
+
+                case TerminalIconId.CheckBox:
+                    Line(11, 11, 37, 11, 2.2f);
+                    Line(11, 37, 37, 37, 2.2f);
+                    Line(11, 11, 11, 37, 2.2f);
+                    Line(37, 11, 37, 37, 2.2f);
+                    break;
+
+                case TerminalIconId.Calendar:
+                    Line(10, 10, 38, 10, 2.2f);
+                    Line(10, 34, 38, 34, 2.2f);
+                    Line(10, 10, 10, 34, 2.2f);
+                    Line(38, 10, 38, 34, 2.2f);
+                    Line(10, 27, 38, 27, 2.0f);
+                    Line(17, 34, 17, 39, 2.4f);
+                    Line(31, 34, 31, 39, 2.4f);
+                    break;
+
+                case TerminalIconId.Clock:
+                    Ring(24, 24, 15.5f, 2.2f);
+                    Line(24, 24, 24, 33, 2.2f);
+                    Line(24, 24, 31, 24, 2.2f);
+                    break;
+
+                case TerminalIconId.PlayArrow:
+                    for (int x = 14; x <= 36; x++)
+                    {
+                        float t = (x - 14f) / 22f;
+                        float halfH = (1f - t) * 14f;
+                        for (int y = 0; y < s; y++)
+                        {
+                            float dy = Mathf.Abs(y - 24f);
+                            if (dy <= halfH + 0.6f)
+                                Plot(x, y, Mathf.Clamp01(halfH - dy + 0.8f));
+                        }
+                    }
+                    break;
             }
 
             tex.SetPixels(px);
             tex.Apply(false, false);
             return tex;
+        }
+
+        public static Sprite GetNasaBadgeSprite()
+        {
+            if (_nasaBadge != null) return _nasaBadge;
+            const int s = 64;
+            var tex = new Texture2D(s, s, TextureFormat.RGBA32, false)
+            {
+                name = "T_UI_NasaBadge",
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp
+            };
+            Color bg = new Color(0.055f, 0.245f, 0.56f, 1f);
+            Color swoosh = new Color(0.92f, 0.24f, 0.20f, 1f);
+            Color orbit = new Color(0.92f, 0.96f, 1.0f, 0.92f);
+            Color clear = new Color(0f, 0f, 0f, 0f);
+            float c = (s - 1) * 0.5f;
+            float r = 29f;
+
+            for (int y = 0; y < s; y++)
+            {
+                for (int x = 0; x < s; x++)
+                {
+                    float dx = x - c;
+                    float dy = y - c;
+                    float d = Mathf.Sqrt(dx * dx + dy * dy);
+                    if (d > r + 1f)
+                    {
+                        tex.SetPixel(x, y, clear);
+                        continue;
+                    }
+                    float edgeA = Mathf.Clamp01(r + 0.7f - d);
+                    Color col = bg;
+                    // Diagonal red vector chevron
+                    float lineY1 = 0.55f * dx - 2f;
+                    float lineY2 = -0.35f * dx + 3f;
+                    if ((Mathf.Abs(dy - lineY1) < 2.3f && dx > -16f && dx < 18f) ||
+                        (Mathf.Abs(dy - lineY2) < 2.1f && dx > -10f && dx < 18f))
+                    {
+                        col = swoosh;
+                    }
+                    // Subtle elliptical white orbital ring
+                    float ox = dx * 0.85f + dy * 0.45f;
+                    float oy = -dx * 0.45f + dy * 0.85f;
+                    float ringD = Mathf.Abs(Mathf.Sqrt((ox * ox) / (23f * 23f) + (oy * oy) / (9.5f * 9.5f)) - 1f);
+                    if (ringD < 0.085f)
+                        col = Color.Lerp(col, orbit, 0.85f);
+
+                    col.a = edgeA;
+                    tex.SetPixel(x, y, col);
+                }
+            }
+            tex.Apply(false, false);
+            _nasaBadge = Sprite.Create(tex, new Rect(0, 0, s, s), new Vector2(0.5f, 0.5f), 100f);
+            return _nasaBadge;
         }
 
         public static Sprite GetIcon(TerminalIconId id, UITheme theme)

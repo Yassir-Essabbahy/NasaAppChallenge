@@ -32,16 +32,16 @@ namespace Outpost.Editor
             if (!Directory.Exists(RoverArtDir)) Directory.CreateDirectory(RoverArtDir);
             if (!Directory.Exists(PrefabsDir)) Directory.CreateDirectory(PrefabsDir);
 
-            var marsPrefab = BuildMarsSpherePrefab();
-            PlaceMarsSphereInstances(marsPrefab);
+            CleanupMarsSpheresAndEnsureMainMenuBackdrop();
             BuildAndPlaceRoverPrefab();
             WireRoomHudIcons();
 
             AssetDatabase.SaveAssets();
         }
 
-        private static GameObject BuildMarsSpherePrefab()
+        private static void CleanupMarsSpheresAndEnsureMainMenuBackdrop()
         {
+            // Keep Mars.jpg imported cleanly for archival/credits reference if still present
             var imp = AssetImporter.GetAtPath(MarsTexturePath) as TextureImporter;
             if (imp != null)
             {
@@ -54,79 +54,38 @@ namespace Outpost.Editor
                 if (dirty) imp.SaveAndReimport();
             }
 
-            var marsTex = AssetDatabase.LoadAssetAtPath<Texture2D>(MarsTexturePath);
-            Shader unlit = Shader.Find("Outpost/PSXUnlit");
-            string matPath = $"{PsxDir}/M_MarsSphere.mat";
-            var mat = AssetDatabase.LoadAssetAtPath<Material>(matPath);
-            if (mat == null)
+            // Destroy illogical sky/title Mars sphere objects in the scene
+            string[] obsoleteSceneObjs = { "MarsSphere_CommandWindow", "MarsSphere_Title", "TitleMarsCamera", "TitleMarsImage" };
+            foreach (string objName in obsoleteSceneObjs)
             {
-                mat = new Material(unlit);
-                AssetDatabase.CreateAsset(mat, matPath);
+                var found = GameObject.Find(objName);
+                while (found != null)
+                {
+                    Object.DestroyImmediate(found);
+                    found = GameObject.Find(objName);
+                }
             }
-            mat.shader = unlit;
-            mat.SetTexture("_MainTex", marsTex);
-            mat.SetColor("_Color", Color.white);
-            mat.SetColor("_EmissionColor", new Color(0.18f, 0.08f, 0.04f, 1f));
-            mat.SetFloat("_EmissionStrength", 0.35f);
-            mat.SetFloat("_AffineAmount", 0.25f);
-            mat.SetFloat("_FogWeight", 0.02f);
-            EditorUtility.SetDirty(mat);
 
-            var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            go.name = "MarsSphere";
-            var col = go.GetComponent<Collider>();
-            if (col != null) Object.DestroyImmediate(col);
-            var mr = go.GetComponent<MeshRenderer>();
-            mr.sharedMaterial = mat;
-            mr.shadowCastingMode = ShadowCastingMode.Off;
-            mr.receiveShadows = false;
-            go.AddComponent<MarsSphereRotator>().Configure(2.0f);
+            // Also search inside MarsSurfaceWorld or TitleMarsRig even if inactive
+            var worldRoot = GameObject.Find("OutpostExpansionWorld");
+            var surfaceRoot = worldRoot != null ? worldRoot.transform.Find("MarsSurfaceWorld") : null;
+            if (surfaceRoot != null)
+            {
+                var skyOrb = surfaceRoot.Find("MarsSphere_CommandWindow");
+                if (skyOrb != null) Object.DestroyImmediate(skyOrb.gameObject);
+            }
 
-            var saved = PrefabUtility.SaveAsPrefabAsset(go, $"{PrefabsDir}/MarsSphere.prefab");
-            Object.DestroyImmediate(go);
-            Debug.Log("[MarsRoverAndSphereBuilder] Built MarsSphere.prefab with Point-filtered Mars.jpg & PSXUnlit.");
-            return saved;
-        }
+            // Delete obsolete MarsSphere prefab/material/RT assets
+            DeleteAssetIfExists($"{PrefabsDir}/MarsSphere.prefab");
+            DeleteAssetIfExists($"{PsxDir}/M_MarsSphere.mat");
+            DeleteAssetIfExists($"{PsxDir}/RT_TitleMars.renderTexture");
 
-        private static void PlaceMarsSphereInstances(GameObject marsPrefab)
-        {
-            // 1. Title screen rotating background rig (rendered at 640x360 Point RT to TitleBackdropCanvas @ sort -50)
-            var oldRig = GameObject.Find("TitleMarsRig");
-            if (oldRig != null) Object.DestroyImmediate(oldRig);
+            // Ensure TitleMarsRig holds ONLY the clean MainMenu.jpg backdrop canvas (no 3D Mars sphere)
+            var rig = GameObject.Find("TitleMarsRig");
+            if (rig != null) Object.DestroyImmediate(rig);
 
-            var rig = new GameObject("TitleMarsRig");
+            rig = new GameObject("TitleMarsRig");
             rig.transform.position = Vector3.zero;
-
-            var titlePlanet = (GameObject)PrefabUtility.InstantiatePrefab(marsPrefab, rig.transform);
-            titlePlanet.name = "MarsSphere_Title";
-            titlePlanet.transform.position = new Vector3(1.52f, 500f, 0f);
-            titlePlanet.transform.rotation = Quaternion.Euler(14f, 25f, -12f);
-            titlePlanet.transform.localScale = Vector3.one * 3.15f;
-
-            const string rtPath = PsxDir + "/RT_TitleMars.renderTexture";
-            var rt = AssetDatabase.LoadAssetAtPath<RenderTexture>(rtPath);
-            if (rt == null)
-            {
-                rt = new RenderTexture(640, 360, 16, RenderTextureFormat.ARGB32);
-                rt.filterMode = FilterMode.Point;
-                AssetDatabase.CreateAsset(rt, rtPath);
-            }
-            rt.filterMode = FilterMode.Point;
-            EditorUtility.SetDirty(rt);
-
-            var camGo = new GameObject("TitleMarsCamera");
-            camGo.transform.SetParent(rig.transform, false);
-            camGo.transform.position = new Vector3(0f, 500f, -5.6f);
-            camGo.transform.LookAt(new Vector3(0f, 500f, 0f));
-            var cam = camGo.AddComponent<Camera>();
-            cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0f, 0f, 0f, 0f);
-            cam.fieldOfView = 38f;
-            cam.nearClipPlane = 0.2f;
-            cam.farClipPlane = 30f;
-            cam.allowMSAA = false;
-            cam.allowHDR = false;
-            cam.targetTexture = rt;
 
             var bgCanvasGo = new GameObject("TitleBackdropCanvas");
             bgCanvasGo.transform.SetParent(rig.transform, false);
@@ -165,29 +124,13 @@ namespace Outpost.Editor
                 }
             }
 
-            var rawGo = new GameObject("TitleMarsImage");
-            rawGo.transform.SetParent(bgCanvasGo.transform, false);
-            var rawRect = rawGo.AddComponent<RectTransform>();
-            rawRect.anchorMin = Vector2.zero;
-            rawRect.anchorMax = Vector2.one;
-            rawRect.offsetMin = Vector2.zero;
-            rawRect.offsetMax = Vector2.zero;
-            var rawImg = rawGo.AddComponent<RawImage>();
-            rawImg.texture = rt;
-            rawImg.color = Color.white;
-            rawImg.raycastTarget = false;
+            Debug.Log("[MarsRoverAndSphereBuilder] Removed illogical MarsSphere instances/assets and preserved MainMenu.jpg TitleBackdropCanvas.");
+        }
 
-            // 2. Distant orbital/sky body visible through Command Module +Z window, low in the sky
-            var oldSkyOrb = GameObject.Find("MarsSphere_CommandWindow");
-            if (oldSkyOrb != null) Object.DestroyImmediate(oldSkyOrb);
-
-            var worldRoot = GameObject.Find("OutpostExpansionWorld");
-            var surfaceRoot = worldRoot != null ? worldRoot.transform.Find("MarsSurfaceWorld") : null;
-            var orb = (GameObject)PrefabUtility.InstantiatePrefab(marsPrefab, surfaceRoot);
-            orb.name = "MarsSphere_CommandWindow";
-            orb.transform.position = new Vector3(-4.5f, 9.8f, 68.0f);
-            orb.transform.rotation = Quaternion.Euler(10f, 40f, 0f);
-            orb.transform.localScale = Vector3.one * 6.5f;
+        private static void DeleteAssetIfExists(string assetPath)
+        {
+            if (File.Exists(assetPath))
+                AssetDatabase.DeleteAsset(assetPath);
         }
 
         private static Texture2D LoadAndConfigureMainMenuWallpaper()

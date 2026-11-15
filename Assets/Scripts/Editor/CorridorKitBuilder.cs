@@ -112,9 +112,12 @@ namespace Outpost.Editor
 
         private static Dictionary<string, Material> BuildKitPsxMaterials()
         {
+            NewAssetsIntegrationBuilder.EnsureStationAtlasTextures();
             Shader litShader = Shader.Find("Outpost/PSXLit");
             Shader unlitShader = Shader.Find("Outpost/PSXUnlit");
             var dict = new Dictionary<string, Material>();
+            var cleanWallTex = AssetDatabase.LoadAssetAtPath<Texture2D>($"{NewAssetsIntegrationBuilder.PsxTexDir}/T_Station_WallPanel.png");
+            var cleanTrimTex = AssetDatabase.LoadAssetAtPath<Texture2D>($"{NewAssetsIntegrationBuilder.PsxTexDir}/T_Station_TrimHazard.png");
 
             foreach (var (matKey, baseTex, emisTex, isGlow) in KitMaterialDefs)
             {
@@ -127,9 +130,35 @@ namespace Outpost.Editor
                 }
 
                 mat.shader = isGlow ? unlitShader : litShader;
-                var tex = AssetDatabase.LoadAssetAtPath<Texture2D>($"{TexturesDir}/{baseTex}");
+                Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>($"{TexturesDir}/{baseTex}");
+                Color tint = Color.white;
+                Vector2 tiling = Vector2.one;
+
+                // Replace rusty brown panel_grey & corrugated shutter panel_white with crisp PSX station panels
+                if (matKey == "panel_grey" && cleanTrimTex != null)
+                {
+                    tex = cleanTrimTex;
+                    tint = new Color(0.76f, 0.81f, 0.88f, 1f);
+                    tiling = new Vector2(2f, 2f);
+                }
+                else if (matKey == "panel_white" && cleanWallTex != null)
+                {
+                    tex = cleanWallTex;
+                    tint = new Color(0.90f, 0.93f, 0.96f, 1f);
+                    tiling = new Vector2(2f, 2f);
+                }
+                else if (matKey == "steel")
+                {
+                    tint = new Color(0.80f, 0.84f, 0.90f, 1f);
+                }
+                else if (matKey == "panel_blue")
+                {
+                    tint = new Color(0.80f, 0.88f, 0.96f, 1f);
+                }
+
                 mat.SetTexture("_MainTex", tex);
-                mat.SetColor("_Color", Color.white);
+                mat.mainTextureScale = tiling;
+                mat.SetColor("_Color", tint);
 
                 if (isGlow)
                 {
@@ -315,12 +344,121 @@ namespace Outpost.Editor
             doorPanel.AddComponent<InteractableProp>().ConfigureDoor(doorCtrl);
             doorPanelL.AddComponent<InteractableProp>().ConfigureDoor(doorCtrl);
 
+            // Mount an interactive button + status indicator light on both sides of the corridor bulkhead
+            AttachCorridorDoorButtons(root, doorCtrl);
+
             // Static flags only on non-moving frame & walls (DoorPanel stays movable!)
             SetStaticFlagsRecursive(frameGo, true);
             foreach (Transform child in root.transform)
                 if (child.name.StartsWith("Col_")) child.gameObject.isStatic = true;
 
             return SaveInteriorPrefab(root, $"{PrefabsOutDir}/Corridor_Doors.prefab");
+        }
+
+        [MenuItem("Outpost/Ensure All Facility Door Buttons")]
+        public static void EnsureAllFacilityDoorButtons()
+        {
+            string prefabPath = $"{PrefabsOutDir}/Corridor_Doors.prefab";
+            if (File.Exists(prefabPath))
+            {
+                var contents = PrefabUtility.LoadPrefabContents(prefabPath);
+                var doorCtrl = contents != null ? contents.GetComponent<DoorInteractable>() : null;
+                if (contents != null && doorCtrl != null)
+                {
+                    AttachCorridorDoorButtons(contents, doorCtrl);
+                    PrefabUtility.SaveAsPrefabAsset(contents, prefabPath);
+                    PrefabUtility.UnloadPrefabContents(contents);
+                }
+            }
+
+            // Ensure both Airlock doors have unobstructed keypads on both sides and wired button indicators
+            UpdateAirlockDoorButtons("Door_AirlockInner", new Vector3(-0.95f, 1.25f, -0.21f), new Vector3(-0.88f, 1.25f, 0.11f));
+            UpdateAirlockDoorButtons("Door_AirlockOuter", new Vector3(0.92f, 1.25f, -0.09f), new Vector3(-0.88f, 1.25f, 0.11f));
+
+            AssetDatabase.SaveAssets();
+            Debug.Log("[CorridorKitBuilder] Ensured interactive buttons on both sides of all facility doors.");
+        }
+
+        private static void AttachCorridorDoorButtons(GameObject doorRoot, DoorInteractable doorCtrl)
+        {
+            if (doorRoot == null || doorCtrl == null) return;
+            var trimMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/Room/M_Room_Trim.mat");
+            var btnMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/Room/M_Beacon_Status.mat");
+
+            // Corridor_Doors root sits at y=-0.20 and DoorFrame bulkhead faces lie at z=+-0.250
+            var frontBtn = CreateOrUpdateDoorButton(
+                doorRoot.transform, "Keypad_Front",
+                new Vector3(-1.28f, 1.45f, -0.27f), Vector3.zero, trimMat, btnMat, doorCtrl);
+            var backBtn = CreateOrUpdateDoorButton(
+                doorRoot.transform, "Keypad_Back",
+                new Vector3(-1.28f, 1.45f, 0.27f), new Vector3(0f, 180f, 0f), trimMat, btnMat, doorCtrl);
+
+            doorCtrl.SetAdditionalIndicators(frontBtn, backBtn);
+            EditorUtility.SetDirty(doorCtrl);
+        }
+
+        private static void UpdateAirlockDoorButtons(string doorName, Vector3 frontLocalPos, Vector3 backLocalPos)
+        {
+            var doorGo = GameObject.Find(doorName);
+            var doorCtrl = doorGo != null ? doorGo.GetComponent<DoorInteractable>() : null;
+            if (doorGo == null || doorCtrl == null) return;
+
+            var trimMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/Room/M_Room_Trim.mat");
+            var btnMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/Room/M_Beacon_Airlock.mat")
+                      ?? AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/Room/M_Beacon_Status.mat");
+
+            var frontBtn = CreateOrUpdateDoorButton(doorGo.transform, "Keypad_Front", frontLocalPos, Vector3.zero, trimMat, btnMat, doorCtrl);
+            var backBtn = CreateOrUpdateDoorButton(doorGo.transform, "Keypad_Back", backLocalPos, new Vector3(0f, 180f, 0f), trimMat, btnMat, doorCtrl);
+
+            doorCtrl.SetAdditionalIndicators(frontBtn, backBtn);
+            EditorUtility.SetDirty(doorCtrl);
+        }
+
+        private static Renderer CreateOrUpdateDoorButton(
+            Transform parent,
+            string name,
+            Vector3 localPos,
+            Vector3 localEuler,
+            Material trimMat,
+            Material btnMat,
+            DoorInteractable doorCtrl)
+        {
+            var existing = parent.Find(name);
+            if (existing != null) Object.DestroyImmediate(existing.gameObject);
+
+            var pad = new GameObject(name);
+            pad.transform.SetParent(parent, false);
+            pad.transform.localPosition = localPos;
+            pad.transform.localEulerAngles = localEuler;
+
+            var back = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            back.name = "PadBack";
+            back.transform.SetParent(pad.transform, false);
+            back.transform.localPosition = Vector3.zero;
+            back.transform.localScale = new Vector3(0.14f, 0.22f, 0.04f);
+            Object.DestroyImmediate(back.GetComponent<Collider>());
+            var backRend = back.GetComponent<Renderer>();
+            if (trimMat != null) backRend.sharedMaterial = trimMat;
+            backRend.shadowCastingMode = ShadowCastingMode.Off;
+            backRend.receiveShadows = false;
+
+            var btn = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            btn.name = "PadButton";
+            btn.transform.SetParent(pad.transform, false);
+            btn.transform.localPosition = new Vector3(0f, 0.02f, -0.025f);
+            btn.transform.localScale = new Vector3(0.08f, 0.08f, 0.025f);
+            Object.DestroyImmediate(btn.GetComponent<Collider>());
+            var btnRend = btn.GetComponent<Renderer>();
+            if (btnMat != null) btnRend.sharedMaterial = btnMat;
+            btnRend.shadowCastingMode = ShadowCastingMode.Off;
+            btnRend.receiveShadows = false;
+
+            var col = pad.AddComponent<BoxCollider>();
+            col.size = new Vector3(0.24f, 0.34f, 0.14f);
+            col.isTrigger = true;
+            pad.AddComponent<InteractableProp>().ConfigureDoor(doorCtrl);
+
+            return btnRend;
         }
 
         private static GameObject BuildPropPrefab(string fbxName, string prefabName, Dictionary<string, Material> lookup, float scale)

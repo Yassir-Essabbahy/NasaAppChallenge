@@ -32,6 +32,7 @@ namespace Outpost.Runtime.Room
         [SerializeField] private bool isLocked;
         [SerializeField] private string lockedReasonKey = "airlock.hatch_locked";
         [SerializeField] private Renderer statusIndicatorRenderer;
+        [SerializeField] private Renderer[] extraIndicatorRenderers;
 
         [Header("Swappable Audio Slots (Optional)")]
         [SerializeField] private AudioClip overrideOpenClip;
@@ -118,6 +119,12 @@ namespace Outpost.Runtime.Room
             _poseCaptured = false;
             CaptureClosedPose();
             ApplyDoorTransformAndCollider(_openAmount, null);
+            RefreshIndicatorColor();
+        }
+
+        public void SetAdditionalIndicators(params Renderer[] renderers)
+        {
+            extraIndicatorRenderers = renderers;
             RefreshIndicatorColor();
         }
 
@@ -256,16 +263,25 @@ namespace Outpost.Runtime.Room
 
         private void RefreshIndicatorColor()
         {
-            if (statusIndicatorRenderer == null) return;
-            if (_mpb == null) _mpb = new MaterialPropertyBlock();
             Color col = isLocked
                 ? new Color(0.95f, 0.25f, 0.22f, 1f)
                 : (_targetOpen ? new Color(0.32f, 0.90f, 0.62f, 1f) : new Color(0.96f, 0.72f, 0.24f, 1f));
-            statusIndicatorRenderer.GetPropertyBlock(_mpb);
+
+            ApplyIndicatorColor(statusIndicatorRenderer, col);
+            if (extraIndicatorRenderers == null) return;
+            for (int i = 0; i < extraIndicatorRenderers.Length; i++)
+                ApplyIndicatorColor(extraIndicatorRenderers[i], col);
+        }
+
+        private void ApplyIndicatorColor(Renderer rend, Color col)
+        {
+            if (rend == null) return;
+            if (_mpb == null) _mpb = new MaterialPropertyBlock();
+            rend.GetPropertyBlock(_mpb);
             _mpb.SetColor(BaseColorProp, col);
             _mpb.SetColor(ColorProp, col);
             _mpb.SetColor(EmissionProp, col * 1.4f);
-            statusIndicatorRenderer.SetPropertyBlock(_mpb);
+            rend.SetPropertyBlock(_mpb);
         }
     }
 }

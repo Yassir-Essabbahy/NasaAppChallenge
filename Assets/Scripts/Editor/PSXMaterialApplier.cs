@@ -124,6 +124,19 @@ namespace Outpost.Editor
                 return targetTemplate;
 
             string matPath = AssetDatabase.GetAssetPath(currentMat);
+
+            // Preserve custom high-contrast station/radio/sign material assets once already on PSX shader with a texture
+            if (!string.IsNullOrEmpty(matPath) && currentMat.shader != null &&
+                (currentMat.shader.name == "Outpost/PSXLit" || currentMat.shader.name == "Outpost/PSXUnlit"))
+            {
+                Texture curTex = currentMat.HasProperty("_MainTex") ? currentMat.GetTexture("_MainTex") : null;
+                if (curTex != null)
+                {
+                    EnsurePointTexture(curTex);
+                    EditorUtility.SetDirty(currentMat);
+                    return currentMat;
+                }
+            }
             if (!string.IsNullOrEmpty(matPath) && matPath.StartsWith(PsxArtDir + "/"))
             {
                 EnsurePointTexture(currentMat.HasProperty("_MainTex") ? currentMat.GetTexture("_MainTex") : null);

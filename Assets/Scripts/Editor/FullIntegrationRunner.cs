@@ -26,10 +26,13 @@ namespace Outpost.Editor
             // 3. Part B: Procedural Play Terrain (300m, res 513) + BackdropTerrain (1200m) + Rocks + Sky/Fog
             MarsTerrainGenerator.GenerateAllMarsTerrain();
 
-            // 4. Part A: NASA Mars Sphere + Perseverance Rover + RoomHUD crosshairs
+            // 4. Part A: Remove illogical MarsSphere + NASA Perseverance Rover + RoomHUD crosshairs
             MarsRoverAndSphereBuilder.IntegrateMarsSphereAndRover();
 
-            // 5. Final PSX material sweep & zero-pink verification across scene + prefabs
+            // 5. Integrate newly added station kit, satellite radio, radiation sign, fix base textures & replace placeholders
+            NewAssetsIntegrationBuilder.IntegrateAllNewAssets();
+
+            // 6. Final PSX material sweep & zero-pink verification across scene + prefabs
             PSXMaterialApplier.ApplyPSXMaterialsToSceneAndSelection();
             int pinkCount = VerifyZeroPinkMaterials();
 

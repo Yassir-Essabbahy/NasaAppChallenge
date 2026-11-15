@@ -53,7 +53,7 @@ namespace Outpost.Runtime.Terminal
                 UrlText = "UNVERIFIED - check before submission",
                 License = "Public Domain (assumed NASA/USGS — UNVERIFIED - check before submission)",
                 DateAdded = "2026-11-14",
-                WhereUsed = "MarsSphere prefab (TitleScreen backdrop & Command Module sky window)",
+                WhereUsed = "Archival dataset in Assets/Models/Mars.jpg (MarsSphere removed from sky/menu for Martian surface orbital accuracy)",
                 ModifiedNotes = "Imported with Point filter, No Mipmaps, Max Size 2048, Wrap Repeat"
             },
             new SourceRecord
@@ -92,7 +92,43 @@ namespace Outpost.Runtime.Terminal
                 License = "Commercial & non-commercial projects without attribution; no resale/redistribution/AI training (Poly Haven source textures CC0 1.0)",
                 DateAdded = "2026-11-14",
                 WhereUsed = "Assets/Prefabs/Interior/Corridor_Straight, Corridor_Doors, Corridor_End, Prop_Crate, Prop_Locker, Prop_Console",
-                ModifiedNotes = "Used FBX only (GLB skipped); Point-filtered textures; PSX shader conversion preserving emissives; separated DoorLeaf sliding mesh"
+                ModifiedNotes = "Used FBX only (GLB skipped); Point-filtered textures; PSX shader conversion preserving emissives; separated DoorLeaf sliding mesh; replaced panel_grey/panel_white with clean PSX station plating"
+            },
+            new SourceRecord
+            {
+                Id = "lowbitlab-station-sample",
+                Section = "Corridor kit",
+                Title = "PSX Space Station Interior - Free Sample (6 Models + Atlas)",
+                Organization = "Lowbit Lab",
+                UrlText = "https://lowbit-lab.itch.io/ (Lowbit Lab on itch.io - verify exact pack URL)",
+                License = "Royalty-free commercial & non-commercial games/apps; no resale/redistribution of raw assets (per README.txt)",
+                DateAdded = "2026-11-15",
+                WhereUsed = "Assets/Prefabs/Interior/Prop_CryoPod, Prop_ControlConsoleWide, Prop_SpaceSuitRack, Prop_MaintenanceRobot, Prop_AirlockHatchRound, Corridor_Corner_PSX + sliced T_Station_* interior/hull textures",
+                ModifiedNotes = "Point-filtered 128x128 atlas & PSX Lit vertex-color conversion; upright axis alignment (-90 X); sliced tiles for wall/floor/ceiling/hull base textures"
+            },
+            new SourceRecord
+            {
+                Id = "psx-satellite-radio",
+                Section = "Corridor kit",
+                Title = "PSX Style Satellite Radio",
+                Organization = "Third-party PSX model pack (Assets/Models/psx-style-satellite-radio - confirm author before submission)",
+                UrlText = "UNVERIFIED - check before submission",
+                License = "UNVERIFIED - check before submission",
+                DateAdded = "2026-11-15",
+                WhereUsed = "Assets/Prefabs/Interior/Prop_SatelliteRadio.prefab (Command Module desk PF_Radio & Mars surface DSN_FieldRadio)",
+                ModifiedNotes = "Extracted Satellite Radio.fbx from source zip, scaled to ~0.48m desk span, converted textures to Point-filtered PSX Lit"
+            },
+            new SourceRecord
+            {
+                Id = "radiation-sign-glb",
+                Section = "Corridor kit",
+                Title = "Radiation Hazard Sign (Assets/Models/radiation_sign.glb)",
+                Organization = "Third-party 3D model (confirm author before submission)",
+                UrlText = "UNVERIFIED - check before submission",
+                License = "UNVERIFIED - check before submission",
+                DateAdded = "2026-11-15",
+                WhereUsed = "Assets/Prefabs/Prop_RadiationSign.prefab (Mars surface POI_RadiationPost + perimeter hazard signs)",
+                ModifiedNotes = "Baked embedded glTF texture to Point-filtered PNG (T_RadiationSign.png), scaled to 2.05m, converted to PSX Lit"
             },
 
             // UI icons
